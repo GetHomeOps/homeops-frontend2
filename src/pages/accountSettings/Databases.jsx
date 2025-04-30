@@ -6,12 +6,12 @@ import SettingsSidebar from "../../partials/acountSettings/SettingsSidebar";
 import DatabasesPanel from "../../partials/acountSettings/DatabasesPanel";
 import {useTranslation} from "react-i18next";
 import {useContext} from "react";
-import UserContext from "../../context/AppContext";
+import AuthContext from "../../context/AuthContext";
 
 function Databases() {
   const [sidebarOpen, setSidebarOpen] = useState(false);
 
-  const {currentUser} = useContext(UserContext);
+  const {currentUser} = useContext(AuthContext);
 
   const {t, i18n} = useTranslation();
 

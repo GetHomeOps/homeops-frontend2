@@ -1,4 +1,4 @@
-import React from "react";
+import React, {useContext} from "react";
 import {Routes, Route, Navigate} from "react-router-dom";
 
 import "../../css/style.css";
@@ -12,34 +12,56 @@ import PageNotFound from "../utility/PageNotFound";
 import Main from "../Main";
 import AppList from "../adminSettings/Apps/AppsList";
 import App from "../adminSettings/Apps/App";
-import Categories from "../adminSettings/Categories/Categories";
-import AppCategory from "../adminSettings/Categories/AppCategory";
+import CategoriesList from "../adminSettings/Categories/CategoriesList";
+import Category from "../adminSettings/Categories/Category";
+import AuthContext from "../../context/AuthContext";
 
-function RoutesList({login, signup, currentUser}) {
+function RoutesList() {
+  const {currentUser, isLoading} = useContext(AuthContext);
+
+  // Show nothing while checking authentication
+  if (isLoading) {
+    return null; // Or return a loading spinner component
+  }
+
+  // Define all routes
+  const publicRoutes = (
+    <>
+      <Route path="/signin" element={<Signin />} />
+      <Route path="/signup" element={<Signup />} />
+    </>
+  );
+
+  const privateRoutes = (
+    <>
+      <Route path="/settings/account" element={<Account />} />
+      <Route path="/settings/databases" element={<Databases />} />
+      <Route path="/:dbName" element={<Main />} />
+      <Route path="/admin/apps" element={<AppList />} />
+      <Route path="/admin/apps/new" element={<App />} />
+      <Route path="/admin/apps/:id" element={<App />} />
+      <Route path="/admin/categories" element={<CategoriesList />} />
+      <Route path="/admin/categories/new" element={<Category />} />
+      <Route path="/admin/categories/:id" element={<Category />} />
+    </>
+  );
+
   return (
     <Routes>
-      {!currentUser && (
-        <>
-          <Route path="/signin" element={<Signin login={login} />} />
-          <Route path="/signup" element={<Signup />} />
-        </>
-      )}
+      {/* Always include both sets of routes */}
+      {publicRoutes}
+      {privateRoutes}
 
-      {currentUser && (
-        <>
-          <Route path="/settings/account" element={<Account />} />
-          <Route path="/settings/databases" element={<Databases />} />
-          <Route path="/:dbName" element={<Main />} />
-
-          {/* Admin Routes */}
-          <Route path="/admin/apps" element={<AppList />} />
-          <Route path="/admin/apps/new" element={<App />} />
-          <Route path="/admin/apps/:id" element={<App />} />
-          <Route path="/admin/categories" element={<Categories />} />
-          <Route path="/admin/categories/new" element={<AppCategory />} />
-        </>
-      )}
-      <Route path="*" element={<PageNotFound />} />
+      {/* Dynamic fallback based on auth state */}
+      <Route
+        path="*"
+        element={
+          <Navigate
+            to={currentUser ? "/settings/databases" : "/signin"}
+            replace
+          />
+        }
+      />
     </Routes>
   );
 }

@@ -15,7 +15,23 @@ import {useState, useEffect} from "react";
  *   const [myThing, setMyThing] = useLocalStorage("myThing")
  */
 function useLocalStorage(key, firstValue = null) {
-  const initialValue = localStorage.getItem(key) || firstValue;
+  const initialValue = (() => {
+    try {
+      const item = localStorage.getItem(key);
+      if (item !== null) {
+        // Try to parse it as JSON first
+        try {
+          return JSON.parse(item);
+        } catch {
+          // If it's not JSON, return as is
+          return item;
+        }
+      }
+      return firstValue;
+    } catch {
+      return firstValue;
+    }
+  })();
 
   const [item, setItem] = useState(initialValue);
 
@@ -24,7 +40,10 @@ function useLocalStorage(key, firstValue = null) {
       if (item === null) {
         localStorage.removeItem(key);
       } else {
-        localStorage.setItem(key, item);
+        // If it's an array or object, stringify it
+        const valueToStore =
+          typeof item === "object" ? JSON.stringify(item) : item;
+        localStorage.setItem(key, valueToStore);
       }
     },
     [key, item]

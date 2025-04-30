@@ -120,7 +120,11 @@ function Sidebar({sidebarOpen, setSidebarOpen, variant = "default"}) {
               </span>
             </h3>
             <ul className="mt-3">
-              <SidebarLinkGroup activecondition={pathname.includes("apps")}>
+              <SidebarLinkGroup
+                activecondition={
+                  pathname.includes("apps") || pathname.includes("categories")
+                }
+              >
                 {(handleClick, open) => {
                   return (
                     <React.Fragment>
@@ -141,7 +145,8 @@ function Sidebar({sidebarOpen, setSidebarOpen, variant = "default"}) {
                           <div className="flex items-center">
                             <svg
                               className={`shrink-0 fill-current ${
-                                pathname.includes("apps")
+                                pathname.includes("apps") ||
+                                pathname.includes("categories")
                                   ? "text-violet-500"
                                   : "text-gray-400 dark:text-gray-500"
                               }`}

@@ -1,20 +1,20 @@
 import React, {useReducer, useEffect, useContext, useMemo} from "react";
 import {useNavigate, useLocation} from "react-router-dom";
+import useUniqueIdentifiers from "../../../hooks/useUniqueIdentifiers.jsx";
 
 import Sidebar from "../../../partials/Sidebar";
 import Header from "../../../partials/Header";
+import CategoriesTable from "../../../partials/categories/CategoriesTable";
 import DropdownButton from "../ListDropdown";
 import PaginationClassic from "../../../components/PaginationClassic";
-import AppsTable from "../../../partials/apps/AppsTable";
 import appContext from "../../../context/AppContext";
-import CollapsibleAppsTable from "../../../partials/apps/CollapsibleAppsTable";
 import ModalBlank from "../../../components/ModalBlank";
 import Banner from "../../../partials/containers/Banner";
 import ViewModeDropdown from "../../../components/ViewModeDropdown";
 
 import {useTranslation} from "react-i18next";
 
-const PAGE_STORAGE_KEY = "apps_list_page";
+const PAGE_STORAGE_KEY = "categories_list_page";
 
 const initialState = {
   currentPage: 1,
@@ -25,7 +25,7 @@ const initialState = {
   bannerOpen: false,
   bannerType: "success",
   bannerMessage: "",
-  filteredApps: [],
+  filteredCategories: [],
   sidebarOpen: false,
 };
 
@@ -49,10 +49,10 @@ function reducer(state, action) {
         bannerType: action.payload.type,
         bannerMessage: action.payload.message,
       };
-    case "SET_FILTERED_APPS":
+    case "SET_FILTERED_CATEGORIES":
       return {
         ...state,
-        filteredApps: action.payload,
+        filteredCategories: action.payload,
       };
     case "SET_SIDEBAR_OPEN":
       return {...state, sidebarOpen: action.payload};
@@ -61,31 +61,27 @@ function reducer(state, action) {
   }
 }
 
-// // Categories for the dropdown
-// const CATEGORIES = [
-//   {id: 1, name: "Inventory"},
-//   {id: 2, name: "Productivity"},
-// ];
+// Categories for the dropdown
+/* const CATEGORIES = [
+  {id: 1, name: "Inventory"},
+  {id: 2, name: "Productivity"},
+]; */
 
-function AppsList() {
+function CategoriesList() {
   const {
-    apps,
-    deleteApp,
-    updateApp,
-    createApp,
+    categories,
+    deleteCategory,
+    updateCategory,
+    createCategory,
     viewMode,
     setViewMode,
-    expandedCategories,
-    setExpandedCategories,
-    selectedItems,
-    handleToggleSelection,
-    generateUniqueAppName,
-    generateUniqueAppUrl,
-    sortedItems,
-    sortConfig,
-    handleSort,
-    bulkDuplicateApps,
-    categories,
+    selectedCategories,
+    handleCategoryToggleSelection,
+    sortedCategories,
+    categorySortConfig,
+    handleCategorySort,
+    generateUniqueCategoryName,
+    generateUniqueCategoryUrl,
   } = useContext(appContext);
 
   const [state, dispatch] = useReducer(reducer, {
@@ -99,144 +95,47 @@ function AppsList() {
 
   const {t, i18n} = useTranslation();
 
-  // Initialize appsList when apps change
+  // Initialize categoriesList when categories change
   useEffect(() => {
-    if (apps && apps.length > 0) {
-      dispatch({type: "SET_APPS_LIST", payload: apps});
+    if (categories) {
+      dispatch({type: "SET_FILTERED_CATEGORIES", payload: categories});
     }
-  }, [apps]);
+  }, [categories]);
 
-  // Handle navigation to app details
-  const handleAppClick = (appId) => {
-    const app = apps.find((a) => a.id === appId);
-    if (!app) return;
-
-    let currentIndex;
-    let totalItems;
-    let visibleAppIds;
-
-    if (viewMode === "list") {
-      currentIndex = state.filteredApps.findIndex((a) => a.id === appId) + 1;
-      totalItems = state.filteredApps.length;
-      visibleAppIds = state.filteredApps.map((a) => a.id);
-    } else {
-      // For group view, we need to maintain the order of apps as they appear in the UI
-      const sortedVisibleApps = Object.entries(groupedItems)
-        .sort(([categoryIdA], [categoryIdB]) => {
-          const categoryNameA = getCategoryName(
-            categoryIdA,
-            categories
-          ).toLowerCase();
-          const categoryNameB = getCategoryName(
-            categoryIdB,
-            categories
-          ).toLowerCase();
-          return categoryNameA.localeCompare(categoryNameB);
-        })
-        .reduce((acc, [categoryId, apps]) => {
-          if (
-            expandedCategories.includes(getCategoryName(categoryId, categories))
-          ) {
-            // Sort apps within each category by name
-            const sortedApps = [...apps].sort((a, b) =>
-              a.name.toLowerCase().localeCompare(b.name.toLowerCase())
-            );
-            return [...acc, ...sortedApps];
-          }
-          return acc;
-        }, []);
-
-      // Reverse the array to match the visual order
-      const reversedApps = [...sortedVisibleApps].reverse();
-      currentIndex = reversedApps.findIndex((a) => a.id === appId) + 1;
-      totalItems = reversedApps.length;
-      visibleAppIds = reversedApps.map((a) => a.id);
-    }
-
-    navigate(`/admin/apps/${appId}`, {
-      state: {
-        currentIndex,
-        totalItems,
-        viewMode,
-        visibleAppIds,
-      },
-    });
+  // Handle navigation to category details
+  const handleCategoryClick = (categoryId) => {
+    navigate(`/admin/categories/${categoryId}`);
   };
 
-  // Handle navigation to new app form
-  const handleNewApp = () => {
-    navigate(`/admin/apps/new`);
+  // Handle navigation to new category form
+  const handleNewCategory = () => {
+    navigate(`/admin/categories/new`);
   };
 
-  // Get category name from ID
-  const getCategoryName = useMemo(() => {
-    return (categoryId) => {
-      const category = categories.find((cat) => cat.id === Number(categoryId));
-      return category ? category.name : "";
-    };
-  }, []);
+  // Memoize filtered categories based on search term
+  const filteredCategories = useMemo(() => {
+    if (!categories) return [];
 
-  // Memoize filtered apps based on search term
-  const filteredApps = useMemo(() => {
-    if (!apps || apps.length === 0) return [];
-
-    return apps.filter((app) => {
+    return categories.filter((category) => {
       const searchLower = state.searchTerm.toLowerCase();
-      const categoryName = getCategoryName(app.category)?.toLowerCase() || "";
-      return (
-        app.name.toLowerCase().includes(searchLower) ||
-        categoryName.includes(searchLower)
-      );
+      return category.name.toLowerCase().includes(searchLower);
     });
-  }, [state.searchTerm, apps]);
+  }, [state.searchTerm, categories]);
 
-  // Update filtered apps in state
+  // Update filtered categories in state
   useEffect(() => {
-    dispatch({type: "SET_FILTERED_APPS", payload: filteredApps});
-  }, [filteredApps]);
-
-  // Group apps by category for group view
-  const groupedItems = useMemo(() => {
-    if (viewMode !== "list") {
-      return filteredApps.reduce((acc, app) => {
-        const categoryId = app.category_id;
-        if (!acc[categoryId]) {
-          acc[categoryId] = [];
-        }
-        acc[categoryId].push(app);
-        return acc;
-      }, {});
-    }
-    return {};
-  }, [filteredApps, viewMode]);
-
-  // Memoize visible apps for group view
-  const visibleApps = useMemo(() => {
-    if (viewMode !== "list") {
-      return Object.entries(groupedItems)
-        .filter(([categoryId]) =>
-          expandedCategories.includes(getCategoryName(categoryId, categories))
-        )
-        .reduce((acc, [categoryId, apps]) => {
-          return [...acc, ...apps];
-        }, []);
-    }
-    return [];
-  }, [groupedItems, expandedCategories, categories, viewMode]);
+    dispatch({type: "SET_FILTERED_CATEGORIES", payload: filteredCategories});
+  }, [filteredCategories]);
 
   // Memoize allVisibleSelected
   const allVisibleSelected = useMemo(() => {
-    if (viewMode === "list") {
-      return (
-        state.filteredApps.length > 0 &&
-        state.filteredApps.every((app) => selectedItems.includes(app.id))
-      );
-    }
     return (
-      visibleApps.length > 0 &&
-      visibleApps.every((app) => selectedItems.includes(app.id))
+      state.filteredCategories?.length > 0 &&
+      state.filteredCategories.every((category) =>
+        selectedCategories.includes(category.id)
+      )
     );
-  }, [visibleApps, selectedItems, state.filteredApps, viewMode]);
+  }, [selectedCategories, state.filteredCategories]);
 
   // Handle items per page change
   function handleItemsPerPageChange(value) {
@@ -262,13 +161,13 @@ function AppsList() {
 
   /* Handles delete button click */
   function handleDeleteClick() {
-    if (selectedItems.length === 0) {
+    if (selectedCategories.length === 0) {
       dispatch({
         type: "SET_BANNER",
         payload: {
           open: true,
           type: "error",
-          message: "Please select at least one app to delete",
+          message: "Please select at least one category to delete",
         },
       });
       return;
@@ -276,13 +175,36 @@ function AppsList() {
     dispatch({type: "SET_DANGER_MODAL", payload: true});
   }
 
-  /* Handles bulk duplication of selected apps */
+  /* Handles bulk duplication of selected categories */
   async function handleDuplicate() {
-    if (selectedItems.length === 0) return;
+    if (selectedCategories.length === 0) return;
 
     dispatch({type: "SET_SUBMITTING", payload: true});
+    let duplicatedCount = 0;
     try {
-      const duplicatedApps = await bulkDuplicateApps(selectedItems);
+      // Duplicate each selected category
+      for (const categoryId of selectedCategories) {
+        const categoryToDuplicate = categories.find(
+          (category) => category.id === categoryId
+        );
+        if (categoryToDuplicate) {
+          const uniqueName = generateUniqueCategoryName(
+            categoryToDuplicate.name
+          );
+          const uniqueUrl = categoryToDuplicate.url
+            ? generateUniqueCategoryUrl(categoryToDuplicate.url)
+            : undefined;
+
+          const categoryData = {
+            name: uniqueName,
+            icon: categoryToDuplicate.icon,
+            url: uniqueUrl,
+            description: categoryToDuplicate.description,
+          };
+          await createCategory(categoryData);
+          duplicatedCount++;
+        }
+      }
 
       // Show success message
       dispatch({
@@ -290,9 +212,10 @@ function AppsList() {
         payload: {
           open: true,
           type: "success",
-          message: `${duplicatedApps.length} app${
-            duplicatedApps.length !== 1 ? "s" : ""
-          } duplicated successfully`,
+          message: t("categoryDuplicatedSuccessfullyMessage", {
+            count: duplicatedCount,
+            plural: duplicatedCount !== 1 ? "ies" : "y",
+          }),
         },
       });
     } catch (error) {
@@ -301,7 +224,7 @@ function AppsList() {
         payload: {
           open: true,
           type: "error",
-          message: `Error duplicating apps. Error: ${error}`,
+          message: t("categoryDuplicationErrorMessage", {error}),
         },
       });
     } finally {
@@ -309,31 +232,32 @@ function AppsList() {
     }
   }
 
-  /* Handles bulk deletion of selected apps */
+  /* Handles bulk deletion of selected categories */
   async function handleDelete() {
-    if (selectedItems.length === 0) return;
+    if (selectedCategories.length === 0) return;
 
     // Close modal immediately when Accept is clicked
     dispatch({type: "SET_DANGER_MODAL", payload: false});
 
     dispatch({type: "SET_SUBMITTING", payload: true});
     try {
-      // Store the IDs of successfully deleted apps
+      // Store the IDs of successfully deleted categories
       const deletedIds = [];
 
-      // Delete each selected app
-      for (const appId of selectedItems) {
-        const res = await deleteApp(appId);
+      // Delete each selected category
+      for (const categoryId of selectedCategories) {
+        const res = await deleteCategory(categoryId);
         if (res) {
-          deletedIds.push(appId);
+          deletedIds.push(categoryId);
         }
       }
 
       // Clear all successfully deleted items from selection at once
-      handleToggleSelection(deletedIds, false);
+      handleCategoryToggleSelection(deletedIds, false);
 
       // If we're on a page that might be empty after deletion, go back one page
-      const remainingItems = state.filteredApps.length - deletedIds.length;
+      const remainingItems =
+        state.filteredCategories.length - deletedIds.length;
       const currentPageItems = state.itemsPerPage;
       if (
         state.currentPage > 1 &&
@@ -348,9 +272,10 @@ function AppsList() {
         payload: {
           open: true,
           type: "success",
-          message: `${deletedIds.length} app${
-            deletedIds.length !== 1 ? "s" : ""
-          } deleted successfully`,
+          message: t("categoryDeletedSuccessfullyMessage", {
+            count: deletedIds.length,
+            plural: deletedIds.length !== 1 ? "ies" : "y",
+          }),
         },
       });
     } catch (error) {
@@ -359,7 +284,7 @@ function AppsList() {
         payload: {
           open: true,
           type: "error",
-          message: `Error deleting apps. Error: ${error}`,
+          message: t("categoryDeleteErrorMessage", {error}),
         },
       });
     } finally {
@@ -367,7 +292,6 @@ function AppsList() {
     }
   }
 
-  console.log("selectedItems", selectedItems);
   return (
     <div className="flex h-[100dvh] overflow-hidden">
       {/* Sidebar */}
@@ -437,16 +361,18 @@ function AppsList() {
                 {/* Modal header */}
                 <div className="mb-2">
                   <div className="text-lg font-semibold text-gray-800 dark:text-gray-100">
-                    Delete {selectedItems.length} app
-                    {selectedItems.length !== 1 ? "s" : ""}?
+                    Delete {selectedCategories.length} categor
+                    {selectedCategories.length !== 1 ? "ies" : "y"}?
                   </div>
                 </div>
                 {/* Modal content */}
                 <div className="text-sm mb-10">
                   <div className="space-y-2">
                     <p>
-                      {t("appDeleteConfirmationMessage")}
-                      {selectedItems.length !== 1 ? "s" : ""}?{" "}
+                      {t("categoryDeleteConfirmationMessage", {
+                        count: selectedCategories.length,
+                        plural: selectedCategories.length !== 1 ? "ies" : "y",
+                      })}{" "}
                       {t("actionCantBeUndone")}
                     </p>
                   </div>
@@ -482,14 +408,14 @@ function AppsList() {
               {/* Left: Title */}
               <div className="mb-4 sm:mb-0">
                 <h1 className="text-2xl md:text-3xl text-gray-800 dark:text-gray-100 font-bold">
-                  {t("applications")}
+                  {t("categories")}
                 </h1>
               </div>
 
               {/* Right: Actions */}
               <div className="grid grid-flow-col sm:auto-cols-max justify-start sm:justify-end gap-2">
                 {/* Filter button */}
-                {selectedItems.length > 0 && (
+                {selectedCategories.length > 0 && (
                   <DropdownButton
                     align="right"
                     onDelete={handleDeleteClick}
@@ -497,10 +423,10 @@ function AppsList() {
                   />
                 )}
 
-                {/* Add App button */}
+                {/* Add Category button */}
                 <button
                   className="btn bg-gray-900 text-gray-100 hover:bg-gray-800 dark:bg-gray-100 dark:text-gray-800 dark:hover:bg-white"
-                  onClick={handleNewApp}
+                  onClick={handleNewCategory}
                 >
                   <svg
                     className="fill-current shrink-0 xs:hidden"
@@ -510,85 +436,67 @@ function AppsList() {
                   >
                     <path d="M15 7H9V1c0-.6-.4-1-1-1S7 .4 7 1v6H1c-.6 0-1 .4-1 1s.4 1 1 1h6v6c0 .6.4 1 1 1s1-.4 1-1V9h6c.6 0 1-.4 1-1s-.4-1-1-1z" />
                   </svg>
-                  <span className="max-xs:sr-only">{t("addApp")}</span>
+                  <span className="max-xs:sr-only">{t("addCategory")}</span>
                 </button>
               </div>
             </div>
 
-            {/* Search bar with integrated view mode selector */}
+            {/* Search bar */}
             <div className="mb-6">
-              <div className="flex items-center space-x-4">
-                <div className="relative flex-1">
-                  <input
-                    type="text"
-                    className="form-input w-full pl-10 pr-4 py-2 bg-white dark:bg-gray-800 border-gray-200 dark:border-gray-700/60 hover:border-gray-300 dark:hover:border-gray-600 focus:border-gray-300 dark:focus:border-gray-600 rounded-lg shadow-sm "
-                    placeholder={t("searchAppsPlaceholder")}
-                    value={state.searchTerm}
-                    onChange={(e) =>
-                      dispatch({
-                        type: "SET_SEARCH_TERM",
-                        payload: e.target.value,
-                      })
-                    }
-                  />
-                  <div className="absolute inset-0 flex items-center pointer-events-none pl-3">
-                    <svg
-                      className="shrink-0 fill-current text-gray-400 dark:text-gray-500 group-hover:text-gray-500 dark:group-hover:text-gray-400 ml-1 mr-2"
-                      width="16"
-                      height="16"
-                      viewBox="0 0 16 16"
-                      xmlns="http://www.w3.org/2000/svg"
-                    >
-                      <path d="M7 14c-3.86 0-7-3.14-7-7s3.14-7 7-7 7 3.14 7 7-3.14 7-7 7zM7 2C4.243 2 2 4.243 2 7s2.243 5 5 5 5-2.243 5-5-2.243-5-5-5z" />
-                      <path d="M15.707 14.293L13.314 11.9a8.019 8.019 0 01-1.414 1.414l2.393 2.393a.997.997 0 001.414 0 .999.999 0 000-1.414z" />
-                    </svg>
-                  </div>
-                </div>
-                <ViewModeDropdown
-                  viewMode={viewMode}
-                  setViewMode={setViewMode}
+              <div className="relative">
+                <input
+                  type="text"
+                  className="form-input w-full pl-10 pr-4 py-2 bg-white dark:bg-gray-800 border-gray-200 dark:border-gray-700/60 hover:border-gray-300 dark:hover:border-gray-600 focus:border-gray-300 dark:focus:border-gray-600 rounded-lg shadow-sm"
+                  placeholder={t("searchCategoriesPlaceholder")}
+                  value={state.searchTerm}
+                  onChange={(e) =>
+                    dispatch({
+                      type: "SET_SEARCH_TERM",
+                      payload: e.target.value,
+                    })
+                  }
                 />
+                <div className="absolute inset-0 flex items-center pointer-events-none pl-3">
+                  <svg
+                    className="shrink-0 fill-current text-gray-400 dark:text-gray-500 group-hover:text-gray-500 dark:group-hover:text-gray-400 ml-1 mr-2"
+                    width="16"
+                    height="16"
+                    viewBox="0 0 16 16"
+                    xmlns="http://www.w3.org/2000/svg"
+                  >
+                    <path d="M7 14c-3.86 0-7-3.14-7-7s3.14-7 7-7 7 3.14 7 7-3.14 7-7 7zM7 2C4.243 2 2 4.243 2 7s2.243 5 5 5 5-2.243 5-5-2.243-5-5-5z" />
+                    <path d="M15.707 14.293L13.314 11.9a8.019 8.019 0 01-1.414 1.414l2.393 2.393a.997.997 0 001.414 0 .999.999 0 000-1.414z" />
+                  </svg>
+                </div>
               </div>
             </div>
 
-            {/* Table or Grouped View */}
-            {viewMode === "list" ? (
-              <>
-                <AppsTable
-                  apps={state.filteredApps}
-                  onToggleSelect={handleToggleSelection}
-                  selectedItems={selectedItems}
-                  totalApps={state.filteredApps.length}
+            {/* Table */}
+            <CategoriesTable
+              categories={state.filteredCategories}
+              onToggleSelect={handleCategoryToggleSelection}
+              selectedItems={selectedCategories}
+              totalCategories={state.filteredCategories?.length || 0}
+              currentPage={state.currentPage}
+              itemsPerPage={state.itemsPerPage}
+              onCategoryClick={handleCategoryClick}
+              sortConfig={categorySortConfig}
+              onSort={handleCategorySort}
+            />
+
+            {/* Pagination */}
+            {state.filteredCategories?.length > 0 && (
+              <div className="mt-8">
+                <PaginationClassic
                   currentPage={state.currentPage}
+                  totalItems={state.filteredCategories.length}
                   itemsPerPage={state.itemsPerPage}
-                  onAppClick={handleAppClick}
-                  categories={categories}
+                  onPageChange={(page) =>
+                    dispatch({type: "SET_CURRENT_PAGE", payload: page})
+                  }
+                  onItemsPerPageChange={handleItemsPerPageChange}
                 />
-                {/* Pagination */}
-                {state.filteredApps.length > 0 && (
-                  <div className="mt-8">
-                    <PaginationClassic
-                      currentPage={state.currentPage}
-                      totalItems={state.filteredApps.length}
-                      itemsPerPage={state.itemsPerPage}
-                      onPageChange={(page) =>
-                        dispatch({type: "SET_CURRENT_PAGE", payload: page})
-                      }
-                      onItemsPerPageChange={handleItemsPerPageChange}
-                    />
-                  </div>
-                )}
-              </>
-            ) : (
-              <CollapsibleAppsTable
-                filteredApps={state.filteredApps}
-                selectedItems={selectedItems}
-                onToggleSelect={handleToggleSelection}
-                expandedCategories={expandedCategories}
-                setExpandedCategories={setExpandedCategories}
-                onAppClick={handleAppClick}
-                categories={categories}
-              />
+              </div>
             )}
           </div>
         </main>
@@ -597,4 +505,4 @@ function AppsList() {
   );
 }
 
-export default AppsList;
+export default CategoriesList;

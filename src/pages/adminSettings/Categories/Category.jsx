@@ -4,14 +4,14 @@ import {useNavigate} from "react-router-dom";
 import Sidebar from "../../../partials/Sidebar";
 import Header from "../../../partials/Header";
 
-import AppFormContainer from "./AppFormContainer";
+import CategoryFormContainer from "./CategoryFormContainer";
 
-function AppContainer() {
+function CategoryContainer() {
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const navigate = useNavigate();
 
   const handleReturn = () => {
-    navigate("/admin/apps");
+    navigate("/admin/categories");
   };
 
   return (
@@ -27,7 +27,7 @@ function AppContainer() {
         <main className="grow">
           <div className="px-4 sm:px-6 lg:px-8 py-8 w-full max-w-[96rem] mx-auto">
             {/* Form */}
-            <AppFormContainer onReturn={handleReturn} />
+            <CategoryFormContainer onReturn={handleReturn} />
           </div>
         </main>
       </div>
@@ -35,4 +35,4 @@ function AppContainer() {
   );
 }
 
-export default AppContainer;
+export default CategoryContainer;

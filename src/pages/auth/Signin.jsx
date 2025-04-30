@@ -2,17 +2,20 @@ import React, {useState} from "react";
 import {Link} from "react-router-dom";
 import {useTranslation} from "react-i18next";
 import {useNavigate} from "react-router-dom";
+import {useAuth} from "../../context/AuthContext";
 import "../../i18n";
 
 import AuthImage from "../../images/auth-image.jpg";
 
-function Signin({login}) {
+function Signin() {
   const navigate = useNavigate();
+  const {login} = useAuth();
   const [formData, setFormData] = useState({
     email: "",
     password: "",
   });
   const [formErrors, setFormErrors] = useState([]);
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
   const {t, i18n} = useTranslation();
 
@@ -26,11 +29,14 @@ function Signin({login}) {
    */
   async function handleSubmit(evt) {
     evt.preventDefault();
+    setIsSubmitting(true);
     try {
       await login(formData);
-      navigate("/settings/databases");
+      navigate("/settings/databases", {replace: true});
     } catch (err) {
       setFormErrors(err);
+    } finally {
+      setIsSubmitting(false);
     }
   }
 
@@ -43,7 +49,6 @@ function Signin({login}) {
     }));
   }
 
-  console.log("formData", formData);
   return (
     <main className="bg-white dark:bg-gray-900">
       <div className="relative md:flex">
@@ -72,7 +77,7 @@ function Signin({login}) {
                 {t("welcome")}
               </h1>
               {/* Form */}
-              <form>
+              <form onSubmit={handleSubmit}>
                 <div className="space-y-4">
                   <div>
                     <label
@@ -115,12 +120,13 @@ function Signin({login}) {
                       {t("forgotPassword")}
                     </Link>
                   </div>
-                  <Link
+                  <button
+                    type="submit"
+                    disabled={isSubmitting}
                     className="btn bg-gray-900 text-gray-100 hover:bg-gray-800 dark:bg-gray-100 dark:text-gray-800 dark:hover:bg-white ml-3"
-                    onClick={handleSubmit}
                   >
-                    {t("signIn")}
-                  </Link>
+                    {isSubmitting ? t("signingIn") : t("signIn")}
+                  </button>
                 </div>
               </form>
               {/* Footer */}

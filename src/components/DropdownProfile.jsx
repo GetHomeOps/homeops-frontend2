@@ -1,8 +1,8 @@
 import React, {useState, useRef, useEffect, useContext} from "react";
 import {Link} from "react-router-dom";
 import Transition from "../utils/Transition";
-import UserContext from "../context/AppContext";
-
+// import UserContext from "../context/AppContext";
+import AuthContext from "../context/AuthContext";
 import UserAvatar from "../images/user-avatar-32.png";
 
 import {useLocation} from "react-router-dom";
@@ -12,7 +12,7 @@ import "../i18n/index";
 
 function DropdownProfile({align}) {
   const [dropdownOpen, setDropdownOpen] = useState(false);
-  const {currentUser, logout} = useContext(UserContext);
+  const {currentUser, logout} = useContext(AuthContext);
 
   const {t, i18n} = useTranslation();
 

@@ -36,7 +36,7 @@ class AppApi {
 
   // Individual API routes
 
-  /* -- Users -- */
+  /* --------- Users --------- */
 
   /** Get the current user. */
   static async getCurrentUser(username) {
@@ -62,7 +62,7 @@ class AppApi {
     return res.user;
   }
 
-  /* -- Databases -- */
+  /* --------- Databases --------- */
 
   /** Get all databases associated with a user ID. */
   static async getUserDatabases(userId) {
@@ -70,7 +70,7 @@ class AppApi {
     return res.databases;
   }
 
-  /* -- Apps -- */
+  /* --------- Apps --------- */
 
   /* Get all apps associated to a Database ID */
   static async getAppsByDb(dbId) {
@@ -105,6 +105,38 @@ class AppApi {
   /* Delete an app */
   static async deleteApp(id) {
     let res = await this.request(`apps/${id}`, {}, 'DELETE');
+    return res;
+  }
+
+  /* --------- Categories --------- */
+
+  /* Get all categories */
+  static async getAllCategories() {
+    let res = await this.request(`categories`);
+    return res.categories;
+  }
+
+  /* Get a category by ID */
+  static async getCategory(id) {
+    let res = await this.request(`categories/${id}`);
+    return res.category;
+  }
+
+  /* Create a new category */
+  static async addCategory(data) {
+    let res = await this.request(`categories/`, data, 'POST');
+    return res.category;
+  }
+
+  /* Update an existing category */
+  static async updateCategory(id, data) {
+    let res = await this.request(`categories/${id}`, data, 'PATCH');
+    return res.category;
+  }
+
+  /* Delete a category */
+  static async deleteCategory(id) {
+    let res = await this.request(`categories/${id}`, {}, 'DELETE');
     return res;
   }
 

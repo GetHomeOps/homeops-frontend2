@@ -1,7 +1,6 @@
 import React, {useReducer, useEffect, useContext} from "react";
 import {useNavigate, useParams, useLocation} from "react-router-dom";
 import {AlertCircle} from "lucide-react";
-import {icons} from "../../../assets/icons";
 import appContext from "../../../context/AppContext";
 import Banner from "../../../partials/containers/Banner";
 import ModalBlank from "../../../components/ModalBlank";
@@ -10,31 +9,21 @@ import DropdownFilter from "../../../components/DropdownFilter";
 
 const initialFormData = {
   name: "",
-  category: "",
-  url: "",
-  description: "",
-  icon: "",
 };
 
 /* Tabs */
 const tabs = [{id: 1, label: "General"}];
 
-// Categories for the dropdown
-// const categories = [
-//   {id: 1, name: "Inventory"},
-//   {id: 2, name: "Productivity"},
-// ];
-
 const initialState = {
   formData: initialFormData,
   errors: {},
   isSubmitting: false,
-  appToEdit: null,
+  categoryToEdit: null,
   activeTab: 1,
   isEditing: false,
   bannerOpen: false,
   dangerModalOpen: false,
-  currentAppIndex: 0,
+  currentCategoryIndex: 0,
   bannerType: "success",
   bannerAction: "",
   bannerMessage: "",
@@ -48,8 +37,12 @@ function reducer(state, action) {
       return {...state, errors: action.payload};
     case "SET_SUBMITTING":
       return {...state, isSubmitting: action.payload};
-    case "SET_APP_TO_EDIT":
-      return {...state, appToEdit: action.payload, isEditing: !!action.payload};
+    case "SET_CATEGORY_TO_EDIT":
+      return {
+        ...state,
+        categoryToEdit: action.payload,
+        isEditing: !!action.payload,
+      };
     case "SET_ACTIVE_TAB":
       return {...state, activeTab: action.payload};
     case "SET_BANNER":
@@ -61,61 +54,45 @@ function reducer(state, action) {
       };
     case "SET_DANGER_MODAL":
       return {...state, dangerModalOpen: action.payload};
-    case "SET_CURRENT_APP_INDEX":
-      return {...state, currentAppIndex: action.payload};
+    case "SET_CURRENT_CATEGORY_INDEX":
+      return {...state, currentCategoryIndex: action.payload};
     default:
       return state;
   }
 }
 
-/** Form for Creating/Editing an app
- *
- * Props: None
- *
- * State:
- * - formData: Object {}
- * - errors: {}
- * - isSubmitting: true/false
- * - appToEdit: null/{}
- * - activeTab: Number
- * - isEditing: true/false
- *
- * App -> AppFormContainer
- **/
-function AppFormContainer() {
+function CategoryFormContainer() {
   const {
-    createApp,
-    updateApp,
-    deleteApp,
-    apps,
-    viewMode,
-    sortedItems,
-    duplicateApp,
+    createCategory,
+    updateCategory,
+    deleteCategory,
     categories,
-    getCurrentViewApps,
+    sortedCategories,
+    generateUniqueCategoryName,
+    generateUniqueCategoryUrl,
   } = useContext(appContext);
   const [state, dispatch] = useReducer(reducer, initialState);
   const {id} = useParams();
   const navigate = useNavigate();
   const location = useLocation();
 
-  const {t, i18n} = useTranslation();
+  const {t} = useTranslation();
 
-  // Fetch appToEdit based on URL's app id
+  // Fetch categoryToEdit based on URL's category id
   useEffect(() => {
-    async function fetchApp() {
+    async function fetchCategory() {
       if (id && id !== "new") {
         try {
-          const currentViewApps = getCurrentViewApps();
-          const existingApp = currentViewApps.find(
-            (app) => Number(app.id) === Number(id)
+          const existingCategory = categories.find(
+            (category) => Number(category.id) === Number(id)
           );
-          if (existingApp) {
-            dispatch({type: "SET_APP_TO_EDIT", payload: existingApp});
-            // Only clear banner if it's not a success message from app creation
+          if (existingCategory) {
+            dispatch({type: "SET_CATEGORY_TO_EDIT", payload: existingCategory});
             if (
               state.bannerType !== "success" ||
-              !state.bannerMessage.includes(t("appCreatedSuccessfullyMessage"))
+              !state.bannerMessage.includes(
+                t("categoryCreatedSuccessfullyMessage")
+              )
             ) {
               dispatch({
                 type: "SET_BANNER",
@@ -127,8 +104,7 @@ function AppFormContainer() {
               });
             }
           } else {
-            // navigate("/admin/apps");
-            throw new Error(t("appNotFoundErrorMessage"));
+            throw new Error(t("categoryNotFoundErrorMessage"));
           }
         } catch (err) {
           dispatch({
@@ -136,17 +112,16 @@ function AppFormContainer() {
             payload: {
               open: true,
               type: "error",
-              message: `Error finding app: ${err}`,
+              message: `Error finding category: ${err}`,
             },
           });
-          // navigate("/admin/apps");
         }
       } else {
-        dispatch({type: "SET_APP_TO_EDIT", payload: null});
+        dispatch({type: "SET_CATEGORY_TO_EDIT", payload: null});
       }
     }
-    fetchApp();
-  }, [id, apps, viewMode]);
+    fetchCategory();
+  }, [id, categories]);
 
   // Show banner and handle timeout
   useEffect(() => {
@@ -167,43 +142,29 @@ function AppFormContainer() {
 
   // Populate form data when in edit mode
   useEffect(() => {
-    if (state.isEditing && state.appToEdit) {
+    if (state.isEditing && state.categoryToEdit) {
       dispatch({
         type: "SET_FORM_DATA",
         payload: {
-          name: state.appToEdit.name,
-          category: state.appToEdit.category_id,
-          url: state.appToEdit.url,
-          description: state.appToEdit.description,
-          icon: state.appToEdit.icon,
+          name: state.categoryToEdit.name,
         },
       });
     } else {
       dispatch({type: "SET_FORM_DATA", payload: initialFormData});
     }
-  }, [state.isEditing, state.appToEdit]);
+  }, [state.isEditing, state.categoryToEdit]);
 
-  // Update current app index when appToEdit changes or location state changes
+  // Update current category index when categoryToEdit changes
   useEffect(() => {
-    if (state.appToEdit) {
-      // If we have location state with index information, use that
-      if (location.state?.currentIndex !== undefined) {
-        dispatch({
-          type: "SET_CURRENT_APP_INDEX",
-          payload: location.state.currentIndex - 1, // Convert back to 0-based index
-        });
-      } else {
-        // Otherwise fall back to finding index in the current view's app list
-        const currentViewApps = getCurrentViewApps();
-        const index = currentViewApps.findIndex(
-          (app) => Number(app.id) === Number(state.appToEdit.id)
-        );
-        dispatch({type: "SET_CURRENT_APP_INDEX", payload: index});
-      }
+    if (state.categoryToEdit) {
+      const index = sortedCategories.findIndex(
+        (category) => Number(category.id) === Number(state.categoryToEdit.id)
+      );
+      dispatch({type: "SET_CURRENT_CATEGORY_INDEX", payload: index});
     }
-  }, [state.appToEdit, viewMode, location.state]);
+  }, [state.categoryToEdit, sortedCategories]);
 
-  /* Handles form change (except icon) */
+  /* Handles form change */
   const handleChange = (e) => {
     const {id, value} = e.target;
     dispatch({type: "SET_FORM_DATA", payload: {[id]: value}});
@@ -214,41 +175,24 @@ function AppFormContainer() {
     }
   };
 
-  /* Handles Icon change */
-  function handleIconSelection(evt) {
-    const selectedIcon = evt.target.value;
-    dispatch({type: "SET_FORM_DATA", payload: {icon: selectedIcon}});
-
-    if (state.errors.icon) {
-      dispatch({type: "SET_ERRORS", payload: {...state.errors, icon: null}});
-    }
-  }
-
   /* Handles submit button */
   async function handleSubmit(evt) {
     evt.preventDefault();
 
     if (!validateForm()) return;
 
-    const appData = {
+    const categoryData = {
       name: state.formData.name,
-      icon: state.formData.icon,
-      url: state.formData.url,
-      category_id: Number(state.formData.category),
-      description: state.formData.description,
     };
 
     dispatch({type: "SET_SUBMITTING", payload: true});
 
     try {
-      const res = await createApp(appData);
+      const res = await createCategory(categoryData);
 
       if (res && res.id) {
-        // Update state with new app
-        onCreate(res);
-
-        // Navigate to the new app
-        navigate(`/admin/apps/${res.id}${viewMode ? `?view=${viewMode}` : ""}`);
+        // Navigate to the new category
+        navigate(`/admin/categories/${res.id}`);
 
         // Show success banner
         dispatch({
@@ -256,7 +200,7 @@ function AppFormContainer() {
           payload: {
             open: true,
             type: "success",
-            message: t("appCreatedSuccessfullyMessage"),
+            message: t("categoryCreatedSuccessfullyMessage"),
           },
         });
       }
@@ -266,7 +210,7 @@ function AppFormContainer() {
         payload: {
           open: true,
           type: "error",
-          message: `Error creating app: ${err}`,
+          message: `Error creating category: ${err}`,
         },
       });
     } finally {
@@ -280,33 +224,27 @@ function AppFormContainer() {
 
     if (!validateForm()) return;
 
-    const appData = {
+    const categoryData = {
       name: state.formData.name,
-      icon: state.formData.icon,
-      url: state.formData.url,
-      category_id: Number(state.formData.category),
-      description: state.formData.description,
     };
 
     dispatch({type: "SET_SUBMITTING", payload: true});
 
     try {
-      const res = await updateApp(id, appData);
+      const res = await updateCategory(id, categoryData);
       if (res) {
-        // Update the appToEdit with the new data while maintaining the id
         dispatch({
-          type: "SET_APP_TO_EDIT",
-          payload: {...appData, id: Number(id)},
+          type: "SET_CATEGORY_TO_EDIT",
+          payload: {...categoryData, id: Number(id)},
         });
 
-        // Show success banner with a slight delay to ensure it's visible
         setTimeout(() => {
           dispatch({
             type: "SET_BANNER",
             payload: {
               open: true,
               type: "success",
-              message: t("appUpdatedSuccessfullyMessage"),
+              message: t("categoryUpdatedSuccessfullyMessage"),
             },
           });
         }, 100);
@@ -330,24 +268,7 @@ function AppFormContainer() {
     const newErrors = {};
 
     if (!state.formData.name.trim()) {
-      newErrors.name = t("appNameValidationErrorMessage");
-    }
-
-    if (!state.formData.category) {
-      newErrors.category = t("categoryValidationErrorMessage");
-    }
-
-    if (!state.formData.url) {
-      newErrors.url = t("urlValidationErrorMessage");
-    }
-
-    if (!state.formData.description.trim()) {
-      newErrors.description = t("descriptionValidationErrorMessage");
-    }
-
-    // Only require icon if creating a new app
-    if (state.formData.icon === "") {
-      newErrors.icon = t("iconValidationErrorMessage");
+      newErrors.name = t("categoryNameValidationErrorMessage");
     }
 
     dispatch({type: "SET_ERRORS", payload: newErrors});
@@ -356,21 +277,23 @@ function AppFormContainer() {
 
   /* Navigates to previous page */
   function handleBackClick() {
-    navigate(`/admin/apps${viewMode ? `?view=${viewMode}` : ""}`);
+    navigate("/admin/categories");
   }
 
-  /* If editing an app -> return the app's name
-  If new -> return 'New App' */
+  /* If editing a category -> return the category's name
+  If new -> return 'New Category' */
   function getPageTitle() {
-    if (state.appToEdit) {
-      return `${state.appToEdit.name}`;
+    if (state.categoryToEdit) {
+      return `${state.categoryToEdit.name}`;
     }
-    return t("newApp");
+    return t("newCategory");
   }
 
-  /* Resets appToEdit upon selecting new app button */
-  function onCreate(newApp) {
-    dispatch({type: "SET_APP_TO_EDIT", payload: newApp});
+  /* Resets categoryToEdit upon selecting new category button */
+  function handleNewCategory() {
+    dispatch({type: "SET_CATEGORY_TO_EDIT", payload: null});
+    dispatch({type: "SET_FORM_DATA", payload: initialFormData});
+    dispatch({type: "SET_ERRORS", payload: {}});
   }
 
   /* Changes active tab */
@@ -378,17 +301,9 @@ function AppFormContainer() {
     dispatch({type: "SET_ACTIVE_TAB", payload: tabId});
   }
 
-  /* Handles New App button click */
-  function handleNewApp() {
-    dispatch({type: "SET_APP_TO_EDIT", payload: null});
-    dispatch({type: "SET_FORM_DATA", payload: initialFormData});
-    dispatch({type: "SET_ERRORS", payload: {}});
-  }
-
   /* Handles delete button */
   function handleDelete() {
     dispatch({type: "SET_DANGER_MODAL", payload: true});
-    // Close dropdown if it's open
   }
 
   /* Handles delete confirmation on modal */
@@ -397,30 +312,24 @@ function AppFormContainer() {
       // Close modal immediately when Accept is clicked
       dispatch({type: "SET_DANGER_MODAL", payload: false});
 
-      // Find the current app index
-      const appIndex = apps.findIndex((app) => app.id === Number(id));
+      // Find the current category index
+      const categoryIndex = categories.findIndex(
+        (category) => category.id === Number(id)
+      );
 
-      // Delete the app
-      await deleteApp(id);
+      // Delete the category
+      await deleteCategory(id);
 
-      // Navigate based on remaining apps
-      if (apps.length <= 1) {
-        // If this was the last app, go to apps list
-        navigate(`/admin/apps${viewMode ? `?view=${viewMode}` : ""}`);
-      } else if (appIndex === apps.length - 1) {
-        // If this was the last app in the list, go to previous app
-        navigate(
-          `/admin/apps/${apps[appIndex - 1].id}${
-            viewMode ? `?view=${viewMode}` : ""
-          }`
-        );
+      // Navigate based on remaining categories
+      if (categories.length <= 1) {
+        // If this was the last category, go to categories list
+        navigate("/admin/categories");
+      } else if (categoryIndex === categories.length - 1) {
+        // If this was the last category in the list, go to previous category
+        navigate(`/admin/categories/${categories[categoryIndex - 1].id}`);
       } else {
-        // Otherwise go to next app
-        navigate(
-          `/admin/apps/${apps[appIndex + 1].id}${
-            viewMode ? `?view=${viewMode}` : ""
-          }`
-        );
+        // Otherwise go to next category
+        navigate(`/admin/categories/${categories[categoryIndex + 1].id}`);
       }
 
       // Then show banner
@@ -430,7 +339,7 @@ function AppFormContainer() {
           payload: {
             open: true,
             type: "success",
-            message: t("appDeletedSuccessfullyMessage"),
+            message: t("categoryDeletedSuccessfullyMessage"),
           },
         });
       }, 100);
@@ -440,15 +349,15 @@ function AppFormContainer() {
         payload: {
           open: true,
           type: "error",
-          message: `Error deleting app: ${error}`,
+          message: `Error deleting category: ${error}`,
         },
       });
     }
   }
 
-  /* Handles app duplication */
-  async function handleDuplicateApp() {
-    if (!state.appToEdit) return;
+  /* Handles category duplication */
+  async function handleDuplicateCategory() {
+    if (!state.categoryToEdit) return;
 
     // Close dropdown if it's open
     const dropdown = document.querySelector('[data-dropdown-open="true"]');
@@ -459,11 +368,23 @@ function AppFormContainer() {
     dispatch({type: "SET_SUBMITTING", payload: true});
 
     try {
-      const res = await duplicateApp(state.appToEdit);
+      const uniqueName = generateUniqueCategoryName(state.categoryToEdit.name);
+      const uniqueUrl = state.categoryToEdit.url
+        ? generateUniqueCategoryUrl(state.categoryToEdit.url)
+        : undefined;
+
+      const categoryData = {
+        name: uniqueName,
+        icon: state.categoryToEdit.icon,
+        url: uniqueUrl,
+        description: state.categoryToEdit.description,
+      };
+
+      const res = await createCategory(categoryData);
 
       if (res && res.id) {
         // Navigate first
-        navigate(`/admin/apps/${res.id}${viewMode ? `?view=${viewMode}` : ""}`);
+        navigate(`/admin/categories/${res.id}`);
 
         // Then show banner
         setTimeout(() => {
@@ -472,7 +393,7 @@ function AppFormContainer() {
             payload: {
               open: true,
               type: "success",
-              message: t("appDuplicatedSuccessfullyMessage"),
+              message: t("categoryCreatedSuccessfullyMessage"),
             },
           });
         }, 100);
@@ -483,7 +404,7 @@ function AppFormContainer() {
         payload: {
           open: true,
           type: "error",
-          message: `${t("appDuplicationErrorMessage")} ${err} `,
+          message: `Error duplicating category: ${err}`,
         },
       });
     } finally {
@@ -491,57 +412,7 @@ function AppFormContainer() {
     }
   }
 
-  // Navigation handlers
-  const handlePrevApp = () => {
-    if (location.state?.visibleAppIds && location.state.currentIndex > 1) {
-      // Use the visible apps order from location state
-      const prevIndex = location.state.currentIndex - 2; // Convert to 0-based index
-      const prevAppId = location.state.visibleAppIds[prevIndex];
-      navigate(
-        `/admin/apps/${prevAppId}${viewMode ? `?view=${viewMode}` : ""}`,
-        {
-          state: {
-            ...location.state,
-            currentIndex: location.state.currentIndex - 1,
-          },
-        }
-      );
-    } else if (state.currentAppIndex > 0) {
-      // Fall back to current view's app list
-      const currentViewApps = getCurrentViewApps();
-      const prevApp = currentViewApps[state.currentAppIndex - 1];
-      navigate(
-        `/admin/apps/${prevApp.id}${viewMode ? `?view=${viewMode}` : ""}`
-      );
-    }
-  };
-
-  const handleNextApp = () => {
-    if (
-      location.state?.visibleAppIds &&
-      location.state.currentIndex < location.state.totalItems
-    ) {
-      // Use the visible apps order from location state
-      const nextIndex = location.state.currentIndex; // Already 0-based index for next item
-      const nextAppId = location.state.visibleAppIds[nextIndex];
-      navigate(
-        `/admin/apps/${nextAppId}${viewMode ? `?view=${viewMode}` : ""}`,
-        {
-          state: {
-            ...location.state,
-            currentIndex: location.state.currentIndex + 1,
-          },
-        }
-      );
-    } else if (state.currentAppIndex < getCurrentViewApps().length - 1) {
-      // Fall back to current view's app list
-      const currentViewApps = getCurrentViewApps();
-      const nextApp = currentViewApps[state.currentAppIndex + 1];
-      navigate(
-        `/admin/apps/${nextApp.id}${viewMode ? `?view=${viewMode}` : ""}`
-      );
-    }
-  };
+  console.log("categories", categories);
 
   return (
     <div className="relative">
@@ -590,15 +461,15 @@ function AppFormContainer() {
               {/* Modal header */}
               <div className="mb-2">
                 <div className="text-lg font-semibold text-gray-800 dark:text-gray-100">
-                  {state.appToEdit
-                    ? `Delete ${state.appToEdit.name}?`
-                    : "Delete App?"}
+                  {state.categoryToEdit
+                    ? `Delete ${state.categoryToEdit.name}?`
+                    : "Delete Category?"}
                 </div>
               </div>
               {/* Modal content */}
               <div className="text-sm mb-10">
                 <div className="space-y-2">
-                  <p>{t("deleteBannerMessage")}</p>
+                  <p>{t("categoryDeleteConfirmationMessage")}</p>
                 </div>
               </div>
               {/* Modal footer */}
@@ -640,7 +511,7 @@ function AppFormContainer() {
                 >
                   <path d="M9.4 13.4l1.4-1.4-4-4 4-4-1.4-1.4L4 8z"></path>
                 </svg>
-                <span>{t("backToApps")}</span>
+                <span>{t("backToCategories")}</span>
               </button>
             </div>
 
@@ -650,7 +521,7 @@ function AppFormContainer() {
                   {/* Filter button */}
                   <DropdownFilter
                     onDelete={handleDelete}
-                    onDuplicate={handleDuplicateApp}
+                    onDuplicate={handleDuplicateCategory}
                     align="right"
                   />
                 </div>
@@ -659,7 +530,7 @@ function AppFormContainer() {
               <div className="m-1.5">
                 <button
                   className="btn bg-white dark:bg-gray-800 border-gray-200 dark:border-gray-700/60 hover:border-gray-300 dark:hover:border-gray-600 text-gray-800 dark:text-gray-300"
-                  onClick={handleNewApp}
+                  onClick={handleNewCategory}
                 >
                   {t("new")}
                 </button>
@@ -671,22 +542,29 @@ function AppFormContainer() {
               {getPageTitle()}
             </h1>
 
-            {/* App Navigation */}
+            {/* Category Navigation */}
             <div className="flex items-center pr-1">
-              {state.isEditing && sortedItems.length > 1 && (
+              {state.isEditing && sortedCategories.length > 1 && (
                 <>
                   <span className="text-sm text-gray-500 dark:text-gray-400 mr-2">
-                    {state.currentAppIndex + 1} / {sortedItems.length}
+                    {state.currentCategoryIndex + 1} / {sortedCategories.length}
                   </span>
                   <button
                     className={`btn shadow-none p-1`}
                     title="Previous"
-                    onClick={handlePrevApp}
-                    disabled={state.currentAppIndex <= 0}
+                    onClick={() => {
+                      const prevIndex = state.currentCategoryIndex - 1;
+                      if (prevIndex >= 0) {
+                        navigate(
+                          `/admin/categories/${sortedCategories[prevIndex].id}`
+                        );
+                      }
+                    }}
+                    disabled={state.currentCategoryIndex <= 0}
                   >
                     <svg
                       className={`fill-current shrink-0 ${
-                        state.currentAppIndex <= 0
+                        state.currentCategoryIndex <= 0
                           ? "text-gray-200 dark:text-gray-700"
                           : "text-gray-400 dark:text-gray-500 hover:text-gray-500 dark:hover:text-gray-600"
                       }`}
@@ -701,12 +579,22 @@ function AppFormContainer() {
                   <button
                     className={`btn shadow-none p-1`}
                     title="Next"
-                    onClick={handleNextApp}
-                    disabled={state.currentAppIndex >= sortedItems.length - 1}
+                    onClick={() => {
+                      const nextIndex = state.currentCategoryIndex + 1;
+                      if (nextIndex < sortedCategories.length) {
+                        navigate(
+                          `/admin/categories/${sortedCategories[nextIndex].id}`
+                        );
+                      }
+                    }}
+                    disabled={
+                      state.currentCategoryIndex >= sortedCategories.length - 1
+                    }
                   >
                     <svg
                       className={`fill-current shrink-0 ${
-                        state.currentAppIndex >= sortedItems.length - 1
+                        state.currentCategoryIndex >=
+                        sortedCategories.length - 1
                           ? "text-gray-200 dark:text-gray-700"
                           : "text-gray-400 dark:text-gray-500 hover:text-gray-500 dark:hover:text-gray-600"
                       }`}
@@ -756,14 +644,14 @@ function AppFormContainer() {
           <form onSubmit={state.isEditing ? handleUpdate : handleSubmit}>
             {state.activeTab === 1 && (
               <div>
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                  {/* App Name */}
+                <div className="grid grid-cols-1 gap-6">
+                  {/* Category Name */}
                   <div>
                     <label
                       className="block text-sm font-medium mb-1"
                       htmlFor="name"
                     >
-                      {t("appName")} <span className="text-red-500">*</span>
+                      {t("name")} <span className="text-red-500">*</span>
                     </label>
                     <input
                       id="name"
@@ -775,158 +663,12 @@ function AppFormContainer() {
                       type="text"
                       value={state.formData.name}
                       onChange={handleChange}
-                      placeholder={t("appNamePlaceholder")}
+                      placeholder={t("categoryNamePlaceholder")}
                     />
                     {state.errors.name && (
                       <div className="mt-1 flex items-center text-sm text-red-500">
                         <AlertCircle className="h-4 w-4 mr-1" />
                         <span>{state.errors.name}</span>
-                      </div>
-                    )}
-                  </div>
-
-                  {/* Icon Selection (Replacing Category) */}
-                  <div>
-                    <label
-                      className="block text-sm font-medium mb-1"
-                      htmlFor="selectedIcon"
-                    >
-                      {t("icon")} <span className="text-red-500">*</span>
-                    </label>
-                    <div className="flex items-center space-x-3">
-                      {/* Icon Dropdown */}
-                      <select
-                        id="icon"
-                        className={`form-select flex-1 ${
-                          state.errors.icon
-                            ? "border-red-300 focus:border-red-500 focus:ring-red-500"
-                            : ""
-                        }`}
-                        value={state.formData.icon}
-                        onChange={handleIconSelection}
-                      >
-                        <option value="">{t("selectAnIcon")}</option>
-                        {icons.map((icon, index) => (
-                          <option key={index} value={index}>
-                            {icon.label}
-                          </option>
-                        ))}
-                      </select>
-
-                      {/* Icon Preview */}
-                      <div className="h-10 w-10 min-w-10 flex items-center justify-center rounded-md bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-600">
-                        {state.formData.icon ? (
-                          <svg
-                            xmlns="http://www.w3.org/2000/svg"
-                            viewBox="0 0 24 24"
-                            fill="none"
-                            stroke="currentColor"
-                            strokeWidth="2"
-                            strokeLinecap="round"
-                            strokeLinejoin="round"
-                            className="w-6 h-6 text-gray-600 dark:text-gray-300"
-                          >
-                            <path d={icons[state.formData.icon].svgPath} />
-                          </svg>
-                        ) : (
-                          <span className="text-gray-400 dark:text-gray-500 text-xs text-center">
-                            {t("noIcon")}
-                          </span>
-                        )}
-                      </div>
-                    </div>
-                    {state.errors.icon && (
-                      <div className="mt-1 flex items-center text-sm text-red-500">
-                        <AlertCircle className="h-4 w-4 mr-1" />
-                        <span>{state.errors.icon}</span>
-                      </div>
-                    )}
-                  </div>
-
-                  {/* URL */}
-                  <div>
-                    <label
-                      className="block text-sm font-medium mb-1"
-                      htmlFor="url"
-                    >
-                      {t("appURL")} <span className="text-red-500">*</span>
-                    </label>
-                    <input
-                      id="url"
-                      className={`form-input w-full ${
-                        state.errors.url
-                          ? "border-red-300 focus:border-red-500 focus:ring-red-500"
-                          : ""
-                      }`}
-                      type="text"
-                      value={state.formData.url}
-                      onChange={handleChange}
-                      placeholder="/url"
-                    />
-                    {state.errors.url && (
-                      <div className="mt-1 flex items-center text-sm text-red-500">
-                        <AlertCircle className="h-4 w-4 mr-1" />
-                        <span>{state.errors.url}</span>
-                      </div>
-                    )}
-                  </div>
-
-                  {/* Category */}
-                  <div>
-                    <label
-                      className="block text-sm font-medium mb-1"
-                      htmlFor="category"
-                    >
-                      {t("category")} <span className="text-red-500">*</span>
-                    </label>
-                    <select
-                      id="category"
-                      className={`form-select w-full ${
-                        state.errors.category
-                          ? "border-red-300 focus:border-red-500 focus:ring-red-500"
-                          : ""
-                      }`}
-                      value={state.formData.category}
-                      onChange={handleChange}
-                    >
-                      <option value="">{t("selectACategory")}</option>
-                      {categories.map((category) => (
-                        <option key={category.id} value={category.id}>
-                          {category.name}
-                        </option>
-                      ))}
-                    </select>
-                    {state.errors.category && (
-                      <div className="mt-1 flex items-center text-sm text-red-500">
-                        <AlertCircle className="h-4 w-4 mr-1" />
-                        <span>{state.errors.category}</span>
-                      </div>
-                    )}
-                  </div>
-
-                  {/* Description - Full width */}
-                  <div className="md:col-span-2">
-                    <label
-                      className="block text-sm font-medium mb-1"
-                      htmlFor="description"
-                    >
-                      {t("description")} <span className="text-red-500">*</span>
-                    </label>
-                    <textarea
-                      id="description"
-                      className={`form-textarea w-full h-24 ${
-                        state.errors.description
-                          ? "border-red-300 focus:border-red-500 focus:ring-red-500"
-                          : ""
-                      }`}
-                      value={state.formData.description}
-                      onChange={handleChange}
-                      placeholder={t("appDescriptionPlaceholder")}
-                    />
-                    {state.errors.description && (
-                      <div className="mt-1 flex items-center text-sm text-red-500">
-                        <AlertCircle className="h-4 w-4 mr-1" />
-                        <span>{state.errors.description}</span>
                       </div>
                     )}
                   </div>
@@ -986,4 +728,4 @@ function AppFormContainer() {
   );
 }
 
-export default AppFormContainer;
+export default CategoryFormContainer;

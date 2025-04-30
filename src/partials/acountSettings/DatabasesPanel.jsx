@@ -2,8 +2,10 @@ import React, {useContext, useState} from "react";
 import {useTranslation} from "react-i18next";
 import {useNavigate} from "react-router-dom";
 import UserContext from "../../context/AppContext";
+import AuthContext from "../../context/AuthContext";
 
-function DatabasesPanel({currentUser}) {
+function DatabasesPanel() {
+  const {currentUser} = useContext(AuthContext);
   const [comments, setComments] = useState(true);
   const [messages, setMessages] = useState(true);
   const [mentions, setMentions] = useState(false);
@@ -19,7 +21,6 @@ function DatabasesPanel({currentUser}) {
     navigate(`/${db.name}`);
   }
 
-  console.log("currentUser on DatabasesPanel.jsx: ", currentUser);
   return (
     <div className="grow">
       {/* Panel body */}
