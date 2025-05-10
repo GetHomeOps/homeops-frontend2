@@ -38,6 +38,7 @@ function DropdownFilter({align, onDelete, onDuplicate}) {
 
   function handleDelete(e) {
     e.stopPropagation();
+    setDropdownOpen(false);
     onDelete();
   }
 

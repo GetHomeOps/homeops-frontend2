@@ -7,6 +7,7 @@ import Banner from "../../../partials/containers/Banner";
 import ModalBlank from "../../../components/ModalBlank";
 import {useTranslation} from "react-i18next";
 import DropdownFilter from "../../../components/DropdownFilter";
+import {useAutoCloseBanner} from "../../../hooks/useAutoCloseBanner";
 
 const initialFormData = {
   name: "",
@@ -148,22 +149,17 @@ function AppFormContainer() {
     fetchApp();
   }, [id, apps, viewMode]);
 
-  // Show banner and handle timeout
-  useEffect(() => {
-    if (state.bannerOpen && state.bannerMessage) {
-      const timer = setTimeout(() => {
-        dispatch({
-          type: "SET_BANNER",
-          payload: {
-            open: false,
-            type: state.bannerType,
-            message: state.bannerMessage,
-          },
-        });
-      }, 2500);
-      return () => clearTimeout(timer);
-    }
-  }, [state.bannerOpen, state.bannerMessage]);
+  // Replace the banner timeout useEffect with the custom hook
+  useAutoCloseBanner(state.bannerOpen, state.bannerMessage, () =>
+    dispatch({
+      type: "SET_BANNER",
+      payload: {
+        open: false,
+        type: state.bannerType,
+        message: state.bannerMessage,
+      },
+    })
+  );
 
   // Populate form data when in edit mode
   useEffect(() => {
@@ -248,7 +244,7 @@ function AppFormContainer() {
         onCreate(res);
 
         // Navigate to the new app
-        navigate(`/admin/apps/${res.id}${viewMode ? `?view=${viewMode}` : ""}`);
+        navigate(`/admin/apps/${res.id}`);
 
         // Show success banner
         dispatch({
@@ -356,7 +352,7 @@ function AppFormContainer() {
 
   /* Navigates to previous page */
   function handleBackClick() {
-    navigate(`/admin/apps${viewMode ? `?view=${viewMode}` : ""}`);
+    navigate(`/admin/apps`);
   }
 
   /* If editing an app -> return the app's name
@@ -388,7 +384,6 @@ function AppFormContainer() {
   /* Handles delete button */
   function handleDelete() {
     dispatch({type: "SET_DANGER_MODAL", payload: true});
-    // Close dropdown if it's open
   }
 
   /* Handles delete confirmation on modal */
@@ -397,30 +392,22 @@ function AppFormContainer() {
       // Close modal immediately when Accept is clicked
       dispatch({type: "SET_DANGER_MODAL", payload: false});
 
-      // Find the current app index in the sorted items
-      const appIndex = sortedItems.findIndex((app) => app.id === Number(id));
+      // Find the current app index in the apps list
+      const appIndex = apps.findIndex((app) => app.id === Number(id));
 
       // Delete the app
       await deleteApp(id);
 
       // Navigate based on remaining apps
-      if (sortedItems.length <= 1) {
+      if (apps.length <= 1) {
         // If this was the last app, go to apps list
-        navigate(`/admin/apps${viewMode ? `?view=${viewMode}` : ""}`);
-      } else if (appIndex === sortedItems.length - 1) {
+        navigate(`/admin/apps`);
+      } else if (appIndex === apps.length - 1) {
         // If this was the last app in the list, go to previous app
-        navigate(
-          `/admin/apps/${sortedItems[appIndex - 1].id}${
-            viewMode ? `?view=${viewMode}` : ""
-          }`
-        );
+        navigate(`/admin/apps/${apps[appIndex - 1].id}`);
       } else {
         // Otherwise go to next app
-        navigate(
-          `/admin/apps/${sortedItems[appIndex + 1].id}${
-            viewMode ? `?view=${viewMode}` : ""
-          }`
-        );
+        navigate(`/admin/apps/${apps[appIndex + 1].id}`);
       }
 
       // Then show banner
@@ -450,12 +437,6 @@ function AppFormContainer() {
   async function handleDuplicateApp() {
     if (!state.appToEdit) return;
 
-    // Close dropdown if it's open
-    const dropdown = document.querySelector('[data-dropdown-open="true"]');
-    if (dropdown) {
-      dropdown.click();
-    }
-
     dispatch({type: "SET_SUBMITTING", payload: true});
 
     try {
@@ -463,7 +444,7 @@ function AppFormContainer() {
 
       if (res && res.id) {
         // Navigate first
-        navigate(`/admin/apps/${res.id}${viewMode ? `?view=${viewMode}` : ""}`);
+        navigate(`/admin/apps/${res.id}`);
 
         // Then show banner
         setTimeout(() => {
@@ -497,25 +478,21 @@ function AppFormContainer() {
       // Use the visible apps order from location state
       const prevIndex = location.state.currentIndex - 2; // Convert to 0-based index
       const prevAppId = location.state.visibleAppIds[prevIndex];
-      navigate(
-        `/admin/apps/${prevAppId}${viewMode ? `?view=${viewMode}` : ""}`,
-        {
-          state: {
-            ...location.state,
-            currentIndex: location.state.currentIndex - 1,
-          },
-        }
-      );
+      navigate(`/admin/apps/${prevAppId}`, {
+        state: {
+          ...location.state,
+          currentIndex: location.state.currentIndex - 1,
+        },
+      });
     } else if (state.currentAppIndex > 0) {
       // Fall back to current view's app list
       const currentViewApps = getCurrentViewApps();
       const prevApp = currentViewApps[state.currentAppIndex - 1];
-      navigate(
-        `/admin/apps/${prevApp.id}${viewMode ? `?view=${viewMode}` : ""}`
-      );
+      navigate(`/admin/apps/${prevApp.id}`);
     }
   };
 
+  /*  */
   const handleNextApp = () => {
     if (
       location.state?.visibleAppIds &&
@@ -524,22 +501,17 @@ function AppFormContainer() {
       // Use the visible apps order from location state
       const nextIndex = location.state.currentIndex; // Already 0-based index for next item
       const nextAppId = location.state.visibleAppIds[nextIndex];
-      navigate(
-        `/admin/apps/${nextAppId}${viewMode ? `?view=${viewMode}` : ""}`,
-        {
-          state: {
-            ...location.state,
-            currentIndex: location.state.currentIndex + 1,
-          },
-        }
-      );
+      navigate(`/admin/apps/${nextAppId}`, {
+        state: {
+          ...location.state,
+          currentIndex: location.state.currentIndex + 1,
+        },
+      });
     } else if (state.currentAppIndex < getCurrentViewApps().length - 1) {
       // Fall back to current view's app list
       const currentViewApps = getCurrentViewApps();
       const nextApp = currentViewApps[state.currentAppIndex + 1];
-      navigate(
-        `/admin/apps/${nextApp.id}${viewMode ? `?view=${viewMode}` : ""}`
-      );
+      navigate(`/admin/apps/${nextApp.id}`);
     }
   };
 
@@ -673,20 +645,20 @@ function AppFormContainer() {
 
             {/* App Navigation */}
             <div className="flex items-center pr-1">
-              {state.isEditing && sortedItems.length > 1 && (
+              {state.isEditing && location.state?.totalItems > 1 && (
                 <>
                   <span className="text-sm text-gray-500 dark:text-gray-400 mr-2">
-                    {state.currentAppIndex + 1} / {sortedItems.length}
+                    {location.state.currentIndex} / {location.state.totalItems}
                   </span>
                   <button
                     className={`btn shadow-none p-1`}
                     title="Previous"
                     onClick={handlePrevApp}
-                    disabled={state.currentAppIndex <= 0}
+                    disabled={location.state.currentIndex <= 1}
                   >
                     <svg
                       className={`fill-current shrink-0 ${
-                        state.currentAppIndex <= 0
+                        location.state.currentIndex <= 1
                           ? "text-gray-200 dark:text-gray-700"
                           : "text-gray-400 dark:text-gray-500 hover:text-gray-500 dark:hover:text-gray-600"
                       }`}
@@ -702,11 +674,13 @@ function AppFormContainer() {
                     className={`btn shadow-none p-1`}
                     title="Next"
                     onClick={handleNextApp}
-                    disabled={state.currentAppIndex >= sortedItems.length - 1}
+                    disabled={
+                      location.state.currentIndex >= location.state.totalItems
+                    }
                   >
                     <svg
                       className={`fill-current shrink-0 ${
-                        state.currentAppIndex >= sortedItems.length - 1
+                        location.state.currentIndex >= location.state.totalItems
                           ? "text-gray-200 dark:text-gray-700"
                           : "text-gray-400 dark:text-gray-500 hover:text-gray-500 dark:hover:text-gray-600"
                       }`}

@@ -218,11 +218,62 @@ function Sidebar({sidebarOpen, setSidebarOpen, variant = "default"}) {
             </ul>
           </div>
 
-          {/* --------- */}
-
-          {/* App Management */}
-
-          {/* -------- */}
+          {/* Apps group */}
+          <div>
+            <h3 className="text-xs uppercase text-gray-400 dark:text-gray-500 font-semibold pl-3">
+              <span
+                className="hidden lg:block lg:sidebar-expanded:hidden 2xl:hidden text-center w-6"
+                aria-hidden="true"
+              >
+                •••
+              </span>
+              <span className="lg:hidden lg:sidebar-expanded:block 2xl:block">
+                Apps
+              </span>
+            </h3>
+            <ul className="mt-3">
+              <li className="mb-1 last:mb-0">
+                <NavLink
+                  end
+                  to="/contacts"
+                  className={({isActive}) =>
+                    "block text-gray-800 dark:text-gray-100 truncate transition duration-150 pl-3 " +
+                    (isActive || pathname.includes("contacts")
+                      ? "text-violet-500"
+                      : "hover:text-gray-900 dark:hover:text-white")
+                  }
+                >
+                  <div className="flex items-center">
+                    <svg
+                      className={`shrink-0 fill-current ${
+                        pathname.includes("contacts")
+                          ? "text-violet-500"
+                          : "text-gray-400 dark:text-gray-500"
+                      }`}
+                      xmlns="http://www.w3.org/2000/svg"
+                      width="16"
+                      height="16"
+                      viewBox="0 0 24 24"
+                      fill="none"
+                      stroke="currentColor"
+                      strokeWidth="2"
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                    >
+                      <path stroke="none" d="M0 0h24v24H0z" fill="none" />
+                      <path d="M9 7m-4 0a4 4 0 1 0 8 0a4 4 0 1 0 -8 0" />
+                      <path d="M3 21v-2a4 4 0 0 1 4 -4h4a4 4 0 0 1 4 4v2" />
+                      <path d="M16 3.13a4 4 0 0 1 0 7.75" />
+                      <path d="M21 21v-2a4 4 0 0 0 -3 -3.85" />
+                    </svg>
+                    <span className="text-sm font-medium ml-4 lg:opacity-0 lg:sidebar-expanded:opacity-100 2xl:opacity-100 duration-200">
+                      Contacts
+                    </span>
+                  </div>
+                </NavLink>
+              </li>
+            </ul>
+          </div>
 
           {/* Pages group */}
           <div>

@@ -3,6 +3,7 @@ import {useLocation} from "react-router-dom";
 import RoutesList from "./pages/routes-nav/RoutesList";
 import {AuthProvider} from "./context/AuthContext";
 import {AppProvider} from "./context/AppContext";
+import {ContactProvider} from "./context/ContactContext";
 
 import "./css/style.css";
 
@@ -18,7 +19,9 @@ function App() {
   return (
     <AuthProvider>
       <AppProvider>
-        <RoutesList />
+        <ContactProvider>
+          <RoutesList />
+        </ContactProvider>
       </AppProvider>
     </AuthProvider>
   );

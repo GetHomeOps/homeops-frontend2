@@ -15,6 +15,8 @@ import App from "../adminSettings/Apps/App";
 import CategoriesList from "../adminSettings/Categories/CategoriesList";
 import Category from "../adminSettings/Categories/Category";
 import AuthContext from "../../context/AuthContext";
+import ContactList from "../contacts/contactsList";
+import Contact from "../contacts/Contact";
 
 function RoutesList() {
   const {currentUser, isLoading} = useContext(AuthContext);
@@ -43,6 +45,9 @@ function RoutesList() {
       <Route path="/admin/categories" element={<CategoriesList />} />
       <Route path="/admin/categories/new" element={<Category />} />
       <Route path="/admin/categories/:id" element={<Category />} />
+      <Route path="/contacts" element={<ContactList />} />
+      <Route path="/contacts/new" element={<Contact />} />
+      <Route path="/contacts/:id" element={<Contact />} />
     </>
   );
 

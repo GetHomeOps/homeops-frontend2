@@ -118,6 +118,8 @@ export function AuthProvider({children}) {
       "expanded-categories", // Expanded categories state
       "apps-list-sort", // List view sorting
       "apps-group-sort", // Group view sorting
+      "contacts_list_page", // Contacts list page state
+      "categories_list_page", // Categories list page state
     ];
 
     keysToRemove.forEach((key) => localStorage.removeItem(key));

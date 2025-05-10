@@ -5,7 +5,7 @@ import useUniqueIdentifiers from "../../../hooks/useUniqueIdentifiers.jsx";
 import Sidebar from "../../../partials/Sidebar";
 import Header from "../../../partials/Header";
 import CategoriesTable from "../../../partials/categories/CategoriesTable";
-import DropdownButton from "../ListDropdown";
+import DropdownButton from "../../../partials/buttons/ListDropdown";
 import PaginationClassic from "../../../components/PaginationClassic";
 import appContext from "../../../context/AppContext";
 import ModalBlank from "../../../components/ModalBlank";

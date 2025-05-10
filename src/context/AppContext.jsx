@@ -14,18 +14,6 @@ import useUniqueIdentifiers from "../hooks/useUniqueIdentifiers.jsx";
 
 const AppContext = createContext();
 
-// Categories for the dropdown
-const CATEGORIES = [
-  {id: 1, name: "Inventory"},
-  {id: 2, name: "Productivity"},
-];
-
-// Get category name from ID
-const getCategoryName = (categoryId) => {
-  const category = CATEGORIES.find((cat) => cat.id === Number(categoryId));
-  return category ? category.name : "";
-};
-
 export function useApp() {
   const context = useContext(AppContext);
   if (!context) {
@@ -48,11 +36,22 @@ export function AppProvider({children}) {
     []
   );
 
+  // Get category name from ID
+  const getCategoryName = (categoryId) => {
+    const category = categories.find((cat) => cat.id === Number(categoryId));
+    return category ? category.name : "";
+  };
+
   // Add sorting logic for list view
   const customListComparators = {
+    name: (a, b, direction) => {
+      return direction === "asc"
+        ? a.name.toLowerCase().localeCompare(b.name.toLowerCase())
+        : b.name.toLowerCase().localeCompare(a.name.toLowerCase());
+    },
     category: (a, b, direction) => {
-      const categoryA = getCategoryName(a.category).toLowerCase();
-      const categoryB = getCategoryName(b.category).toLowerCase();
+      const categoryA = getCategoryName(a.category_id).toLowerCase();
+      const categoryB = getCategoryName(b.category_id).toLowerCase();
       return direction === "asc"
         ? categoryA.localeCompare(categoryB)
         : categoryB.localeCompare(categoryA);
@@ -61,14 +60,11 @@ export function AppProvider({children}) {
 
   // Add sorting logic for group view
   const customGroupComparators = {
-    category: (a, b, direction) => {
+    name: (a, b, direction) => {
+      // First sort by category name
       const categoryA = getCategoryName(a.category_id).toLowerCase();
       const categoryB = getCategoryName(b.category_id).toLowerCase();
-      // First sort by category
-      const categoryCompare =
-        direction === "asc"
-          ? categoryA.localeCompare(categoryB)
-          : categoryB.localeCompare(categoryA);
+      const categoryCompare = categoryA.localeCompare(categoryB);
 
       // If same category, sort by name
       if (categoryCompare === 0) {
@@ -93,16 +89,24 @@ export function AppProvider({children}) {
     sortedItems: groupSortedItems,
     sortConfig: groupSortConfig,
     handleSort: handleGroupSort,
-  } = useTableSort(apps, "category", false, {
+  } = useTableSort(apps, "name", false, {
     storageKey: "apps-group-sort",
     customComparators: customGroupComparators,
   });
 
-  // Memoize the grouped apps list
+  // Memoize the grouped apps list with proper ordering
   const groupedAppsList = useMemo(() => {
-    if (viewMode !== "group") return [];
+    // Always return an array, even if empty
+    if (!groupSortedItems || groupSortedItems.length === 0) return [];
 
-    // Group apps by category name instead of category_id
+    // First sort categories alphabetically
+    const sortedCategories = [
+      ...new Set(
+        groupSortedItems.map((app) => getCategoryName(app.category_id))
+      ),
+    ].sort((a, b) => a.toLowerCase().localeCompare(b.toLowerCase()));
+
+    // Group apps by category name
     const groupedByCategory = groupSortedItems.reduce((acc, app) => {
       const categoryName = getCategoryName(app.category_id);
       if (!acc[categoryName]) {
@@ -112,35 +116,38 @@ export function AppProvider({children}) {
       return acc;
     }, {});
 
-    // Sort categories by name and flatten
-    return Object.entries(groupedByCategory)
-      .sort(([categoryNameA, appsA], [categoryNameB, appsB]) => {
-        return categoryNameA
-          .toLowerCase()
-          .localeCompare(categoryNameB.toLowerCase());
-      })
-      .flatMap(([categoryName, apps]) => {
-        if (expandedCategories.includes(categoryName)) {
-          return apps;
-        }
-        return [];
-      });
-  }, [viewMode, groupSortedItems, expandedCategories]);
+    // Sort apps within each category by name
+    Object.keys(groupedByCategory).forEach((categoryName) => {
+      groupedByCategory[categoryName].sort((a, b) =>
+        a.name.toLowerCase().localeCompare(b.name.toLowerCase())
+      );
+    });
 
-  // Get the current sorted items based on view mode
-  const currentSortedItems = useMemo(() => {
+    // Return apps in the correct order based on sorted categories
+    return sortedCategories
+      .filter((categoryName) => expandedCategories.includes(categoryName))
+      .flatMap((categoryName) => groupedByCategory[categoryName] || []);
+  }, [groupSortedItems, expandedCategories]);
+
+  // Get the current view's apps based on view mode
+  const currentViewApps = useMemo(() => {
     return viewMode === "list" ? listSortedItems : groupedAppsList;
   }, [viewMode, listSortedItems, groupedAppsList]);
 
-  const currentSortConfig =
-    viewMode === "list" ? listSortConfig : groupSortConfig;
-  const currentHandleSort =
-    viewMode === "list" ? handleListSort : handleGroupSort;
-
   // Function to get the current view's app list
   const getCurrentViewApps = useCallback(() => {
-    return currentSortedItems;
-  }, [currentSortedItems]);
+    return currentViewApps;
+  }, [currentViewApps]);
+
+  // Function to get the list view apps
+  const getListViewApps = useCallback(() => {
+    return listSortedItems;
+  }, [listSortedItems]);
+
+  // Function to get the group view apps
+  const getGroupViewApps = useCallback(() => {
+    return groupedAppsList;
+  }, [groupedAppsList]);
 
   // Add sorting logic for categories
   const customCategoryComparators = {
@@ -160,25 +167,24 @@ export function AppProvider({children}) {
     customComparators: customCategoryComparators,
   });
 
+  const useUniqueIdentifiersForType = (items, type) => {
+    return useUniqueIdentifiers({
+      items,
+      nameKey: "name",
+      urlKey: "url",
+      itemType: type,
+    });
+  };
+
   const {
     generateUniqueName: generateUniqueAppName,
     generateUniqueUrl: generateUniqueAppUrl,
-  } = useUniqueIdentifiers({
-    items: apps,
-    nameKey: "name",
-    urlKey: "url",
-    itemType: "app",
-  });
+  } = useUniqueIdentifiersForType(apps, "app");
 
   const {
     generateUniqueName: generateUniqueCategoryName,
     generateUniqueUrl: generateUniqueCategoryUrl,
-  } = useUniqueIdentifiers({
-    items: categories,
-    nameKey: "name",
-    urlKey: "url",
-    itemType: "category",
-  });
+  } = useUniqueIdentifiersForType(categories, "category");
 
   /* Helper function to check if a URL is unique considering both existing and new URLs */
   const isUrlUnique = (url, existingAndNewUrls = []) => {
@@ -496,43 +502,50 @@ export function AppProvider({children}) {
     }
   };
 
-  console.log("groupedAppsList: ", groupedAppsList);
-
   return (
     <AppContext.Provider
       value={{
-        currentDb,
-        setSelectedDb,
-        databaseApps,
         apps,
+        bulkDuplicateApps,
         categories,
+        categorySortConfig,
         createApp,
         createCategory,
-        updateApp,
-        updateCategory,
+        currentDb,
+        currentViewApps,
+        databaseApps,
         deleteApp,
         deleteCategory,
-        viewMode,
-        setViewMode,
+        duplicateApp,
         expandedCategories,
-        setExpandedCategories,
-        selectedItems,
-        selectedCategories,
-        handleToggleSelection,
-        handleCategoryToggleSelection,
-        sortedItems: currentSortedItems,
-        sortedCategories,
-        sortConfig: currentSortConfig,
-        categorySortConfig,
-        handleSort: currentHandleSort,
-        handleCategorySort,
         generateUniqueAppName,
         generateUniqueAppUrl,
         generateUniqueCategoryName,
         generateUniqueCategoryUrl,
-        duplicateApp,
-        bulkDuplicateApps,
         getCurrentViewApps,
+        getGroupViewApps,
+        getListViewApps,
+        groupSortConfig,
+        groupedAppsList: groupedAppsList || [],
+        handleCategorySort,
+        handleCategoryToggleSelection,
+        handleGroupSort,
+        handleListSort,
+        handleSort: handleListSort,
+        handleToggleSelection,
+        listSortConfig,
+        listSortedItems: listSortedItems || [],
+        selectedCategories,
+        selectedItems,
+        setExpandedCategories,
+        setSelectedDb,
+        setViewMode,
+        sortConfig: listSortConfig,
+        sortedCategories,
+        sortedItems: currentViewApps,
+        updateApp,
+        updateCategory,
+        viewMode,
       }}
     >
       {children}

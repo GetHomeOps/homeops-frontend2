@@ -140,6 +140,62 @@ class AppApi {
     return res;
   }
 
+  /* --------- Contacts --------- */
+
+  /* Get all contacts */
+  static async getAllContacts() {
+    try {
+      let res = await this.request(`contacts/`);
+      console.log("API: Raw response:", res);
+      return res.contacts;
+    } catch (error) {
+      console.error("API: Error in getAllContacts:", error);
+      return [];
+    }
+  }
+
+  /* Get all contacts by database ID */
+  static async getContactsByDbId(dbId) {
+    let res = await this.request(`contacts/db/${dbId}`);
+    return res.contacts;
+  }
+
+  /* Get a contact by ID */
+  static async getContact(id) {
+    let res = await this.request(`contacts/${id}`);
+    return res.contact;
+  }
+
+  /* Update an existing contact */
+  static async updateContact(id, data) {
+    let res = await this.request(`contacts/${id}`, data, 'PATCH');
+    return res.contact;
+  }
+
+  /* Delete a contact */
+  static async deleteContact(id) {
+    let res = await this.request(`contacts/${id}`, {}, 'DELETE');
+    return res;
+  }
+
+  /* Create a new contact */
+  static async createContact(data) {
+    try {
+      console.log("Creating contact with data:", data);
+      let res = await this.request(`contacts`, data, 'POST');
+      console.log("Create contact response:", res);
+
+      if (!res || !res.contact) {
+        console.error("Invalid response format:", res);
+        throw new Error("Invalid response from server");
+      }
+      return res.contact;
+    } catch (error) {
+      console.error("Error in createContact:", error);
+      throw error;
+    }
+  }
+
 }
 
 export default AppApi;

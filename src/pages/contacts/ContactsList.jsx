@@ -1,20 +1,27 @@
-import React, {useReducer, useEffect, useContext, useMemo} from "react";
+import React, {
+  useState,
+  useEffect,
+  useContext,
+  useReducer,
+  useMemo,
+} from "react";
 import {useNavigate, useLocation} from "react-router-dom";
-
-import Sidebar from "../../../partials/Sidebar";
-import Header from "../../../partials/Header";
-import DropdownButton from "../../../partials/buttons/ListDropdown";
-import PaginationClassic from "../../../components/PaginationClassic";
-import AppsTable from "../../../partials/apps/AppsTable";
-import appContext from "../../../context/AppContext";
-import CollapsibleAppsTable from "../../../partials/apps/CollapsibleAppsTable";
-import ModalBlank from "../../../components/ModalBlank";
-import Banner from "../../../partials/containers/Banner";
-import ViewModeDropdown from "../../../components/ViewModeDropdown";
 
 import {useTranslation} from "react-i18next";
 
-const PAGE_STORAGE_KEY = "apps_list_page";
+import Sidebar from "../../partials/Sidebar";
+import Header from "../../partials/Header";
+import PaginationClassic from "../../components/PaginationClassic";
+import contactContext from "../../context/ContactContext";
+import ModalBlank from "../../components/ModalBlank";
+import Banner from "../../partials/containers/Banner";
+import ViewModeDropdown from "../../components/ViewModeDropdown";
+import ContactsTable from "./ContactsTable";
+import ListDropdown from "../../partials/buttons/ListDropdown";
+import {list} from "postcss";
+// import CollapsibleContactsTable from "./CollapsibleContactsTable";
+
+const PAGE_STORAGE_KEY = "contacts_list_page";
 
 const initialState = {
   currentPage: 1,
@@ -25,7 +32,7 @@ const initialState = {
   bannerOpen: false,
   bannerType: "success",
   bannerMessage: "",
-  filteredApps: [],
+  filteredContacts: [],
   sidebarOpen: false,
 };
 
@@ -48,10 +55,10 @@ function reducer(state, action) {
         bannerType: action.payload.type,
         bannerMessage: action.payload.message,
       };
-    case "SET_FILTERED_APPS":
+    case "SET_FILTERED_CONTACTS":
       return {
         ...state,
-        filteredApps: action.payload,
+        filteredContacts: action.payload,
       };
     case "SET_SIDEBAR_OPEN":
       return {...state, sidebarOpen: action.payload};
@@ -60,197 +67,184 @@ function reducer(state, action) {
   }
 }
 
-/*
-List of Apps + Create new App button
+/* List of Contacts + Create new Contact button
 
 Props:
 
 State:
-- filteredApps:
-- currentPage:
-- itemsPerPage:
-- searchTerm:
-- isSubmitting:
-- dangerModalOpen:
-- bannerOpen:
+- filteredContacts: filtered list of contacts by search term (on search bar)
+- currentPage: current page number
+- itemsPerPage: number of items per page
+- searchTerm: search term
+- isSubmitting: whether the form is being submitted
+- dangerModalOpen: whether the danger modal is open
+- sidebarOpen: whether the sidebar is open
 
-Appslist -> AppsTable, CollapsibleAppsTable
+ContactsList -> ContactsTable, PaginationClassic
 
 */
-function AppsList() {
+function ContactsList() {
   const {
-    apps,
-    deleteApp,
+    contacts,
+    selectedItems,
+    handleToggleSelection,
+    setSelectedItems,
+    deleteContact,
+    bulkDuplicateContacts,
+    sortedContacts,
     viewMode,
     setViewMode,
     expandedCategories,
     setExpandedCategories,
-    selectedItems,
-    handleToggleSelection,
-    bulkDuplicateApps,
-    categories,
     listSortedItems,
     groupSortedItems,
-  } = useContext(appContext);
+    sortConfig,
+    handleSort,
+  } = useContext(contactContext);
 
   // Set up component's initial state
   const [state, dispatch] = useReducer(reducer, {
     ...initialState,
-    currentPage: localStorage.getItem(PAGE_STORAGE_KEY)
-      ? Number(localStorage.getItem(PAGE_STORAGE_KEY))
-      : 1,
+    currentPage: Number(localStorage.getItem(PAGE_STORAGE_KEY)) || 1,
   });
+
   const navigate = useNavigate();
   const {t, i18n} = useTranslation();
 
-  // Initialize appsList when apps change
+  // Initialize ContactsList when contacts change
   useEffect(() => {
-    if (apps && apps.length > 0) {
-      dispatch({type: "SET_FILTERED_APPS", payload: apps});
+    if (contacts && contacts.length > 0) {
+      dispatch({type: "SET_FILTERED_CONTACTS", payload: contacts});
     }
-  }, [apps]);
+  }, [contacts]);
 
   // Update localStorage when page changes
   useEffect(() => {
-    localStorage.setItem(PAGE_STORAGE_KEY, state.currentPage);
+    if (state.currentPage) {
+      localStorage.setItem(PAGE_STORAGE_KEY, state.currentPage);
+    }
   }, [state.currentPage]);
 
-  // Handle navigation to app details
-  const handleAppClick = (appId) => {
-    const app = apps.find((a) => a.id === appId);
-    if (!app) return;
+  // Handle navigation to contact details
+  const handleContactClick = (contactId) => {
+    const contact = contacts.find((c) => c.id === contactId);
+    if (!contact) return;
 
     let currentIndex;
     let totalItems;
-    let visibleAppIds;
+    let visibleContactIds;
 
     if (viewMode === "list") {
-      currentIndex = listSortedItems.findIndex((a) => a.id === appId) + 1;
-      totalItems = listSortedItems.length;
-      visibleAppIds = listSortedItems.map((a) => a.id);
+      currentIndex =
+        state.filteredContacts.findIndex((c) => c.id === contactId) + 1;
+      totalItems = state.filteredContacts.length;
+      visibleContactIds = state.filteredContacts.map((c) => c.id);
     } else {
-      // For group view, we need to maintain the order of apps as they appear in the UI
-      const sortedVisibleApps = Object.entries(groupedItems)
-        .sort(([categoryIdA], [categoryIdB]) => {
-          const categoryNameA = getCategoryName(
-            categoryIdA,
-            categories
-          ).toLowerCase();
-          const categoryNameB = getCategoryName(
-            categoryIdB,
-            categories
-          ).toLowerCase();
-          return categoryNameA.localeCompare(categoryNameB);
+      // For group view, we need to maintain the order of contacts as they appear in the UI
+      const sortedVisibleContacts = Object.entries(groupedItems)
+        .sort(([typeA], [typeB]) => {
+          return typeA.localeCompare(typeB);
         })
-        .reduce((acc, [categoryId, apps]) => {
-          if (
-            expandedCategories.includes(getCategoryName(categoryId, categories))
-          ) {
-            // Sort apps within each category by name
-            const sortedApps = [...apps].sort((a, b) =>
+        .reduce((acc, [type, contacts]) => {
+          if (expandedCategories.includes(type)) {
+            // Sort contacts within each type by name
+            const sortedContacts = [...contacts].sort((a, b) =>
               a.name.toLowerCase().localeCompare(b.name.toLowerCase())
             );
-            return [...acc, ...sortedApps];
+            return [...acc, ...sortedContacts];
           }
           return acc;
         }, []);
 
       // Reverse the array to match the visual order
-      const reversedApps = [...sortedVisibleApps].reverse();
-      currentIndex = reversedApps.findIndex((a) => a.id === appId) + 1;
-      totalItems = reversedApps.length;
-      visibleAppIds = reversedApps.map((a) => a.id);
+      const reversedContacts = [...sortedVisibleContacts].reverse();
+      currentIndex = reversedContacts.findIndex((c) => c.id === contactId) + 1;
+      totalItems = reversedContacts.length;
+      visibleContactIds = reversedContacts.map((c) => c.id);
     }
 
-    navigate(`/admin/apps/${appId}`, {
+    navigate(`/contacts/${contactId}`, {
       state: {
         currentIndex,
         totalItems,
-        visibleAppIds,
+        visibleContactIds,
       },
     });
   };
 
-  // Handle navigation to new app form
-  const handleNewApp = () => {
-    navigate(`/admin/apps/new`);
+  // Handle navigation to new contact form
+  const handleNewContact = () => {
+    navigate(`/contacts/new`);
   };
 
-  // Get category name from ID
-  const getCategoryName = (categoryId) => {
-    const category = categories.find((cat) => cat.id === Number(categoryId));
-    return category ? category.name : "";
-  };
+  // Memoize filtered contacts based on search term
+  const filteredContacts = useMemo(() => {
+    if (!contacts || contacts.length === 0) return [];
 
-  // Memoize filtered apps based on search term
-  const filteredApps = useMemo(() => {
-    if (!apps || apps.length === 0) return [];
+    // Get the appropriate sorted items based on view mode
+    const sortedItems =
+      viewMode === "list" ? listSortedItems : groupSortedItems;
+    if (!sortedItems || sortedItems.length === 0) return [];
 
-    // If no search term, return all apps
-    if (!state.searchTerm) return apps;
+    // If no search term, return all sorted items
+    if (!state.searchTerm) return sortedItems;
 
-    // Filter the apps based on search term
+    // Filter the sorted items based on search term
     const searchLower = state.searchTerm.toLowerCase();
-    const filtered = apps.filter((app) => {
-      const appName = app.name.toLowerCase();
-      const categoryName =
-        getCategoryName(app.category_id)?.toLowerCase() || "";
-      const description = (app.description || "").toLowerCase();
-      const url = (app.url || "").toLowerCase();
+    const filtered = sortedItems.filter((contact) => {
+      const contactName = (contact.name || "").toLowerCase();
+      const email = (contact.email || "").toLowerCase();
+      const phone = (contact.phone || "").toLowerCase();
+      const jobPosition = (contact.job_position || "").toLowerCase();
+      const type = contact.type_id === 1 ? t("individual") : t("company");
 
       return (
-        appName.includes(searchLower) ||
-        categoryName.includes(searchLower) ||
-        description.includes(searchLower) ||
-        url.includes(searchLower)
+        contactName.includes(searchLower) ||
+        email.includes(searchLower) ||
+        phone.includes(searchLower) ||
+        jobPosition.includes(searchLower) ||
+        type.includes(searchLower)
       );
     });
 
-    // Update expanded categories to show categories with results
-    if (viewMode === "group" && filtered.length > 0) {
-      const categoriesWithResults = [
-        ...new Set(filtered.map((app) => getCategoryName(app.category_id))),
-      ];
-      setExpandedCategories((prev) => {
-        const currentExpanded = Array.isArray(prev) ? prev : [];
-        return [...new Set([...currentExpanded, ...categoriesWithResults])];
-      });
-    }
-
     return filtered;
-  }, [state.searchTerm, apps, viewMode, categories]);
+  }, [
+    state.searchTerm,
+    contacts,
+    viewMode,
+    listSortedItems,
+    groupSortedItems,
+    t,
+  ]);
 
-  // Update filtered apps in state whenever they change
+  // Update filtered contacts in state whenever they change
   useEffect(() => {
-    dispatch({type: "SET_FILTERED_APPS", payload: filteredApps});
-  }, [filteredApps]);
+    dispatch({type: "SET_FILTERED_CONTACTS", payload: filteredContacts});
+  }, [filteredContacts]);
 
-  // Reset to page 1 when search term changes
-  useEffect(() => {
-    dispatch({type: "SET_CURRENT_PAGE", payload: 1});
-  }, [state.searchTerm]);
-
-  // Group apps by category for group view
+  // Group contacts by type for group view
   const groupedItems = useMemo(() => {
     if (viewMode !== "list") {
-      return state.filteredApps.reduce((acc, app) => {
-        const categoryName = getCategoryName(app.category_id);
-        if (!acc[categoryName]) {
-          acc[categoryName] = [];
+      return filteredContacts.reduce((acc, contact) => {
+        const type = contact.type_id === 1 ? t("individual") : t("company");
+        if (!acc[type]) {
+          acc[type] = [];
         }
-        acc[categoryName].push(app);
+        acc[type].push(contact);
         return acc;
       }, {});
     }
     return {};
-  }, [state.filteredApps, viewMode, categories]);
+  }, [filteredContacts, viewMode, t]);
 
-  // Memoize visible apps for group view
-  const visibleApps = useMemo(() => {
+  // Memoize visible contacts for group view
+  const visibleContacts = useMemo(() => {
     if (viewMode !== "list") {
       return Object.entries(groupedItems)
-        .filter(([categoryName]) => expandedCategories.includes(categoryName))
-        .flatMap(([_, apps]) => apps);
+        .filter(([type]) => expandedCategories.includes(type))
+        .reduce((acc, [type, contacts]) => {
+          return [...acc, ...contacts];
+        }, []);
     }
     return [];
   }, [groupedItems, expandedCategories, viewMode]);
@@ -259,15 +253,17 @@ function AppsList() {
   const allVisibleSelected = useMemo(() => {
     if (viewMode === "list") {
       return (
-        state.filteredApps.length > 0 &&
-        state.filteredApps.every((app) => selectedItems.includes(app.id))
+        state.filteredContacts.length > 0 &&
+        state.filteredContacts.every((contact) =>
+          selectedItems.includes(contact.id)
+        )
       );
     }
     return (
-      visibleApps.length > 0 &&
-      visibleApps.every((app) => selectedItems.includes(app.id))
+      visibleContacts.length > 0 &&
+      visibleContacts.every((contact) => selectedItems.includes(contact.id))
     );
-  }, [visibleApps, selectedItems, state.filteredApps, viewMode]);
+  }, [visibleContacts, selectedItems, state.filteredContacts, viewMode]);
 
   // Handle items per page change
   function handleItemsPerPageChange(value) {
@@ -299,7 +295,7 @@ function AppsList() {
         payload: {
           open: true,
           type: "error",
-          message: "Please select at least one app to delete",
+          message: "Please select at least one contact to delete",
         },
       });
       return;
@@ -307,13 +303,13 @@ function AppsList() {
     dispatch({type: "SET_DANGER_MODAL", payload: true});
   }
 
-  /* Handles bulk duplication of selected apps */
+  /* Handles bulk duplication of selected contacts */
   async function handleDuplicate() {
     if (selectedItems.length === 0) return;
 
     dispatch({type: "SET_SUBMITTING", payload: true});
     try {
-      const duplicatedApps = await bulkDuplicateApps(selectedItems);
+      const duplicatedContacts = await bulkDuplicateContacts(selectedItems);
 
       // Show success message
       dispatch({
@@ -321,8 +317,8 @@ function AppsList() {
         payload: {
           open: true,
           type: "success",
-          message: `${duplicatedApps.length} app${
-            duplicatedApps.length !== 1 ? "s" : ""
+          message: `${duplicatedContacts.length} contact${
+            duplicatedContacts.length !== 1 ? "s" : ""
           } duplicated successfully`,
         },
       });
@@ -332,7 +328,7 @@ function AppsList() {
         payload: {
           open: true,
           type: "error",
-          message: `Error duplicating apps. Error: ${error}`,
+          message: `Error duplicating contacts. Error: ${error}`,
         },
       });
     } finally {
@@ -340,7 +336,7 @@ function AppsList() {
     }
   }
 
-  /* Handles bulk deletion of selected apps */
+  /* Handles bulk deletion of selected contacts */
   async function handleDelete() {
     if (selectedItems.length === 0) return;
 
@@ -349,29 +345,30 @@ function AppsList() {
 
     dispatch({type: "SET_SUBMITTING", payload: true});
     try {
-      // Store the IDs of successfully deleted apps
+      // Store the IDs of successfully deleted contacts
       const deletedIds = [];
 
-      // Delete each selected app
-      for (const appId of selectedItems) {
+      // Delete each selected contact
+      for (const contactId of selectedItems) {
         try {
-          const res = await deleteApp(appId);
+          const res = await deleteContact(contactId);
           if (res) {
-            deletedIds.push(appId);
+            deletedIds.push(contactId);
           }
         } catch (error) {
-          console.error(`Error deleting app ${appId}:`, error);
+          console.error(`Error deleting contact ${contactId}:`, error);
           // Continue with other deletions even if one fails
         }
       }
 
-      // Only show success if at least one app was deleted
+      // Only show success if at least one contact was deleted
       if (deletedIds.length > 0) {
         // Clear all successfully deleted items from selection at once
         handleToggleSelection(deletedIds, false);
 
         // If we're on a page that might be empty after deletion, go back one page
-        const remainingItems = state.filteredApps.length - deletedIds.length;
+        const remainingItems =
+          state.filteredContacts.length - deletedIds.length;
         const currentPageItems = state.itemsPerPage;
         if (
           state.currentPage > 1 &&
@@ -386,19 +383,19 @@ function AppsList() {
           payload: {
             open: true,
             type: "success",
-            message: `${deletedIds.length} app${
+            message: `${deletedIds.length} contact${
               deletedIds.length !== 1 ? "s" : ""
             } deleted successfully`,
           },
         });
       } else {
-        // Show error message only if no apps were deleted
+        // Show error message only if no contacts were deleted
         dispatch({
           type: "SET_BANNER",
           payload: {
             open: true,
             type: "error",
-            message: "No apps were deleted. Please try again.",
+            message: "No contacts were deleted. Please try again.",
           },
         });
       }
@@ -409,13 +406,20 @@ function AppsList() {
         payload: {
           open: true,
           type: "error",
-          message: `Error deleting apps. Please try again.`,
+          message: `Error deleting contacts. Please try again.`,
         },
       });
     } finally {
       dispatch({type: "SET_SUBMITTING", payload: false});
     }
   }
+
+  // Handle page change
+  const handlePageChange = (page) => {
+    dispatch({type: "SET_CURRENT_PAGE", payload: page});
+  };
+
+  console.log("ListSortedItems: ", listSortedItems);
 
   return (
     <div className="flex h-[100dvh] overflow-hidden">
@@ -486,7 +490,7 @@ function AppsList() {
                 {/* Modal header */}
                 <div className="mb-2">
                   <div className="text-lg font-semibold text-gray-800 dark:text-gray-100">
-                    Delete {selectedItems.length} app
+                    Delete {selectedItems.length} contact
                     {selectedItems.length !== 1 ? "s" : ""}?
                   </div>
                 </div>
@@ -494,7 +498,7 @@ function AppsList() {
                 <div className="text-sm mb-10">
                   <div className="space-y-2">
                     <p>
-                      {t("appDeleteConfirmationMessage")}
+                      {t("contactDeleteConfirmationMessage")}
                       {selectedItems.length !== 1 ? "s" : ""}?{" "}
                       {t("actionCantBeUndone")}
                     </p>
@@ -531,7 +535,7 @@ function AppsList() {
               {/* Left: Title */}
               <div className="mb-4 sm:mb-0">
                 <h1 className="text-2xl md:text-3xl text-gray-800 dark:text-gray-100 font-bold">
-                  {t("applications")}
+                  {t("contacts")}
                 </h1>
               </div>
 
@@ -539,17 +543,17 @@ function AppsList() {
               <div className="grid grid-flow-col sm:auto-cols-max justify-start sm:justify-end gap-2">
                 {/* Filter button */}
                 {selectedItems.length > 0 && (
-                  <DropdownButton
+                  <ListDropdown
                     align="right"
                     onDelete={handleDeleteClick}
                     onDuplicate={handleDuplicate}
                   />
                 )}
 
-                {/* Add App button */}
+                {/* Add Contact button */}
                 <button
                   className="btn bg-gray-900 text-gray-100 hover:bg-gray-800 dark:bg-gray-100 dark:text-gray-800 dark:hover:bg-white"
-                  onClick={handleNewApp}
+                  onClick={handleNewContact}
                 >
                   <svg
                     className="fill-current shrink-0 xs:hidden"
@@ -559,7 +563,7 @@ function AppsList() {
                   >
                     <path d="M15 7H9V1c0-.6-.4-1-1-1S7 .4 7 1v6H1c-.6 0-1 .4-1 1s.4 1 1 1h6v6c0 .6.4 1 1 1s1-.4 1-1V9h6c.6 0 1-.4 1-1s-.4-1-1-1z" />
                   </svg>
-                  <span className="max-xs:sr-only">{t("addApp")}</span>
+                  <span className="max-xs:sr-only">{t("addContact")}</span>
                 </button>
               </div>
             </div>
@@ -571,7 +575,7 @@ function AppsList() {
                   <input
                     type="text"
                     className="form-input w-full pl-10 pr-4 py-2 bg-white dark:bg-gray-800 border-gray-200 dark:border-gray-700/60 hover:border-gray-300 dark:hover:border-gray-600 focus:border-gray-300 dark:focus:border-gray-600 rounded-lg shadow-sm "
-                    placeholder={t("searchAppsPlaceholder")}
+                    placeholder={t("searchContactsPlaceholder")}
                     value={state.searchTerm}
                     onChange={(e) =>
                       dispatch({
@@ -603,40 +607,32 @@ function AppsList() {
             {/* Table or Grouped View */}
             {viewMode === "list" ? (
               <>
-                <AppsTable
-                  apps={listSortedItems}
+                <ContactsTable
+                  contacts={state.filteredContacts}
                   onToggleSelect={handleToggleSelection}
                   selectedItems={selectedItems}
-                  totalApps={listSortedItems.length}
+                  totalContacts={state.filteredContacts.length}
                   currentPage={state.currentPage}
                   itemsPerPage={state.itemsPerPage}
-                  onAppClick={handleAppClick}
-                  categories={categories}
+                  onContactClick={handleContactClick}
+                  sortConfig={sortConfig}
+                  onSort={handleSort}
                 />
                 {/* Pagination */}
-                {listSortedItems.length > 0 && (
+                {state.filteredContacts.length > 0 && (
                   <div className="mt-8">
                     <PaginationClassic
                       currentPage={state.currentPage}
-                      totalItems={listSortedItems.length}
+                      totalItems={state.filteredContacts.length}
                       itemsPerPage={state.itemsPerPage}
-                      onPageChange={(page) =>
-                        dispatch({type: "SET_CURRENT_PAGE", payload: page})
-                      }
+                      onPageChange={handlePageChange}
                       onItemsPerPageChange={handleItemsPerPageChange}
                     />
                   </div>
                 )}
               </>
             ) : (
-              <CollapsibleAppsTable
-                filteredApps={state.filteredApps}
-                selectedItems={selectedItems}
-                onToggleSelect={handleToggleSelection}
-                expandedCategories={expandedCategories}
-                setExpandedCategories={setExpandedCategories}
-                categories={categories}
-              />
+              <div>I hate my fucking life</div>
             )}
           </div>
         </main>
@@ -645,4 +641,4 @@ function AppsList() {
   );
 }
 
-export default AppsList;
+export default ContactsList;

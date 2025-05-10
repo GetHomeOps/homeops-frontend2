@@ -1,6 +1,7 @@
 import React, {useState, useRef, useEffect} from "react";
 import Transition from "../../utils/Transition";
 import {useTranslation} from "react-i18next";
+
 function ListDropdown({align, onDelete, onDuplicate}) {
   const [dropdownOpen, setDropdownOpen] = useState(false);
 
