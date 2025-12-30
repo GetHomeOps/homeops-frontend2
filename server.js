@@ -1,17 +1,12 @@
-import express from 'express';
-import path from 'path';
-import { fileURLToPath } from 'url';
-
-const __filename = fileURLToPath(import.meta.url);
-const __dirname = path.dirname(__filename);
+const express = require('express');
+const path = require('path');
 
 const app = express();
 
-// Serve all static files from your build output (assets, images, etc.)
-app.use(express.static(path.join(__dirname, 'dist')));
+// Serve all static files from your build output
+app.use(express.static(path.join(__dirname, 'dist')));  // ← change 'dist' to 'build' if using Create React App
 
 // SPA fallback: send index.html for ANY path that isn't a static file
-// This catches all routes and lets React Router handle them client-side
 app.get('*', (req, res) => {
   res.sendFile(path.join(__dirname, 'dist', 'index.html'));
 });
