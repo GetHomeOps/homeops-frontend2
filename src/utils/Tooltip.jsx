@@ -56,7 +56,7 @@ function Tooltip({children, className, bg, size, position, content}) {
 
   return (
     <div
-      className="pl-2 relative inline-block"
+      className={`pl-2 relative inline-block ${className || ""}`}
       onMouseEnter={() => setTooltipOpen(true)}
       onMouseLeave={() => setTooltipOpen(false)}
       onFocus={() => setTooltipOpen(true)}

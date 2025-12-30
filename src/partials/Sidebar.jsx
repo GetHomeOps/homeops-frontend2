@@ -114,14 +114,6 @@ function Sidebar({sidebarOpen, setSidebarOpen, variant = "default"}) {
         <div className="space-y-8">
           {/* Pages group */}
           <div>
-            <h3 className="text-xs uppercase text-white font-bold pl-3">
-              <span
-                className="hidden lg:block lg:sidebar-expanded:hidden 2xl:hidden text-center w-6"
-                aria-hidden="true"
-              >
-                •••
-              </span>
-            </h3>
             <ul className="mt-3">
               {/* Home */}
               <li
@@ -132,36 +124,30 @@ function Sidebar({sidebarOpen, setSidebarOpen, variant = "default"}) {
                 <NavLink
                   end
                   to={dbUrl ? `/${dbUrl}/home` : "/home"}
-                  className={({isActive}) => {
-                    const active = isActive || pathname.includes("/home");
-                    return `block truncate transition duration-150 ${
-                      active
-                        ? "text-[#456564]"
-                        : "text-white hover:text-white/80"
-                    }`;
-                  }}
+                  className={`block truncate transition duration-150 ${
+                    pathname.includes("/home")
+                      ? "text-[#456564]"
+                      : "text-white hover:text-white/80"
+                  }`}
                 >
-                  {({isActive}) => {
-                    const active = isActive || pathname.includes("/home");
-                    return (
-                      <div className="flex items-center">
-                        <svg
-                          className={`shrink-0 fill-current ${
-                            active ? "text-[#456564]" : "text-white/70"
-                          }`}
-                          xmlns="http://www.w3.org/2000/svg"
-                          width="16"
-                          height="16"
-                          viewBox="0 0 16 16"
-                        >
-                          <path d="M8 0L0 8h2v6a2 2 0 0 0 2 2h8a2 2 0 0 0 2-2V8h2L8 0z" />
-                        </svg>
-                        <span className="text-sm font-medium ml-4 lg:opacity-0 lg:sidebar-expanded:opacity-100 2xl:opacity-100 duration-200">
-                          Home
-                        </span>
-                      </div>
-                    );
-                  }}
+                  <div className="flex items-center">
+                    <svg
+                      className={`shrink-0 fill-current ${
+                        pathname.includes("/home")
+                          ? "text-[#456564]"
+                          : "text-white/70"
+                      }`}
+                      xmlns="http://www.w3.org/2000/svg"
+                      width="16"
+                      height="16"
+                      viewBox="0 0 16 16"
+                    >
+                      <path d="M8 0L0 8h2v6a2 2 0 0 0 2 2h8a2 2 0 0 0 2-2V8h2L8 0z" />
+                    </svg>
+                    <span className="text-sm font-medium ml-4 lg:opacity-0 lg:sidebar-expanded:opacity-100 2xl:opacity-100 duration-200">
+                      Home
+                    </span>
+                  </div>
                 </NavLink>
               </li>
 
