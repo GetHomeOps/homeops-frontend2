@@ -1,5 +1,5 @@
-import React, {useReducer, useEffect, useContext} from "react";
-import {useNavigate, useParams} from "react-router-dom";
+import React, {useReducer, useEffect, useContext, useRef, useMemo} from "react";
+import {useNavigate, useParams, useLocation} from "react-router-dom";
 import {AlertCircle, Mail, User} from "lucide-react";
 import Banner from "../../partials/containers/Banner";
 import ModalBlank from "../../components/ModalBlank";
@@ -9,6 +9,7 @@ import UserContext from "../../context/UserContext";
 import contactContext from "../../context/ContactContext";
 import useCurrentDb from "../../hooks/useCurrentDb";
 import {useAutoCloseBanner} from "../../hooks/useAutoCloseBanner";
+import {useAuth} from "../../context/AuthContext";
 import AppApi from "../../api/api";
 import SelectDropdown from "../contacts/SelectDropdown";
 
@@ -52,7 +53,13 @@ function reducer(state, action) {
         user: action.payload,
         isNew: !action.payload,
         formData: action.payload
-          ? {...initialFormData, ...action.payload}
+          ? {
+              name: action.payload.name || action.payload.fullName || "",
+              email: action.payload.email || "",
+              phone: action.payload.phone || "",
+              role: action.payload.role || "",
+              contact: action.payload.contact || "",
+            }
           : initialFormData,
         formDataChanged: false,
         isInitialLoad: true,
@@ -81,32 +88,45 @@ function UsersFormContainer() {
   const [state, dispatch] = useReducer(reducer, initialState);
   const {id} = useParams();
   const navigate = useNavigate();
+  const location = useLocation();
   const {t} = useTranslation();
-  const {users, setUsers} = useContext(UserContext);
+  const {users, createUser, deleteUser} = useContext(UserContext);
   const {contacts} = useContext(contactContext);
+  const {currentUser} = useAuth();
   const {currentDb} = useCurrentDb();
   const dbUrl = currentDb?.url || currentDb?.name || "";
 
   // Fetch user based on URL's user id
   useEffect(() => {
-    async function fetchUser() {
+    function fetchUser() {
       if (id && id !== "new") {
         try {
+          // Find user in context (users come from UserContext)
           const existingUser = users.find(
             (user) => Number(user.id) === Number(id)
           );
+
           if (existingUser) {
             dispatch({type: "SET_USER", payload: existingUser});
-          } else {
-            throw new Error(t("userNotFoundErrorMessage") || "User not found");
+          } else if (users.length > 0) {
+            // If users array is populated but user not found, show error
+            dispatch({
+              type: "SET_BANNER",
+              payload: {
+                open: true,
+                type: "error",
+                message: t("userNotFoundErrorMessage") || "User not found",
+              },
+            });
           }
+          // If users array is empty, wait for UserContext to load users
         } catch (err) {
           dispatch({
             type: "SET_BANNER",
             payload: {
               open: true,
               type: "error",
-              message: `Error finding user: ${err}`,
+              message: `Error finding user: ${err.message || err}`,
             },
           });
         }
@@ -164,57 +184,67 @@ function UsersFormContainer() {
     }
   };
 
+  // Generate a random password
+  function generateRandomPassword() {
+    const length = 16;
+    const charset =
+      "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789!@#$%^&*";
+    let password = "";
+    for (let i = 0; i < length; i++) {
+      password += charset.charAt(Math.floor(Math.random() * charset.length));
+    }
+    return password;
+  }
+
   /* Handles submit button */
   async function handleSubmit(evt) {
     evt.preventDefault();
 
     if (!validateForm()) return;
 
+    // Generate a random password
+    const randomPassword = generateRandomPassword();
+
+    // Create userData with only the fields the backend expects (no fullName)
     const userData = {
-      name: state.formData.name,
-      email: state.formData.email,
-      phone: state.formData.phone,
-      role: state.formData.role,
-      contact: state.formData.contact,
+      name: state.formData.name || "",
+      email: state.formData.email || "",
+      phone: state.formData.phone || "",
+      role: state.formData.role || "",
+      contact: state.formData.contact || 0,
+      password: randomPassword,
+      is_active: false,
     };
 
     dispatch({type: "SET_SUBMITTING", payload: true});
 
     try {
-      // TODO: Add createUser API method
-      // For now, using signup as a placeholder - you may need to add a proper createUser endpoint
-      const res = await AppApi.signup(userData);
+      const res = await createUser(userData);
 
-      if (res) {
-        // Refresh users list
-        const fetchedUsers = await AppApi.getAllUsers();
-        setUsers(fetchedUsers);
+      if (res && res.id) {
+        // Update state with new user
+        dispatch({type: "SET_USER", payload: res});
 
-        // Find the newly created user by email
-        const newUser = fetchedUsers.find((u) => u.email === userData.email);
+        // Navigate to the new user with navigation state
+        navigate(`/${dbUrl}/users/${res.id}`, {
+          state: {
+            currentIndex: users.length + 1,
+            totalItems: users.length + 1,
+            visibleContactIds: [...users.map((u) => u.id), res.id],
+          },
+        });
 
-        if (newUser) {
-          // Navigate to the new user
-          navigate(`/users/${newUser.id}`, {
-            state: {
-              currentIndex: fetchedUsers.length,
-              totalItems: fetchedUsers.length,
-              visibleUserIds: fetchedUsers.map((user) => user.id),
-            },
-          });
-
-          // Show success banner
-          dispatch({
-            type: "SET_BANNER",
-            payload: {
-              open: true,
-              type: "success",
-              message:
-                t("userCreatedSuccessfullyMessage") ||
-                "User created successfully",
-            },
-          });
-        }
+        // Show success banner
+        dispatch({
+          type: "SET_BANNER",
+          payload: {
+            open: true,
+            type: "success",
+            message:
+              t("userCreatedSuccessfullyMessage") ||
+              "User created successfully",
+          },
+        });
       }
     } catch (err) {
       console.error("Error creating user:", err);
@@ -237,12 +267,13 @@ function UsersFormContainer() {
 
     if (!validateForm()) return;
 
+    // Create userData with only the fields the backend expects (no fullName)
     const userData = {
-      name: state.formData.name,
-      email: state.formData.email,
-      phone: state.formData.phone,
-      role: state.formData.role,
-      contact: state.formData.contact,
+      name: state.formData.name || "",
+      email: state.formData.email || "",
+      phone: state.formData.phone || "",
+      role: state.formData.role || "",
+      contact: state.formData.contact || 0,
     };
 
     dispatch({type: "SET_SUBMITTING", payload: true});
@@ -259,9 +290,11 @@ function UsersFormContainer() {
           payload: {...userData, id: Number(id)},
         });
 
-        // Refresh users list
-        const fetchedUsers = await AppApi.getAllUsers();
-        setUsers(fetchedUsers);
+        // Update the user in the users context
+        const updatedUsers = users.map((u) =>
+          u.id === Number(id) ? {...res, id: Number(id)} : u
+        );
+        setUsers(updatedUsers);
 
         // Show success banner
         dispatch({
@@ -345,7 +378,7 @@ function UsersFormContainer() {
     dispatch({type: "SET_USER", payload: null});
     dispatch({type: "SET_FORM_DATA", payload: initialFormData});
     dispatch({type: "SET_ERRORS", payload: {}});
-    navigate("/users/new");
+    navigate(`/${dbUrl}/users/new`);
   }
 
   /* Handles delete button */
@@ -356,16 +389,48 @@ function UsersFormContainer() {
   /* Handles delete confirmation on modal */
   async function confirmDelete() {
     try {
+      // Close modal immediately when Accept is clicked
       dispatch({type: "SET_DANGER_MODAL", payload: false});
 
-      // TODO: Add deleteUser API method
-      // For now, this is a placeholder
-      // await AppApi.deleteUser(id);
+      // Find the current user index in the users array (before deletion)
+      const userIndex = users.findIndex((user) => user.id === Number(id));
 
-      // Navigate to users list
-      navigate(`/users/`);
+      // Delete the user (this updates the context)
+      await deleteUser(id);
 
-      // Show success banner
+      // Navigate first based on remaining users
+      // Calculate remaining users by filtering out the deleted one from the current users array
+      const remainingUsers = users.filter((user) => user.id !== Number(id));
+
+      if (remainingUsers.length === 0) {
+        // If this was the last user, go to users list
+        navigate(`/${dbUrl}/users`);
+      } else if (userIndex === users.length - 1) {
+        // If this was the last user in the list, go to previous user
+        const prevId = remainingUsers[remainingUsers.length - 1].id;
+        navigate(`/${dbUrl}/users/${prevId}`, {
+          state: {
+            currentIndex: remainingUsers.length,
+            totalItems: remainingUsers.length,
+            visibleContactIds: remainingUsers.map((user) => user.id),
+          },
+        });
+      } else {
+        // Go to the previous user (userIndex - 1)
+        // For example, if deleting user 9/10 (userIndex=8, which is position 9), go to user at position 8 (which becomes 8/9)
+        const prevId =
+          remainingUsers[userIndex - 1]?.id || remainingUsers[0].id;
+        const prevIndex = userIndex; // The previous user will be at the same index after deletion
+        navigate(`/${dbUrl}/users/${prevId}`, {
+          state: {
+            currentIndex: prevIndex,
+            totalItems: remainingUsers.length,
+            visibleContactIds: remainingUsers.map((user) => user.id),
+          },
+        });
+      }
+
+      // Then show success banner
       setTimeout(() => {
         dispatch({
           type: "SET_BANNER",
@@ -384,7 +449,7 @@ function UsersFormContainer() {
         payload: {
           open: true,
           type: "error",
-          message: `Error deleting user: ${error}`,
+          message: `Error deleting user: ${error.message || error}`,
         },
       });
     }
@@ -409,24 +474,42 @@ function UsersFormContainer() {
       dispatch({type: "SET_FORM_CHANGED", payload: false});
       dispatch({type: "SET_ERRORS", payload: {}});
     } else {
-      // For new users, reset to initial form data
+      // For new users, reset to initial form data and navigate to new user form
       dispatch({
         type: "SET_FORM_DATA",
         payload: initialFormData,
       });
       dispatch({type: "SET_FORM_CHANGED", payload: false});
       dispatch({type: "SET_ERRORS", payload: {}});
-      navigate("/users");
+      navigate(`/${dbUrl}/users/new`);
     }
   }
 
-  // Role options for the select dropdown
-  const roleOptions = [
-    {id: "admin", name: "Admin"},
-    {id: "user", name: "User"},
-    {id: "manager", name: "Manager"},
-    {id: "viewer", name: "Viewer"},
-  ];
+  // Role options for the select dropdown based on current user's role
+  const roleOptions = useMemo(() => {
+    // If current user is super_admin, they can see: admin, agent, homeowner
+    if (
+      currentUser?.role === "superAdmin" ||
+      currentUser?.role === "super_admin"
+    ) {
+      return [
+        {id: "admin", name: "Admin"},
+        {id: "agent", name: "Agent"},
+        {id: "homeowner", name: "Homeowner"},
+      ];
+    }
+    // If current user is agent, they can only add: homeowner
+    if (currentUser?.role === "agent") {
+      return [{id: "homeowner", name: "Homeowner"}];
+    }
+    // Default: return all options (fallback)
+    return [
+      {id: "super_admin", name: "Super Admin"},
+      {id: "admin", name: "Admin"},
+      {id: "agent", name: "Agent"},
+      {id: "homeowner", name: "Homeowner"},
+    ];
+  }, [currentUser?.role]);
 
   // Handler for role change
   function handleRoleChange(value) {
@@ -604,6 +687,103 @@ function UsersFormContainer() {
           </div>
         </div>
 
+        <div className="flex justify-end mb-2">
+          {/* User Navigation */}
+          <div className="flex items-center">
+            {state.user && location.state && (
+              <>
+                <span className="text-sm text-gray-500 dark:text-gray-400 mr-2">
+                  {location.state.currentIndex || 1} /{" "}
+                  {location.state.totalItems || 1}
+                </span>
+                <button
+                  className="btn shadow-none p-1"
+                  title="Previous"
+                  onClick={() => {
+                    if (
+                      location.state?.visibleContactIds &&
+                      location.state.currentIndex > 1
+                    ) {
+                      const prevIndex = location.state.currentIndex - 2;
+                      const prevUserId =
+                        location.state.visibleContactIds[prevIndex];
+                      navigate(`/${dbUrl}/users/${prevUserId}`, {
+                        state: {
+                          ...location.state,
+                          currentIndex: location.state.currentIndex - 1,
+                        },
+                      });
+                    }
+                  }}
+                  disabled={
+                    !location.state ||
+                    !location.state.currentIndex ||
+                    location.state.currentIndex <= 1
+                  }
+                >
+                  <svg
+                    className={`fill-current shrink-0 ${
+                      !location.state ||
+                      !location.state.currentIndex ||
+                      location.state.currentIndex <= 1
+                        ? "text-gray-200 dark:text-gray-700"
+                        : "text-gray-400 dark:text-gray-500 hover:text-gray-500 dark:hover:text-gray-600"
+                    }`}
+                    width="24"
+                    height="24"
+                    viewBox="0 0 18 18"
+                  >
+                    <path d="M9.4 13.4l1.4-1.4-4-4 4-4-1.4-1.4L4 8z"></path>
+                  </svg>
+                </button>
+
+                <button
+                  className="btn shadow-none p-1"
+                  title="Next"
+                  onClick={() => {
+                    if (
+                      location.state?.visibleContactIds &&
+                      location.state.currentIndex < location.state.totalItems
+                    ) {
+                      const nextIndex = location.state.currentIndex;
+                      const nextUserId =
+                        location.state.visibleContactIds[nextIndex];
+                      navigate(`/${dbUrl}/users/${nextUserId}`, {
+                        state: {
+                          ...location.state,
+                          currentIndex: location.state.currentIndex + 1,
+                        },
+                      });
+                    }
+                  }}
+                  disabled={
+                    !location.state ||
+                    !location.state.currentIndex ||
+                    !location.state.totalItems ||
+                    location.state.currentIndex >= location.state.totalItems
+                  }
+                >
+                  <svg
+                    className={`fill-current shrink-0 ${
+                      !location.state ||
+                      !location.state.currentIndex ||
+                      !location.state.totalItems ||
+                      location.state.currentIndex >= location.state.totalItems
+                        ? "text-gray-200 dark:text-gray-700"
+                        : "text-gray-400 dark:text-gray-500 hover:text-gray-500 dark:hover:text-gray-600"
+                    }`}
+                    width="24"
+                    height="24"
+                    viewBox="0 0 18 18"
+                  >
+                    <path d="M6.6 13.4L5.2 12l4-4-4-4 1.4-1.4L12 8z"></path>
+                  </svg>
+                </button>
+              </>
+            )}
+          </div>
+        </div>
+
         <div className="bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-200 dark:border-gray-700 mb-6">
           <div className="p-6">
             <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
@@ -677,7 +857,7 @@ function UsersFormContainer() {
                         id="name"
                         className={getInputClasses("name")}
                         type="text"
-                        value={state.formData.name}
+                        value={state.formData.name || ""}
                         onChange={handleChange}
                         placeholder={t("namePlaceholder") || "Enter name"}
                       />
@@ -703,7 +883,7 @@ function UsersFormContainer() {
                             : ""
                         }`}
                         type="email"
-                        value={state.formData.email}
+                        value={state.formData.email || ""}
                         readOnly={!state.isNew}
                         onChange={handleChange}
                         placeholder={t("emailPlaceholder") || "Enter email"}
@@ -725,7 +905,7 @@ function UsersFormContainer() {
                         id="phone"
                         className={getInputClasses("phone")}
                         type="tel"
-                        value={state.formData.phone}
+                        value={state.formData.phone || ""}
                         onChange={handleChange}
                         placeholder={
                           t("phonePlaceholder") || "Enter phone number"
@@ -740,7 +920,7 @@ function UsersFormContainer() {
                       </label>
                       <SelectDropdown
                         options={roleOptions}
-                        value={state.formData.role}
+                        value={state.formData.role || ""}
                         onChange={handleRoleChange}
                         placeholder={t("selectRole") || "Select role"}
                         name="role"
@@ -756,7 +936,7 @@ function UsersFormContainer() {
                       </label>
                       <SelectDropdown
                         options={contactOptions}
-                        value={state.formData.contact}
+                        value={state.formData.contact || ""}
                         onChange={handleContactChange}
                         placeholder={t("selectContact") || "Select contact"}
                         name="contact"

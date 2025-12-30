@@ -53,7 +53,6 @@ class AppApi {
   /** Signup for site. */
   static async signup(data) {
     let res = await this.request(`auth/register`, data, "POST");
-    // Return full response to allow access to both token and user if available
     return res;
   }
 
@@ -73,6 +72,18 @@ class AppApi {
   static async getUsersByDatabaseId(databaseId) {
     let res = await this.request(`users/db/${databaseId}`);
     return res.users;
+  }
+
+  /** Delete a user */
+  static async deleteUser(id) {
+    let res = await this.request(`users/${id}`, {}, 'DELETE');
+    return res;
+  }
+
+  /** Add user to database */
+  static async addUserToDatabase(data) {
+    let res = await this.request(`user_databases`, data, "POST");
+    return res.userDatabase || res.user_database;
   }
 
   /* --------- Databases --------- */
@@ -151,55 +162,7 @@ class AppApi {
     }
   }
 
-  /* --------- Payment Terms --------- */
 
-  /* Get all payment terms given a database id*/
-  static async getPaymentTermsByDbId(dbId, userId) {
-    let res = await this.request(`payterms/db/${dbId}`, {}, "GET", {
-      "user-id": userId,
-      "database-id": dbId
-    });
-    console.log("res payment terms: ", res);
-    return res.payterms;
-  }
-
-  /* Get a payment term by term id */
-  static async getPaymentTerm(id, userId, dbId) {
-    let res = await this.request(`payterms/${id}`, {}, "GET", {
-      "user-id": userId,
-      "database-id": dbId
-    });
-    return res.payterm;
-  }
-
-  /* Create a new payment term */
-  static async createPaymentTerm(databaseId, data, userId) {
-    console.log("databaseId: ", databaseId);
-    let res = await this.request(`payterms/db/${databaseId}`, data, 'POST', {
-      "user-id": userId,
-      "database-id": databaseId
-    });
-    console.log("api paymentTerms: ", res);
-    return res.payterm;
-  }
-
-  /* Update an existing payment term */
-  static async updatePaymentTerm(id, data, userId, dbId) {
-    let res = await this.request(`payterms/${id}`, data, 'PATCH', {
-      "user-id": userId,
-      "database-id": dbId
-    });
-    return res.payterm;
-  }
-
-  /* Delete a payment term */
-  static async deletePaymentTerm(id, userId, dbId) {
-    let res = await this.request(`payterms/${id}`, {}, 'DELETE', {
-      "user-id": userId,
-      "database-id": dbId
-    });
-    return res;
-  }
 }
 
 export default AppApi;

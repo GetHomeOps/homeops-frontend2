@@ -55,10 +55,10 @@ function reducer(state, action) {
         bannerType: action.payload.type,
         bannerMessage: action.payload.message,
       };
-    case "SET_FILTERED_CONTACTS":
+    case "SET_FILTERED_USERS":
       return {
         ...state,
-        filteredContacts: action.payload,
+        filteredUsers: action.payload,
       };
     case "SET_SIDEBAR_OPEN":
       return {...state, sidebarOpen: action.payload};
@@ -84,8 +84,17 @@ UsersList -> UsersTable, PaginationClassic
 
 */
 function UsersList() {
-  const {users, selectedItems, setSelectedItems, handleToggleSelection} =
-    useContext(userContext);
+  const {
+    users,
+    selectedItems,
+    setSelectedItems,
+    handleToggleSelection,
+    sortedUsers,
+    sortConfig,
+    handleSort,
+    deleteUser,
+    bulkDuplicateUsers,
+  } = useContext(userContext);
   const {t, i18n} = useTranslation();
   const navigate = useNavigate();
   const {dbUrl} = useParams();
@@ -96,57 +105,199 @@ function UsersList() {
     currentPage: Number(localStorage.getItem(PAGE_STORAGE_KEY)) || 1,
   });
 
-  // Handle navigation to contact details
-  const handleUserClick = (userId) => {
-    const user = users.find((c) => c.id === userId);
-    if (!user) return;
-
-    let currentIndex;
-    let totalItems;
-    let visibleContactIds;
-
-    if (viewMode === "list") {
-      currentIndex = state.filteredUsers.findIndex((c) => c.id === userId) + 1;
-      totalItems = state.filteredUsers.length;
-      visibleUsersIds = state.filteredUsers.map((c) => c.id);
-    } else {
-      // For group view, we need to maintain the order of users as they appear in the UI
-      const sortedVisibleUsers = Object.entries(groupedItems)
-        .sort(([typeA], [typeB]) => {
-          return typeA.localeCompare(typeB);
-        })
-        .reduce((acc, [type, users]) => {
-          if (expandedCategories.includes(type)) {
-            // Sort contacts within each type by name
-            const sortedContacts = [...users].sort((a, b) =>
-              a.name.toLowerCase().localeCompare(b.name.toLowerCase())
-            );
-            return [...acc, ...sortedUsers];
-          }
-          return acc;
-        }, []);
-
-      // Reverse the array to match the visual order
-      const reversedUsers = [...sortedVisibleUsers].reverse();
-      currentIndex = reversedUsers.findIndex((c) => c.id === userId) + 1;
-      totalItems = reversedUsers.length;
-      visibleUsersIds = reversedUsers.map((c) => c.id);
+  // Update localStorage when page changes
+  useEffect(() => {
+    if (state.currentPage) {
+      localStorage.setItem(PAGE_STORAGE_KEY, state.currentPage);
     }
+  }, [state.currentPage]);
 
-    navigate(`/${currentDb.url}/users/${userId}`, {
+  // Memoize filtered users based on search term
+  const filteredUsers = useMemo(() => {
+    if (!users || users.length === 0) return [];
+
+    // Get the sorted users from context
+    if (!sortedUsers || sortedUsers.length === 0) return [];
+
+    // If no search term, return all sorted users
+    if (!state.searchTerm) return sortedUsers;
+
+    // Filter the sorted users based on search term
+    const searchLower = state.searchTerm.toLowerCase();
+    const filtered = sortedUsers.filter((user) => {
+      const userName = (user.name || user.fullName || "").toLowerCase();
+      const email = (user.email || "").toLowerCase();
+      const phone = (user.phone || "").toLowerCase();
+      const role = (user.role || "").toLowerCase();
+
+      return (
+        userName.includes(searchLower) ||
+        email.includes(searchLower) ||
+        phone.includes(searchLower) ||
+        role.includes(searchLower)
+      );
+    });
+
+    return filtered;
+  }, [state.searchTerm, users, sortedUsers]);
+
+  // Handle navigation to user details
+  const handleUserClick = (user) => {
+    if (!user || !user.id) return;
+
+    const currentIndex = filteredUsers.findIndex((c) => c.id === user.id) + 1;
+    const totalItems = filteredUsers.length;
+    const visibleUserIds = filteredUsers.map((c) => c.id);
+
+    navigate(`/${dbUrl}/users/${user.id}`, {
       state: {
         currentIndex,
         totalItems,
-        visibleContactIds,
+        visibleContactIds: visibleUserIds,
       },
     });
   };
+
+  // Handle page change
+  const handlePageChange = (page) => {
+    dispatch({type: "SET_CURRENT_PAGE", payload: page});
+  };
+
+  // Handle items per page change
+  function handleItemsPerPageChange(value) {
+    dispatch({type: "SET_ITEMS_PER_PAGE", payload: Number(value)});
+  }
 
   console.log("Users: ", users);
 
   function handleNewUserClick() {
     navigate(`/${dbUrl}/users/new`);
     dispatch({type: "SET_SIDEBAR_OPEN", payload: false});
+  }
+
+  /* Handles delete button click */
+  function handleDeleteClick() {
+    if (selectedItems.length === 0) {
+      dispatch({
+        type: "SET_BANNER",
+        payload: {
+          open: true,
+          type: "error",
+          message: "Please select at least one user to delete",
+        },
+      });
+      return;
+    }
+    dispatch({type: "SET_DANGER_MODAL", payload: true});
+  }
+
+  /* Handles bulk duplication of selected users */
+  async function handleDuplicate() {
+    if (selectedItems.length === 0) return;
+
+    dispatch({type: "SET_SUBMITTING", payload: true});
+    try {
+      const duplicatedUsers = await bulkDuplicateUsers(selectedItems);
+
+      // Show success message
+      dispatch({
+        type: "SET_BANNER",
+        payload: {
+          open: true,
+          type: "success",
+          message: `${duplicatedUsers.length} user${
+            duplicatedUsers.length !== 1 ? "s" : ""
+          } duplicated successfully`,
+        },
+      });
+    } catch (error) {
+      dispatch({
+        type: "SET_BANNER",
+        payload: {
+          open: true,
+          type: "error",
+          message: `Error duplicating users. Error: ${error}`,
+        },
+      });
+    } finally {
+      dispatch({type: "SET_SUBMITTING", payload: false});
+    }
+  }
+
+  /* Handles bulk deletion of selected users */
+  async function handleDelete() {
+    if (selectedItems.length === 0) return;
+
+    // Close modal immediately when Accept is clicked
+    dispatch({type: "SET_DANGER_MODAL", payload: false});
+
+    dispatch({type: "SET_SUBMITTING", payload: true});
+    try {
+      // Store the IDs of successfully deleted users
+      const deletedIds = [];
+
+      // Delete each selected user
+      for (const userId of selectedItems) {
+        try {
+          const res = await deleteUser(userId);
+          if (res) {
+            deletedIds.push(userId);
+          }
+        } catch (error) {
+          console.error(`Error deleting user ${userId}:`, error);
+          // Continue with other deletions even if one fails
+        }
+      }
+
+      // Only show success if at least one user was deleted
+      if (deletedIds.length > 0) {
+        // Clear all successfully deleted items from selection at once
+        handleToggleSelection(deletedIds, false);
+
+        // If we're on a page that might be empty after deletion, go back one page
+        const remainingItems = filteredUsers.length - deletedIds.length;
+        const currentPageItems = state.itemsPerPage;
+        if (
+          state.currentPage > 1 &&
+          remainingItems <= (state.currentPage - 1) * currentPageItems
+        ) {
+          dispatch({type: "SET_CURRENT_PAGE", payload: state.currentPage - 1});
+        }
+
+        // Show success message
+        dispatch({
+          type: "SET_BANNER",
+          payload: {
+            open: true,
+            type: "success",
+            message: `${deletedIds.length} user${
+              deletedIds.length !== 1 ? "s" : ""
+            } deleted successfully`,
+          },
+        });
+      } else {
+        dispatch({
+          type: "SET_BANNER",
+          payload: {
+            open: true,
+            type: "error",
+            message: "No users were deleted. Please try again.",
+          },
+        });
+      }
+    } catch (error) {
+      console.error("Error in bulk deletion:", error);
+      dispatch({
+        type: "SET_BANNER",
+        payload: {
+          open: true,
+          type: "error",
+          message: `Error deleting users. Please try again.`,
+        },
+      });
+    } finally {
+      dispatch({type: "SET_SUBMITTING", payload: false});
+    }
   }
 
   return (
@@ -218,7 +369,7 @@ function UsersList() {
                 {/* Modal header */}
                 <div className="mb-2">
                   <div className="text-lg font-semibold text-gray-800 dark:text-gray-100">
-                    Delete {selectedItems.length} contact
+                    Delete {selectedItems.length} user
                     {selectedItems.length !== 1 ? "s" : ""}?
                   </div>
                 </div>
@@ -226,9 +377,11 @@ function UsersList() {
                 <div className="text-sm mb-10">
                   <div className="space-y-2">
                     <p>
-                      {t("contactDeleteConfirmationMessage")}
+                      {t("userDeleteConfirmationMessage") ||
+                        "Are you sure you want to delete this user?"}
                       {selectedItems.length !== 1 ? "s" : ""}?{" "}
-                      {t("actionCantBeUndone")}
+                      {t("actionCantBeUndone") ||
+                        "This action cannot be undone."}
                     </p>
                   </div>
                 </div>
@@ -245,7 +398,7 @@ function UsersList() {
                   </button>
                   <button
                     className="btn-sm bg-red-500 hover:bg-red-600 text-white"
-                    /* onClick={handleDelete} */
+                    onClick={handleDelete}
                     disabled={state.isSubmitting}
                   >
                     {state.isSubmitting ? "Deleting..." : "Accept"}
@@ -273,8 +426,8 @@ function UsersList() {
                 {selectedItems.length > 0 && (
                   <ListDropdown
                     align="right"
-                    /* onDelete={handleDeleteClick}
-                    onDuplicate={handleDuplicate} */
+                    onDelete={handleDeleteClick}
+                    onDuplicate={handleDuplicate}
                   />
                 )}
 
@@ -302,14 +455,18 @@ function UsersList() {
                   <input
                     type="text"
                     className="form-input w-full pl-10 pr-4 py-2 bg-white dark:bg-gray-800 border-gray-200 dark:border-gray-700/60 hover:border-gray-300 dark:hover:border-gray-600 focus:border-gray-300 dark:focus:border-gray-600 rounded-lg shadow-sm "
-                    placeholder={t("searchContactsPlaceholder")}
+                    placeholder={
+                      t("searchUsersPlaceholder") ||
+                      t("searchContactsPlaceholder")
+                    }
                     value={state.searchTerm}
-                    onChange={(e) =>
+                    onChange={(e) => {
                       dispatch({
                         type: "SET_SEARCH_TERM",
                         payload: e.target.value,
-                      })
-                    }
+                      });
+                      dispatch({type: "SET_CURRENT_PAGE", payload: 1});
+                    }}
                   />
                   <div className="absolute inset-0 flex items-center pointer-events-none pl-3">
                     <svg
@@ -331,34 +488,31 @@ function UsersList() {
               </div>
             </div>
             {/* Table or Grouped View */}
-            {/* {viewMode === "list" ? ( */}
             <>
               <UsersTable
-                users={users}
+                users={filteredUsers}
                 onToggleSelect={handleToggleSelection}
                 selectedItems={selectedItems}
-                totalUsers={users.length}
+                totalUsers={filteredUsers.length}
                 currentPage={state.currentPage}
                 itemsPerPage={state.itemsPerPage}
                 onUserClick={handleUserClick}
-                /* sortConfig={sortConfig} */
-                /* onSort={handleSort} */
+                sortConfig={sortConfig}
+                onSort={handleSort}
               />
               {/* Pagination */}
-              {/* {users.length > 0 && (
+              {filteredUsers.length > 0 && (
                 <div className="mt-8">
                   <PaginationClassic
                     currentPage={state.currentPage}
-                    totalUsers={users.length}
+                    totalItems={filteredUsers.length}
                     itemsPerPage={state.itemsPerPage}
                     onPageChange={handlePageChange}
                     onItemsPerPageChange={handleItemsPerPageChange}
                   />
                 </div>
-              )} */}
+              )}
             </>
-            {/*  ) : (<div>Group By View</div>
-            )} */}
           </div>
         </main>
       </div>

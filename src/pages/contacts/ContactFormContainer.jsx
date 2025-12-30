@@ -28,8 +28,115 @@ import contactContext from "../../context/ContactContext";
 import useCurrentDb from "../../hooks/useCurrentDb";
 import {useAutoCloseBanner} from "../../hooks/useAutoCloseBanner";
 import {countries} from "../../data/countries";
+import {usStates} from "../../data/states";
 import {motion, AnimatePresence, useAnimationControls} from "framer-motion";
 import SelectDropdown from "./SelectDropdown";
+
+// Helper function to map backend data to frontend form format
+function mapBackendToFrontend(backendData) {
+  if (!backendData) return initialFormData;
+
+  // Find country by code or name
+  // Backend uses 2-letter codes (US), frontend uses 3-letter codes (USA)
+  // IMPORTANT: Use country name as primary source since 2-letter codes can be ambiguous
+  // (e.g., "ES" matches both Spain ESP and Estonia EST)
+  let country = null;
+
+  // First, try to find by country name (most reliable and unambiguous)
+  if (backendData.country) {
+    country = countries.find((c) => c.name === backendData.country);
+  }
+
+  // If country name not found, try to find by matching 2-letter code
+  // But note: this can be ambiguous, so we only use it as a fallback
+  if (!country && backendData.country_code) {
+    // Find all countries that start with these 2 letters
+    const matchingCountries = countries.filter(
+      (c) =>
+        c.countryCode.substring(0, 2) === backendData.country_code.toUpperCase()
+    );
+
+    // If only one match, use it; otherwise we can't reliably determine
+    if (matchingCountries.length === 1) {
+      country = matchingCountries[0];
+    }
+  }
+
+  // Last resort: try by countryCode if provided (3-letter code)
+  if (!country && backendData.countryCode) {
+    country = countries.find((c) => c.countryCode === backendData.countryCode);
+  }
+
+  return {
+    name: backendData.name || "",
+    email: backendData.email || "",
+    phone: backendData.phone || "",
+    website: backendData.website || "",
+    image: backendData.image || "",
+    // Map backend 'type' (number) to frontend 'contactType' (string)
+    // 1 = individual, 2 = company
+    contactType:
+      backendData.type === 2
+        ? "company"
+        : backendData.type === 1
+        ? "individual"
+        : backendData.contactType || "individual",
+    // Map backend 'zip_code' to frontend 'zip'
+    zip: backendData.zip_code || backendData.zip || "",
+    state: backendData.state || "",
+    city: backendData.city || "",
+    street1: backendData.street1 || "",
+    street2: backendData.street2 || "",
+    // Map backend 'country_code' (2-letter) to frontend 'countryCode' (3-letter)
+    countryCode: country?.countryCode || backendData.countryCode || "USA",
+    // Map backend 'country' (full name) to frontend 'country'
+    country: backendData.country || country?.name || "United States",
+    notes: backendData.notes || "",
+    // Keep UI-only fields (not in backend)
+    jobPosition: backendData.jobPosition || "",
+    linkedCompany: backendData.linkedCompany || "",
+    tags: backendData.tags || [],
+  };
+}
+
+// Helper function to map frontend form data to backend format
+function mapFrontendToBackend(formData) {
+  // Find country by countryCode (frontend uses 3-letter codes like "USA")
+  // Always use countryCode as the source of truth to ensure consistency
+  const country = countries.find((c) => c.countryCode === formData.countryCode);
+
+  return {
+    name: formData.name,
+    image: formData.image || "",
+    // Map frontend 'contactType' (string) to backend 'type' (number)
+    // "individual" = 1, "company" = 2
+    type:
+      formData.contactType === "company"
+        ? 2
+        : formData.contactType === "individual"
+        ? 1
+        : 1,
+    phone: formData.phone || "",
+    email: formData.email || "",
+    website: formData.website || "",
+    street1: formData.street1 || "",
+    street2: formData.street2 || "",
+    city: formData.city || "",
+    state: formData.state || "",
+    zip_code: formData.zip || "",
+    // Use the country name from the country object found by countryCode,
+    // or fall back to formData.country if country object not found
+    country: country?.name || formData.country || "United States",
+    // Convert 3-letter code (USA) to 2-letter code (US) for backend
+    // Always derive from countryCode to ensure consistency
+    country_code:
+      country?.countryCode?.substring(0, 2).toUpperCase() ||
+      (formData.countryCode?.length >= 2
+        ? formData.countryCode.substring(0, 2).toUpperCase()
+        : "US"),
+    notes: formData.notes || "",
+  };
+}
 
 const initialFormData = {
   name: "",
@@ -40,9 +147,6 @@ const initialFormData = {
   countryCode: "USA", // Default to USA
   contactType: "individual", // Default to individual
   image: "", // Add missing image field
-  // ID fields
-  idType: "",
-  idNumber: "",
   // Contact tab fields
   street1: "",
   street2: "",
@@ -50,17 +154,6 @@ const initialFormData = {
   zip: "",
   state: "",
   country: "USA",
-  // Sales & Purchase tab fields
-  salesPerson: "",
-  salesPaymentTerm: "",
-  salesPaymentMethod: "",
-  purchaseResponsible: "",
-  purchasePaymentTerm: "",
-  purchasePaymentMethod: "",
-  rfqSubmission: "",
-  // Invoicing tab fields
-  invoiceSending: "",
-  invoiceResponsible: "",
   // Notes tab field
   notes: "",
   // New fields
@@ -106,7 +199,7 @@ function reducer(state, action) {
         contact: action.payload,
         isNew: !action.payload,
         formData: action.payload
-          ? {...initialFormData, ...action.payload}
+          ? mapBackendToFrontend(action.payload)
           : initialFormData,
         formDataChanged: false,
         isInitialLoad: true,
@@ -205,12 +298,15 @@ function ContactsFormContainer() {
           );
           if (existingContact) {
             dispatch({type: "SET_CONTACT", payload: existingContact});
-            // Only clear banner if it's not a success message from app creation
+            // Only clear banner if it's not a success message from contact creation or update
             if (
               state.bannerType !== "success" ||
-              !state.bannerMessage.includes(
+              (!state.bannerMessage.includes(
                 t("contactCreatedSuccessfullyMessage")
-              )
+              ) &&
+                !state.bannerMessage.includes(
+                  t("contactUpdatedSuccessfullyMessage")
+                ))
             ) {
               dispatch({
                 type: "SET_BANNER",
@@ -256,11 +352,8 @@ function ContactsFormContainer() {
   // Populate form data when contact changes
   useEffect(() => {
     if (state.contact) {
-      // Preserve all contact data while ensuring countryCode is set
-      const contactData = {
-        ...state.contact,
-        countryCode: state.contact.countryCode || "USA", // Ensure countryCode is set
-      };
+      // Map backend data to frontend format
+      const contactData = mapBackendToFrontend(state.contact);
       dispatch({
         type: "SET_FORM_DATA",
         payload: contactData,
@@ -280,13 +373,6 @@ function ContactsFormContainer() {
         type: "SET_FORM_DATA",
         payload: {[id]: value, jobPosition: "", linkedCompany: ""},
       });
-    } else if (id === "country") {
-      dispatch({
-        type: "SET_FORM_DATA",
-        payload: {[id]: value, idType: "", idNumber: ""},
-      });
-    } else if (id === "idType") {
-      dispatch({type: "SET_FORM_DATA", payload: {[id]: value, idNumber: ""}});
     } else {
       dispatch({type: "SET_FORM_DATA", payload: {[id]: value}});
     }
@@ -308,21 +394,8 @@ function ContactsFormContainer() {
 
     if (!validateForm()) return;
 
-    const country = countries.find(
-      (c) => c.countryCode === state.formData.countryCode
-    );
-    const contactData = {
-      name: state.formData.name,
-      email: state.formData.email,
-      phone: state.formData.phone,
-      website: state.formData.website,
-      countryCode: state.formData.countryCode,
-      phoneCode: country?.phoneCode || "+1",
-      contactType: state.formData.contactType,
-      jobPosition: state.formData.jobPosition,
-      linkedCompany: state.formData.linkedCompany,
-      tags: state.formData.tags,
-    };
+    // Map frontend form data to backend format
+    const contactData = mapFrontendToBackend(state.formData);
 
     dispatch({type: "SET_SUBMITTING", payload: true});
 
@@ -394,21 +467,10 @@ function ContactsFormContainer() {
 
     if (!validateForm()) return;
 
-    const country = countries.find(
-      (c) => c.countryCode === state.formData.countryCode
-    );
+    // Map frontend form data to backend format
     const contactData = {
+      ...mapFrontendToBackend(state.formData),
       id: Number(id),
-      name: state.formData.name,
-      email: state.formData.email,
-      phone: state.formData.phone,
-      website: state.formData.website,
-      countryCode: state.formData.countryCode,
-      phoneCode: country?.phoneCode || "+1",
-      contactType: state.formData.contactType,
-      jobPosition: state.formData.jobPosition,
-      linkedCompany: state.formData.linkedCompany,
-      tags: state.formData.tags,
     };
 
     dispatch({type: "SET_SUBMITTING", payload: true});
@@ -416,10 +478,10 @@ function ContactsFormContainer() {
     try {
       const res = await updateContact(id, contactData);
       if (res) {
-        // Update the contact with the new data while maintaining the id
+        // Update the contact with the response from the backend
         dispatch({
           type: "SET_CONTACT",
-          payload: {...contactData, id: Number(id)},
+          payload: res,
         });
 
         // Show success banner
@@ -451,14 +513,17 @@ function ContactsFormContainer() {
   const validateForm = () => {
     const newErrors = {};
 
-    if (!state.formData.name) {
+    // Only name is required
+    if (!state.formData.name || state.formData.name.trim() === "") {
       newErrors.name = t("nameValidationErrorMessage");
     }
 
+    // Optional email validation (only if provided)
     if (state.formData.email && !isValidEmail(state.formData.email)) {
       newErrors.email = t("emailValidationErrorMessage");
     }
 
+    // Optional website validation (only if provided)
     if (state.formData.website && !isValidUrl(state.formData.website)) {
       newErrors.website = t("websiteValidationErrorMessage");
     }
@@ -548,10 +613,37 @@ function ContactsFormContainer() {
       const res = await duplicateContact(state.contact);
 
       if (res && res.id) {
-        //Navigate first
-        navigate(`/${dbUrl}/contacts/${res.id}`);
+        // Get the current view's sorted contacts including the new duplicate
+        const currentViewContacts = getCurrentViewContacts();
+        const updatedContacts = [...currentViewContacts, res];
 
-        //Then show banner
+        // Sort the updated contacts using the same sorting logic
+        const sortedContacts = updatedContacts.sort((a, b) => {
+          if (viewMode === "list") {
+            return a.name.localeCompare(b.name);
+          } else {
+            // For group view, sort by type first, then name
+            if (a.type_id !== b.type_id) {
+              return a.type_id - b.type_id;
+            }
+            return a.name.localeCompare(b.name);
+          }
+        });
+
+        // Find the index of the duplicated contact in the sorted list
+        const newContactIndex =
+          sortedContacts.findIndex((contact) => contact.id === res.id) + 1;
+
+        // Navigate to the duplicated contact with navigation state
+        navigate(`/${dbUrl}/contacts/${res.id}`, {
+          state: {
+            currentIndex: newContactIndex,
+            totalItems: sortedContacts.length,
+            visibleContactIds: sortedContacts.map((contact) => contact.id),
+          },
+        });
+
+        // Show banner
         setTimeout(() => {
           dispatch({
             type: "SET_BANNER",
@@ -668,13 +760,18 @@ function ContactsFormContainer() {
     return "form-select w-12 pl-8";
   };
 
-  // Add a helper function to handle country change
+  // Add a helper function to handle country change (for country code/phone extension)
   const handleCountryChange = (e) => {
     const {value} = e.target;
     const country = countries.find((c) => c.countryCode === value);
 
-    // Update the country code
-    dispatch({type: "SET_FORM_DATA", payload: {countryCode: value}});
+    // Update the country code and sync the country name if it matches
+    const updates = {countryCode: value};
+    if (country) {
+      updates.country = country.name;
+    }
+
+    dispatch({type: "SET_FORM_DATA", payload: updates});
 
     // If there's a phone number, update it with the new country code
     if (state.formData.phone) {
@@ -683,6 +780,43 @@ function ContactsFormContainer() {
       // Add the new country code
       const newPhone = phoneWithoutCode;
       dispatch({type: "SET_FORM_DATA", payload: {phone: newPhone}});
+    }
+
+    // Mark form as changed after initial load
+    if (state.isInitialLoad) {
+      dispatch({type: "SET_FORM_CHANGED", payload: true});
+    }
+  };
+
+  // Handle country dropdown change (full country name)
+  const handleCountryDropdownChange = (e) => {
+    const {value} = e.target;
+    const country = countries.find(
+      (c) => c.countryCode === value || c.name === value
+    );
+
+    if (country) {
+      // Update both countryCode and country name
+      dispatch({
+        type: "SET_FORM_DATA",
+        payload: {
+          countryCode: country.countryCode,
+          country: country.name,
+          // Clear state if country is not USA
+          state: country.countryCode !== "USA" ? "" : state.formData.state,
+        },
+      });
+    } else {
+      // Fallback if country not found
+      dispatch({
+        type: "SET_FORM_DATA",
+        payload: {country: value},
+      });
+    }
+
+    // Mark form as changed after initial load
+    if (state.isInitialLoad) {
+      dispatch({type: "SET_FORM_CHANGED", payload: true});
     }
   };
 
@@ -731,40 +865,8 @@ function ContactsFormContainer() {
 
   function handleCancel() {
     if (state.contact) {
-      // For existing contacts, reset to original contact data
-      const originalData = {
-        ...initialFormData, // Start with initial form data
-        ...state.contact, // Override with contact data
-        // Ensure these fields are explicitly set to contact values or empty strings
-        name: state.contact.name || "",
-        email: state.contact.email || "",
-        phone: state.contact.phone || "",
-        website: state.contact.website || "",
-        countryCode: state.contact.countryCode || "USA",
-        jobPosition: state.contact.jobPosition || "",
-        idType: state.contact.idType || "",
-        idNumber: state.contact.idNumber || "",
-        street1: state.contact.street1 || "",
-        street2: state.contact.street2 || "",
-        city: state.contact.city || "",
-        zip: state.contact.zip || "",
-        state: state.contact.state || "",
-        country: state.contact.country || "USA",
-        salesPerson: state.contact.salesPerson || "",
-        salesPaymentTerms: state.contact.salesPaymentTerms || "",
-        salesPaymentMethod: state.contact.salesPaymentMethod || "",
-        purchaseResponsible: state.contact.purchaseResponsible || "",
-        purchasePaymentTerms: state.contact.purchasePaymentTerms || "",
-        purchasePaymentMethod: state.contact.purchasePaymentMethod || "",
-        rfqSubmission: state.contact.rfqSubmission || "",
-        invoiceSending: state.contact.invoiceSending || "",
-        invoiceResponsible: state.contact.invoiceResponsible || "",
-        notes: state.contact.notes || "",
-        contactType: state.contact.contactType || "",
-        image: state.contact.image || "",
-        linkedCompany: state.contact.linkedCompany || "",
-        tags: state.contact.tags || [],
-      };
+      // For existing contacts, reset to original contact data (map from backend format)
+      const originalData = mapBackendToFrontend(state.contact);
 
       // Reset form data to original values
       dispatch({
@@ -787,6 +889,39 @@ function ContactsFormContainer() {
     }
   }
 
+  // Helper function to build navigation state from contacts
+  const buildNavigationState = (contactId) => {
+    const currentViewContacts = getCurrentViewContacts();
+
+    // Sort contacts using the same logic as handleSubmit
+    const sortedContacts = [...currentViewContacts].sort((a, b) => {
+      if (viewMode === "list") {
+        return a.name.localeCompare(b.name);
+      } else {
+        // For group view, sort by type first, then name
+        if (a.type_id !== b.type_id) {
+          return a.type_id - b.type_id;
+        }
+        return a.name.localeCompare(b.name);
+      }
+    });
+
+    const contactIndex = sortedContacts.findIndex(
+      (contact) => Number(contact.id) === Number(contactId)
+    );
+
+    if (contactIndex === -1) {
+      // If contact not found, return null
+      return null;
+    }
+
+    return {
+      currentIndex: contactIndex + 1,
+      totalItems: sortedContacts.length,
+      visibleContactIds: sortedContacts.map((contact) => contact.id),
+    };
+  };
+
   // Add a helper function to add link options to arrays
   const addLinkOptions = (options, linkOptions) => {
     return [
@@ -794,48 +929,6 @@ function ContactsFormContainer() {
       ...(Array.isArray(linkOptions) ? linkOptions : [linkOptions]),
     ];
   };
-
-  function handleSalesPaymentTermChange(value) {
-    // Update the sales payment term in form data
-    dispatch({
-      type: "SET_FORM_DATA",
-      payload: {salesPaymentTerm: value},
-    });
-
-    // Clear error when field is being edited
-    if (state.errors.salesPaymentTerm) {
-      dispatch({
-        type: "SET_ERRORS",
-        payload: {...state.errors, salesPaymentTerm: null},
-      });
-    }
-
-    // Mark form as changed after initial load
-    if (state.isInitialLoad) {
-      dispatch({type: "SET_FORM_CHANGED", payload: true});
-    }
-  }
-
-  function handlePurchasePaymentTermChange(value) {
-    // Update the purchase payment term in form data
-    dispatch({
-      type: "SET_FORM_DATA",
-      payload: {purchasePaymentTerm: value},
-    });
-
-    // Clear error when field is being edited
-    if (state.errors.purchasePaymentTerm) {
-      dispatch({
-        type: "SET_ERRORS",
-        payload: {...state.errors, purchasePaymentTerm: null},
-      });
-    }
-
-    // Mark form as changed after initial load
-    if (state.isInitialLoad) {
-      dispatch({type: "SET_FORM_CHANGED", payload: true});
-    }
-  }
 
   // Handler for linked company selection
   function handleLinkedCompanyChange(value) {
@@ -891,49 +984,21 @@ function ContactsFormContainer() {
   // Available tags for selection
   const availableTags = [
     {
-      id: "customer",
-      name: t("customer"),
+      id: "agent",
+      name: "Agent",
       color: "bg-blue-100 text-blue-800 dark:bg-blue-900/60 dark:text-blue-300",
     },
     {
-      id: "vip",
-      name: t("vip"),
-      color:
-        "bg-purple-100 text-purple-800 dark:bg-purple-900/60 dark:text-purple-300",
-    },
-    {
-      id: "supplier",
-      name: t("supplier"),
+      id: "contractor",
+      name: "Contractor",
       color:
         "bg-green-100 text-green-800 dark:bg-green-900/60 dark:text-green-300",
     },
     {
-      id: "partner",
-      name: t("partner"),
+      id: "homeowner",
+      name: "Homeowner",
       color:
-        "bg-orange-100 text-orange-800 dark:bg-orange-900/60 dark:text-orange-300",
-    },
-    {
-      id: "prospect",
-      name: t("prospect"),
-      color:
-        "bg-yellow-100 text-yellow-800 dark:bg-yellow-900/60 dark:text-yellow-300",
-    },
-    {
-      id: "lead",
-      name: t("lead"),
-      color: "bg-pink-100 text-pink-800 dark:bg-pink-900/60 dark:text-pink-300",
-    },
-    {
-      id: "employee",
-      name: t("employee"),
-      color:
-        "bg-indigo-100 text-indigo-800 dark:bg-indigo-900/60 dark:text-indigo-300",
-    },
-    {
-      id: "contractor",
-      name: t("contractor"),
-      color: "bg-gray-100 text-gray-800 dark:bg-gray-900/60 dark:text-gray-300",
+        "bg-purple-100 text-purple-800 dark:bg-purple-900/60 dark:text-purple-300",
     },
   ];
 
@@ -1216,7 +1281,7 @@ function ContactsFormContainer() {
               />
             )}
             <button
-              className="btn bg-violet-500 hover:bg-violet-600 text-white transition-colors duration-200 shadow-sm"
+              className="btn bg-[#456564] hover:bg-[#34514f] text-white transition-colors duration-200 shadow-sm"
               onClick={handleNewContact}
             >
               {t("new")}
@@ -1227,86 +1292,103 @@ function ContactsFormContainer() {
         <div className="flex justify-end mb-2">
           {/* Contact Navigation */}
           <div className="flex items-center">
-            {state.contact && location.state?.totalItems > 1 && (
-              <>
-                <span className="text-sm text-gray-500 dark:text-gray-400 mr-2">
-                  {location.state.currentIndex} / {location.state.totalItems}
-                </span>
-                <button
-                  className="btn shadow-none p-1"
-                  title="Previous"
-                  onClick={() => {
-                    if (
-                      location.state?.visibleContactIds &&
-                      location.state.currentIndex > 1
-                    ) {
-                      const prevIndex = location.state.currentIndex - 2;
-                      const prevContactId =
-                        location.state.visibleContactIds[prevIndex];
-                      navigate(`/${dbUrl}/contacts/${prevContactId}`, {
-                        state: {
-                          ...location.state,
-                          currentIndex: location.state.currentIndex - 1,
-                        },
-                      });
-                    }
-                  }}
-                  disabled={!location.state || location.state.currentIndex <= 1}
-                >
-                  <svg
-                    className={`fill-current shrink-0 ${
-                      !location.state || location.state.currentIndex <= 1
-                        ? "text-gray-200 dark:text-gray-700"
-                        : "text-gray-400 dark:text-gray-500 hover:text-gray-500 dark:hover:text-gray-600"
-                    }`}
-                    width="24"
-                    height="24"
-                    viewBox="0 0 18 18"
-                  >
-                    <path d="M9.4 13.4l1.4-1.4-4-4 4-4-1.4-1.4L4 8z"></path>
-                  </svg>
-                </button>
+            {state.contact &&
+              (() => {
+                // Use location.state if available, otherwise build from contacts
+                const navState =
+                  location.state || buildNavigationState(state.contact.id);
 
-                <button
-                  className="btn shadow-none p-1"
-                  title="Next"
-                  onClick={() => {
-                    if (
-                      location.state?.visibleContactIds &&
-                      location.state.currentIndex < location.state.totalItems
-                    ) {
-                      const nextIndex = location.state.currentIndex;
-                      const nextContactId =
-                        location.state.visibleContactIds[nextIndex];
-                      navigate(`/${dbUrl}/contacts/${nextContactId}`, {
-                        state: {
-                          ...location.state,
-                          currentIndex: location.state.currentIndex + 1,
-                        },
-                      });
-                    }
-                  }}
-                  disabled={
-                    !location.state ||
-                    location.state.currentIndex >= location.state.totalItems
-                  }
-                >
-                  <svg
-                    className={`fill-current shrink-0 ${
-                      !location.state ||
-                      location.state.currentIndex >= location.state.totalItems
-                        ? "text-gray-200 dark:text-gray-700"
-                        : "text-gray-400 dark:text-gray-500 hover:text-gray-500 dark:hover:text-gray-600"
-                    }`}
-                    width="24"
-                    height="24"
-                    viewBox="0 0 18 18"
-                  >
-                    <path d="M6.6 13.4L5.2 12l4-4-4-4 1.4-1.4L12 8z"></path>
-                  </svg>
-                </button>
-              </>
-            )}
+                if (!navState) return null;
+
+                return (
+                  <>
+                    <span className="text-sm text-gray-500 dark:text-gray-400 mr-2">
+                      {navState.currentIndex || 1} / {navState.totalItems || 1}
+                    </span>
+                    <button
+                      className="btn shadow-none p-1"
+                      title="Previous"
+                      onClick={() => {
+                        if (
+                          navState.visibleContactIds &&
+                          navState.currentIndex > 1
+                        ) {
+                          const prevIndex = navState.currentIndex - 2;
+                          const prevContactId =
+                            navState.visibleContactIds[prevIndex];
+                          const prevNavState =
+                            buildNavigationState(prevContactId);
+                          navigate(`/${dbUrl}/contacts/${prevContactId}`, {
+                            state: prevNavState || {
+                              ...navState,
+                              currentIndex: navState.currentIndex - 1,
+                            },
+                          });
+                        }
+                      }}
+                      disabled={
+                        !navState.currentIndex || navState.currentIndex <= 1
+                      }
+                    >
+                      <svg
+                        className={`fill-current shrink-0 ${
+                          !navState.currentIndex || navState.currentIndex <= 1
+                            ? "text-gray-200 dark:text-gray-700"
+                            : "text-gray-400 dark:text-gray-500 hover:text-gray-500 dark:hover:text-gray-600"
+                        }`}
+                        width="24"
+                        height="24"
+                        viewBox="0 0 18 18"
+                      >
+                        <path d="M9.4 13.4l1.4-1.4-4-4 4-4-1.4-1.4L4 8z"></path>
+                      </svg>
+                    </button>
+
+                    <button
+                      className="btn shadow-none p-1"
+                      title="Next"
+                      onClick={() => {
+                        if (
+                          navState.visibleContactIds &&
+                          navState.currentIndex < navState.totalItems
+                        ) {
+                          const nextIndex = navState.currentIndex;
+                          const nextContactId =
+                            navState.visibleContactIds[nextIndex];
+                          const nextNavState =
+                            buildNavigationState(nextContactId);
+                          navigate(`/${dbUrl}/contacts/${nextContactId}`, {
+                            state: nextNavState || {
+                              ...navState,
+                              currentIndex: navState.currentIndex + 1,
+                            },
+                          });
+                        }
+                      }}
+                      disabled={
+                        !navState.currentIndex ||
+                        !navState.totalItems ||
+                        navState.currentIndex >= navState.totalItems
+                      }
+                    >
+                      <svg
+                        className={`fill-current shrink-0 ${
+                          !navState.currentIndex ||
+                          !navState.totalItems ||
+                          navState.currentIndex >= navState.totalItems
+                            ? "text-gray-200 dark:text-gray-700"
+                            : "text-gray-400 dark:text-gray-500 hover:text-gray-500 dark:hover:text-gray-600"
+                        }`}
+                        width="24"
+                        height="24"
+                        viewBox="0 0 18 18"
+                      >
+                        <path d="M6.6 13.4L5.2 12l4-4-4-4 1.4-1.4L12 8z"></path>
+                      </svg>
+                    </button>
+                  </>
+                );
+              })()}
           </div>
         </div>
 
@@ -1589,6 +1671,13 @@ function ContactsFormContainer() {
                                     linkedCompany: "",
                                   },
                                 });
+                                // Mark form as changed after initial load
+                                if (state.isInitialLoad) {
+                                  dispatch({
+                                    type: "SET_FORM_CHANGED",
+                                    payload: true,
+                                  });
+                                }
                               }}
                               className="form-radio text-[#6E8276] focus:ring-[#6E8276]"
                             />
@@ -1611,6 +1700,13 @@ function ContactsFormContainer() {
                                     linkedCompany: "",
                                   },
                                 });
+                                // Mark form as changed after initial load
+                                if (state.isInitialLoad) {
+                                  dispatch({
+                                    type: "SET_FORM_CHANGED",
+                                    payload: true,
+                                  });
+                                }
                               }}
                               className="form-radio text-[#6E8276] focus:ring-[#6E8276]"
                             />
@@ -1792,45 +1888,6 @@ function ContactsFormContainer() {
                         )}
                       </div>
 
-                      <div>
-                        <div className="grid grid-cols-5 gap-3">
-                          <div className="col-span-2">
-                            <label
-                              className={getLabelClasses()}
-                              htmlFor="idType"
-                            >
-                              {t("idType")}
-                            </label>
-                            <input
-                              id="idType"
-                              className={getInputClasses("idType")}
-                              type="text"
-                              value={state.formData.idType}
-                              onChange={handleChange}
-                              placeholder={t("idTypePlaceholder")}
-                              disabled={!state.formData.country}
-                            />
-                          </div>
-
-                          <div className="col-span-3">
-                            <label
-                              className={getLabelClasses()}
-                              htmlFor="idNumber"
-                            >
-                              {t("idNumber")}
-                            </label>
-                            <input
-                              id="idNumber"
-                              className={getInputClasses("idNumber")}
-                              type="text"
-                              value={state.formData.idNumber}
-                              onChange={handleChange}
-                              placeholder={t("idNumberPlaceholder")}
-                            />
-                          </div>
-                        </div>
-                      </div>
-
                       {/* Tags Field */}
                       <div>
                         <label className={getLabelClasses()} htmlFor="tags">
@@ -1854,8 +1911,8 @@ function ContactsFormContainer() {
                       <MapPin className="h-5 w-5 text-[#6E8276]" />
                       {t("address")}
                     </h3>
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                      <div className="md:col-span-1">
+                    <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
+                      <div className="md:col-span-3">
                         <div className="grid grid-cols-1 gap-4">
                           <div>
                             <label
@@ -1916,14 +1973,31 @@ function ContactsFormContainer() {
                               >
                                 {t("state")}
                               </label>
-                              <input
+                              <select
                                 id="state"
-                                className={getInputClasses("state")}
-                                type="text"
+                                className={getSelectClasses()}
                                 value={state.formData.state}
                                 onChange={handleChange}
-                                placeholder={t("statePlaceholder")}
-                              />
+                                disabled={state.formData.countryCode !== "USA"}
+                              >
+                                {state.formData.countryCode === "USA" ? (
+                                  <>
+                                    <option value="">Select State</option>
+                                    {usStates.map((state) => (
+                                      <option
+                                        key={state.code}
+                                        value={state.code}
+                                      >
+                                        {state.code}
+                                      </option>
+                                    ))}
+                                  </>
+                                ) : (
+                                  <option value="international">
+                                    International
+                                  </option>
+                                )}
+                              </select>
                             </div>
 
                             <div className="col-span-3">
@@ -1956,20 +2030,10 @@ function ContactsFormContainer() {
                                 id="country"
                                 className={getSelectClasses()}
                                 value={state.formData.country}
-                                onChange={(e) => {
-                                  handleChange(e);
-                                  // Reset ID type when country changes
-                                  dispatch({
-                                    type: "SET_FORM_DATA",
-                                    payload: {idType: "", idNumber: ""},
-                                  });
-                                }}
+                                onChange={handleCountryDropdownChange}
                               >
                                 {countries.map((country) => (
-                                  <option
-                                    key={country.id}
-                                    value={country.countryCode}
-                                  >
+                                  <option key={country.id} value={country.name}>
                                     {country.name}
                                   </option>
                                 ))}
@@ -2024,8 +2088,8 @@ function ContactsFormContainer() {
                   type="submit"
                   className={`btn text-white transition-colors duration-200 shadow-sm min-w-[100px] ${
                     state.isNew
-                      ? "bg-violet-500 hover:bg-violet-600"
-                      : "bg-[#6E8276] hover:bg-[#596a5f]"
+                      ? "bg-[#456564] hover:bg-[#34514f]"
+                      : "bg-[#456564] hover:bg-[#34514f]"
                   }`}
                   disabled={state.isSubmitting}
                 >

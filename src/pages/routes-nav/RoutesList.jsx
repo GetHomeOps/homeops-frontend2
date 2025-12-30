@@ -1,4 +1,4 @@
-import React, {useContext} from "react";
+import React from "react";
 import {Routes, Route, Navigate} from "react-router-dom";
 
 import "../../css/style.css";
@@ -10,7 +10,7 @@ import Account from "../accountSettings/Account";
 import Databases from "../accountSettings/Databases";
 import PageNotFound from "../utility/PageNotFound";
 import Main from "../Main";
-import AuthContext from "../../context/AuthContext";
+import {useAuth} from "../../context/AuthContext";
 import ContactList from "../contacts/ContactsList";
 import UsersList from "../users/UsersList";
 import User from "../users/User";
@@ -19,7 +19,7 @@ import PropertiesList from "../properties/PropertiesList";
 import Property from "../properties/Property";
 
 function RoutesList() {
-  const {currentUser, isLoading} = useContext(AuthContext);
+  const {currentUser, isLoading} = useAuth();
 
   // Show nothing while checking authentication
   if (isLoading) {

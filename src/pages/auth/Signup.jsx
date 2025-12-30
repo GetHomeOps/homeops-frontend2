@@ -4,7 +4,7 @@ import {useNavigate} from "react-router-dom";
 import {useAuth} from "../../context/AuthContext";
 import {useTranslation} from "react-i18next";
 
-import AuthImage from "../../images/auth-image.jpg";
+import AuthImage from "../../images/signup-house.png";
 import Logo from "../../images/logo-no-bg.png";
 
 const ROLE_OPTIONS = [
@@ -18,7 +18,7 @@ function Signup() {
   const [formData, setFormData] = useState({
     email: "",
     password: "",
-    fullName: "",
+    name: "",
     role: "",
   });
   const [formErrors, setFormErrors] = useState([]);
@@ -107,15 +107,15 @@ function Signup() {
                   <div>
                     <label
                       className="block text-sm font-medium mb-1"
-                      htmlFor="fullName"
+                      htmlFor="name"
                     >
-                      Full Name <span className="text-red-500">*</span>
+                      Name <span className="text-red-500">*</span>
                     </label>
                     <input
-                      id="fullName"
+                      id="name"
                       className="form-input w-full"
                       type="text"
-                      name="fullName"
+                      name="name"
                       onChange={handleChange}
                     />
                   </div>
@@ -159,18 +159,10 @@ function Signup() {
                   </div>
                 </div>
                 <div className="flex items-center justify-between mt-6">
-                  <div className="mr-1">
-                    <label className="flex items-center">
-                      <input type="checkbox" className="form-checkbox" />
-                      <span className="text-sm ml-2">
-                        Email me about product news.
-                      </span>
-                    </label>
-                  </div>
                   <button
                     type="submit"
                     disabled={isSubmitting}
-                    className="btn bg-gray-900 text-gray-100 hover:bg-gray-800 dark:bg-gray-100 dark:text-gray-800 dark:hover:bg-white ml-3 whitespace-nowrap"
+                    className="btn bg-gray-900 text-gray-100 hover:bg-gray-800 dark:bg-gray-100 dark:text-gray-800 dark:hover:bg-white  whitespace-nowrap"
                   >
                     {isSubmitting ? t("signingUp") : t("signUp")}
                   </button>

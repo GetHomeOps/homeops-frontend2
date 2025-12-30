@@ -77,22 +77,14 @@ export function ContactProvider({children}) {
       if (isLoading || !currentUser) return;
 
       try {
-        let fetchedContacts;
+        let fetchedContacts = [];
 
-        // If user is superAdmin, get all contacts
-        if (currentUser.role === "superAdmin") {
-          fetchedContacts = await AppApi.getAllContacts();
-        }
-        // Otherwise, get contacts for the current database
-        else if (currentDb?.id) {
+        // Get contacts for the current database
+        if (currentDb?.id) {
           fetchedContacts = await AppApi.getContactsByDbId(currentDb.id);
         }
-        // Fallback: get all contacts if database ID is not available
-        else {
-          fetchedContacts = await AppApi.getAllContacts();
-        }
 
-        setContacts(fetchedContacts);
+        setContacts(fetchedContacts || []);
       } catch (err) {
         console.error("There was an error retrieving contacts:", err);
         setContacts([]);
@@ -100,26 +92,6 @@ export function ContactProvider({children}) {
     }
     fetchContacts();
   }, [isLoading, currentUser, currentDb]);
-
-  // Get all payment terms from Backend
-  // Removed - payment terms are no longer being used
-  // useEffect(() => {
-  //   async function getAllPaymentTerms() {
-  //     if (isLoading || !currentUser) return;
-
-  //     try {
-  //       let fetchedPaymentTerms = await AppApi.getPaymentTermsByDbId(
-  //         currentDb,
-  //         currentUser.id
-  //       );
-  //       setPaymentTerms(fetchedPaymentTerms);
-  //     } catch (err) {
-  //       console.error("There was an error retrieving all payment terms:", err);
-  //       setPaymentTerms([]);
-  //     }
-  //   }
-  //   getAllPaymentTerms();
-  // }, [isLoading, currentUser, currentDb]);
 
   // Function to get the current view's contacts
   const getCurrentViewContacts = useCallback(() => {
@@ -136,10 +108,29 @@ export function ContactProvider({children}) {
     return contacts;
   }, [contacts]);
 
+  // Add contact to database
+  const addContactToDatabase = async (data) => {
+    try {
+      await AppApi.addContactToDatabase(data);
+      console.log(
+        `Contact ${data.contactId} successfully added to database ${data.databaseId}`
+      );
+    } catch (error) {
+      console.error("Error adding contact to database:", error);
+      // Don't throw error here - allow caller to handle it if needed
+      throw error;
+    }
+  };
+
   // Create a new contact
   const createContact = async (contactData) => {
     try {
-      const res = await AppApi.createContact(contactData);
+      // Include databaseId in the request so backend can handle both operations atomically
+      const dataWithDatabase = currentDb?.id
+        ? {...contactData, databaseId: currentDb.id}
+        : contactData;
+
+      const res = await AppApi.createContact(dataWithDatabase);
       if (res) {
         setContacts((prevContacts) => [...prevContacts, res]);
         return res;
@@ -469,7 +460,6 @@ export function ContactProvider({children}) {
     ]
   );
 
-  console.log("Test Variable: ", testVariable);
   return (
     <ContactContext.Provider value={contextValue}>
       {children}

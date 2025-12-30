@@ -13,6 +13,7 @@ function UsersTable({
   itemsPerPage,
   sortConfig,
   onSort,
+  onUserClick,
 }) {
   const {t} = useTranslation();
   const navigate = useNavigate();
@@ -68,23 +69,14 @@ function UsersTable({
     <DataTable
       items={currentUsers}
       columns={columns}
-      onItemClick={(user) => {
-        const currentIndex = users.findIndex((c) => c.id === user.id);
-        navigate(`/${dbUrl}/users/${user.id}`, {
-          state: {
-            currentIndex: currentIndex + 1,
-            totalItems: users.length,
-            visibleContactIds: users.map((user) => user.id),
-          },
-        });
-      }}
+      onItemClick={onUserClick}
       onSelect={onToggleSelect}
       selectedItems={selectedItems}
       totalItems={totalUsers}
-      title="allContacts"
+      title="allUsers"
       sortConfig={sortConfig}
       onSort={onSort}
-      emptyMessage="noContactsFound"
+      emptyMessage="noUsersFound"
       renderItem={renderItem}
       allSelected={allSelected}
     />

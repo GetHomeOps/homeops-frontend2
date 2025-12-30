@@ -67,7 +67,7 @@ function DataTable({
             {column.sortable ? (
               <button
                 className="font-semibold text-left flex items-center justify-between w-full"
-                onClick={() => onSort(column.key)}
+                onClick={() => onSort && onSort(column.key)}
               >
                 <div className="text-xs uppercase">{t(column.label)}</div>
                 {renderSortIndicator(sortConfig, column.key)}

@@ -1,4 +1,5 @@
 import React, {createContext, useState, useContext, useEffect} from "react";
+import {useTableSort} from "../hooks/useTableSort";
 import AppApi from "../api/api";
 import {useAuth} from "./AuthContext";
 import useCurrentDb from "../hooks/useCurrentDb";
@@ -12,31 +13,55 @@ export function UserProvider({children}) {
   const {currentUser, isLoading} = useAuth();
   const {currentDb} = useCurrentDb();
 
-  useEffect(() => {
-    async function fetchUsers() {
-      if (isLoading || !currentUser) return;
+  const customListComparators = {
+    // Generic comparator that works for any field
+    default: (a, b, direction, key) => {
+      const valueA = (a[key] || "").toString().toLowerCase();
+      const valueB = (b[key] || "").toString().toLowerCase();
+      return direction === "asc"
+        ? valueA.localeCompare(valueB)
+        : valueB.localeCompare(valueA);
+    },
+  };
 
-      try {
-        let fetchedUsers;
+  const {
+    sortedItems: listSortedItems,
+    sortConfig: listSortConfig,
+    handleSort: handleListSort,
+  } = useTableSort(users, "fullName", false, {
+    storageKey: "users-sort",
+    customComparators: customListComparators,
+  });
 
-        // If user is superAdmin, get all users
-        if (currentUser.role === "superAdmin") {
-          fetchedUsers = await AppApi.getAllUsers();
-        }
-        // If user is agent, get users for the current database
-        else if (currentUser.role === "agent" && currentDb?.id) {
-          fetchedUsers = await AppApi.getUsersByDatabaseId(currentDb.id);
-        }
-        // Default: get all users (fallback for other roles or if database ID is not available)
-        else {
-          fetchedUsers = await AppApi.getAllUsers();
-        }
+  const fetchUsers = async () => {
+    if (isLoading || !currentUser) return;
 
-        setUsers(fetchedUsers);
-      } catch (err) {
-        console.error("There was an error retrieving users:", err);
+    try {
+      let fetchedUsers;
+
+      // If user is superAdmin, get all users
+      if (
+        currentUser.role === "superAdmin" ||
+        currentUser.role === "super_admin"
+      ) {
+        fetchedUsers = await AppApi.getAllUsers();
       }
+      // Otherwise, only get users for the current database (requires database ID)
+      else if (currentDb?.id) {
+        fetchedUsers = await AppApi.getUsersByDatabaseId(currentDb.id);
+      }
+      // If no database is available, don't fetch users
+      else {
+        fetchedUsers = [];
+      }
+
+      setUsers(fetchedUsers);
+    } catch (err) {
+      console.error("There was an error retrieving users:", err);
     }
+  };
+
+  useEffect(() => {
     fetchUsers();
   }, [isLoading, currentUser, currentDb]);
 
@@ -65,6 +90,160 @@ export function UserProvider({children}) {
     }
   };
 
+  // Create a new user
+  const createUser = async (userData) => {
+    try {
+      const res = await AppApi.signup(userData);
+      if (res && res.user) {
+        // Add user to context immediately (like ContactContext does)
+        setUsers((prevUsers) => [...prevUsers, res.user]);
+        return res.user;
+      }
+      // If user not in response, refresh users list and find by email
+      if (res) {
+        await fetchUsers();
+        // Wait a moment for state to update, then get fresh users
+        let freshUsers;
+        if (
+          currentUser?.role === "superAdmin" ||
+          currentUser?.role === "super_admin"
+        ) {
+          freshUsers = await AppApi.getAllUsers();
+        } else if (currentDb?.id) {
+          freshUsers = await AppApi.getUsersByDatabaseId(currentDb.id);
+        } else {
+          freshUsers = [];
+        }
+        setUsers(freshUsers);
+        const newUser = freshUsers.find((u) => u.email === userData.email);
+        if (newUser) {
+          return newUser;
+        }
+      }
+      throw new Error("User creation failed");
+    } catch (error) {
+      console.error("Error creating user:", error);
+      throw error;
+    }
+  };
+
+  // Delete a user
+  const deleteUser = async (id) => {
+    try {
+      let res = await AppApi.deleteUser(id);
+
+      if (res) {
+        // Remove user from context immediately (like ContactContext does)
+        setUsers((prevUsers) =>
+          prevUsers.filter((user) => user.id !== Number(id))
+        );
+        return res;
+      }
+    } catch (error) {
+      console.error("Error deleting user:", error);
+      throw error;
+    }
+  };
+
+  // Generate unique email for duplicate users
+  const generateUniqueEmail = (originalEmail) => {
+    if (!originalEmail) return "";
+    const [localPart, domain] = originalEmail.split("@");
+    if (!domain) return originalEmail;
+
+    let counter = 1;
+    let newEmail = `${localPart}_copy${counter}@${domain}`;
+
+    // Check if email already exists, increment counter if needed
+    while (users.some((user) => user.email === newEmail)) {
+      counter++;
+      newEmail = `${localPart}_copy${counter}@${domain}`;
+    }
+
+    return newEmail;
+  };
+
+  // Generate unique name for duplicate users
+  const generateUniqueName = (originalName) => {
+    if (!originalName) return "";
+
+    let counter = 1;
+    let newName = `${originalName} (Copy ${counter})`;
+
+    // Check if name already exists, increment counter if needed
+    while (users.some((user) => (user.name || user.fullName) === newName)) {
+      counter++;
+      newName = `${originalName} (Copy ${counter})`;
+    }
+
+    return newName;
+  };
+
+  // Duplicate a user
+  const duplicateUser = async (userToDuplicate) => {
+    if (!userToDuplicate) return null;
+
+    try {
+      const uniqueEmail = generateUniqueEmail(userToDuplicate.email);
+      const uniqueName = generateUniqueName(
+        userToDuplicate.name || userToDuplicate.fullName
+      );
+
+      // Generate a random password for the duplicate
+      const generateRandomPassword = () => {
+        const length = 16;
+        const charset =
+          "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789!@#$%^&*";
+        let password = "";
+        for (let i = 0; i < length; i++) {
+          password += charset.charAt(
+            Math.floor(Math.random() * charset.length)
+          );
+        }
+        return password;
+      };
+
+      const userData = {
+        name: uniqueName,
+        email: uniqueEmail,
+        phone: userToDuplicate.phone || "",
+        role: userToDuplicate.role || "",
+        contact: userToDuplicate.contact || 0,
+        password: generateRandomPassword(),
+        is_active: false,
+      };
+
+      const res = await createUser(userData);
+      return res;
+    } catch (error) {
+      console.error("Error duplicating user:", error);
+      throw error;
+    }
+  };
+
+  // Handles bulk duplication of selected users
+  const bulkDuplicateUsers = async (selectedUserIds) => {
+    if (!selectedUserIds || selectedUserIds.length === 0) return [];
+
+    const results = [];
+
+    try {
+      // Duplicate each selected user
+      for (const userId of selectedUserIds) {
+        const userToDuplicate = users.find((user) => user.id === userId);
+        if (userToDuplicate) {
+          const result = await duplicateUser(userToDuplicate);
+          if (result) {
+            results.push(result);
+          }
+        }
+      }
+      return results;
+    } catch (error) {
+      throw error;
+    }
+  };
+
   console.log(" users: ", users);
   return (
     <UserContext.Provider
@@ -74,6 +253,13 @@ export function UserProvider({children}) {
         setSelectedItems,
         handleToggleSelection,
         setUsers,
+        createUser,
+        deleteUser,
+        duplicateUser,
+        bulkDuplicateUsers,
+        sortedUsers: listSortedItems,
+        sortConfig: listSortConfig,
+        handleSort: handleListSort,
       }}
     >
       {children}

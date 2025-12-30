@@ -170,13 +170,13 @@ function InstallerBanner({installerName, systemType}) {
   return (
     <div
       className="mb-6 rounded-lg border p-3"
-      style={{backgroundColor: "#264B48", borderColor: "#1e3a37"}}
+      style={{backgroundColor: "#E3F2FD", borderColor: "#BBDEFB"}}
     >
       <div className="flex items-center gap-3">
         {/* Avatar/Photo - Rounded */}
         <div
-          className="w-12 h-12 rounded-full flex items-center justify-center text-white font-semibold text-base flex-shrink-0 bg-white/20 border-2"
-          style={{borderColor: "#ffffff40"}}
+          className="w-12 h-12 rounded-full flex items-center justify-center text-gray-700 dark:text-gray-300 font-semibold text-base flex-shrink-0 bg-white border-2"
+          style={{borderColor: "#90CAF9"}}
         >
           {displayInstaller.photo ? (
             <img
@@ -195,15 +195,15 @@ function InstallerBanner({installerName, systemType}) {
             {/* Name */}
             {contactName ? (
               <div>
-                <h4 className="text-sm font-semibold text-white">
+                <h4 className="text-sm font-semibold text-gray-900 dark:text-gray-100">
                   {contactName}
                 </h4>
-                <p className="text-xs font-medium text-white/90">
+                <p className="text-xs font-medium text-gray-700 dark:text-gray-300">
                   {companyName}
                 </p>
               </div>
             ) : (
-              <h4 className="text-sm font-semibold text-white">
+              <h4 className="text-sm font-semibold text-gray-900 dark:text-gray-100">
                 {companyName}
               </h4>
             )}
@@ -211,18 +211,20 @@ function InstallerBanner({installerName, systemType}) {
             {/* Address */}
             {displayInstaller.address && (
               <div className="flex items-center gap-1.5">
-                <MapPin className="w-3.5 h-3.5 text-white/80 flex-shrink-0" />
-                <p className="text-xs text-white">{displayInstaller.address}</p>
+                <MapPin className="w-3.5 h-3.5 text-gray-600 dark:text-gray-400 flex-shrink-0" />
+                <p className="text-xs text-gray-700 dark:text-gray-300">
+                  {displayInstaller.address}
+                </p>
               </div>
             )}
 
             {/* Phone */}
             {displayInstaller.phone && (
               <div className="flex items-center gap-1.5">
-                <Phone className="w-3.5 h-3.5 text-white/80 flex-shrink-0" />
+                <Phone className="w-3.5 h-3.5 text-gray-600 dark:text-gray-400 flex-shrink-0" />
                 <a
                   href={`tel:${displayInstaller.phone}`}
-                  className="text-xs text-white hover:text-white/80"
+                  className="text-xs text-gray-700 dark:text-gray-300 hover:text-blue-700 dark:hover:text-blue-400"
                 >
                   {displayInstaller.phone}
                 </a>
@@ -232,10 +234,10 @@ function InstallerBanner({installerName, systemType}) {
             {/* Email */}
             {displayInstaller.email && (
               <div className="flex items-center gap-1.5">
-                <Mail className="w-3.5 h-3.5 text-white/80 flex-shrink-0" />
+                <Mail className="w-3.5 h-3.5 text-gray-600 dark:text-gray-400 flex-shrink-0" />
                 <a
                   href={`mailto:${displayInstaller.email}`}
-                  className="text-xs text-white hover:text-white/80"
+                  className="text-xs text-gray-700 dark:text-gray-300 hover:text-blue-700 dark:hover:text-blue-400"
                 >
                   {displayInstaller.email}
                 </a>

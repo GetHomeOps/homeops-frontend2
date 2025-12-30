@@ -13,18 +13,23 @@ export default function useCurrentDb() {
 
   // Initialize currentDb with first database when user is available
   useEffect(() => {
-    if (
-      currentUser &&
-      currentUser.databases &&
-      currentUser.databases.length > 0
-    ) {
-      // Only set if currentDb is null or if the stored ID doesn't match any current database
-      const shouldUpdate =
-        !currentDb ||
-        !currentDb.id ||
-        !currentUser.databases.some((db) => db.id === currentDb.id);
+    // Clear database selection if user is logged out
+    if (!currentUser) {
+      if (currentDb) {
+        setCurrentDb(null);
+      }
+      return;
+    }
 
-      if (shouldUpdate) {
+    // Set database when user has databases
+    if (currentUser.databases && currentUser.databases.length > 0) {
+      // Check if stored database belongs to current user
+      const storedDbBelongsToUser =
+        currentDb?.id &&
+        currentUser.databases.some((db) => db.id === currentDb.id);
+
+      // Update if no database is set, or if stored database doesn't belong to current user
+      if (!storedDbBelongsToUser) {
         const firstDb = currentUser.databases[0];
         setCurrentDb({
           id: firstDb.id,
@@ -32,6 +37,9 @@ export default function useCurrentDb() {
           url: firstDb.url?.replace(/^\/+/, "") || firstDb.name,
         });
       }
+    } else if (currentDb) {
+      // Clear database selection if user has no databases
+      setCurrentDb(null);
     }
   }, [currentUser, currentDb, setCurrentDb]);
 
