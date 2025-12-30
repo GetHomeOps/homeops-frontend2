@@ -11,6 +11,7 @@ import Databases from "../accountSettings/Databases";
 import PageNotFound from "../utility/PageNotFound";
 import Main from "../Main";
 import {useAuth} from "../../context/AuthContext";
+import useCurrentDb from "../../hooks/useCurrentDb";
 import ContactList from "../contacts/ContactsList";
 import UsersList from "../users/UsersList";
 import User from "../users/User";
@@ -20,6 +21,7 @@ import Property from "../properties/Property";
 
 function RoutesList() {
   const {currentUser, isLoading} = useAuth();
+  const {currentDb} = useCurrentDb();
 
   // Show nothing while checking authentication
   if (isLoading) {
@@ -58,7 +60,17 @@ function RoutesList() {
       {/* Dynamic fallback based on auth state */}
       <Route
         path="*"
-        element={<Navigate to={currentUser ? "/:dbName" : "/signin"} replace />}
+        element={
+          currentUser ? (
+            currentDb?.url ? (
+              <Navigate to={`/${currentDb.url}/home`} replace />
+            ) : (
+              <Navigate to="/" replace />
+            )
+          ) : (
+            <Navigate to="/signin" replace />
+          )
+        }
       />
     </Routes>
   );
