@@ -1,31 +1,9 @@
-import React from "react";
-import {Routes, Route, Navigate} from "react-router-dom";
-
-import "../../css/style.css";
-
-// Import pages
-import Signin from "../auth/Signin";
-import Signup from "../auth/Signup";
-import Account from "../accountSettings/Account";
-import Databases from "../accountSettings/Databases";
-import PageNotFound from "../utility/PageNotFound";
-import Main from "../Main";
-import {useAuth} from "../../context/AuthContext";
-import useCurrentDb from "../../hooks/useCurrentDb";
-import ContactList from "../contacts/ContactsList";
-import UsersList from "../users/UsersList";
-import User from "../users/User";
-import Contact from "../contacts/Contact";
-import PropertiesList from "../properties/PropertiesList";
-import Property from "../properties/Property";
-
 function RoutesList() {
   const {currentUser, isLoading} = useAuth();
   const {currentDb} = useCurrentDb();
 
-  // Show nothing while checking authentication
   if (isLoading) {
-    return null; // Or return a loading spinner component
+    return <div>Loading...</div>; // shows something instead of blank
   }
 
   // Define all routes
@@ -53,11 +31,27 @@ function RoutesList() {
 
   return (
     <Routes>
-      {/* Always include both sets of routes */}
+      {/* NEW: Explicit root route - fixes blank page and weird redirects */}
+      <Route
+        path="/"
+        element={
+          currentUser ? (
+            currentDb?.url ? (
+              <Navigate to={`/${currentDb.url}/home`} replace />
+            ) : (
+              <Navigate to="/settings/databases" replace />
+            )
+          ) : (
+            <Navigate to="/signin" replace />
+          )
+        }
+      />
+
+      {/* Your existing routes */}
       {publicRoutes}
       {privateRoutes}
 
-      {/* Dynamic fallback based on auth state */}
+      {/* NEW: True 404 catcher - redirects instead of showing Railway 404 */}
       <Route
         path="*"
         element={
@@ -65,7 +59,7 @@ function RoutesList() {
             currentDb?.url ? (
               <Navigate to={`/${currentDb.url}/home`} replace />
             ) : (
-              <Navigate to="/signin" replace />
+              <Navigate to="/settings/databases" replace />
             )
           ) : (
             <Navigate to="/signin" replace />
@@ -75,5 +69,3 @@ function RoutesList() {
     </Routes>
   );
 }
-
-export default RoutesList;
