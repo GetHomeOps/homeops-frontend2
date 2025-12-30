@@ -6,6 +6,7 @@ const BASE_URL = import.meta.env.VITE_BASE_URL || "http://localhost:3000";
  * There shouldn't be any frontend-specific stuff here, and there shouldn't
  * be any API-aware stuff elsewhere in the frontend.
  *
+ *
  */
 class AppApi {
   // the token for interactive with the API will be stored here.
