@@ -25,7 +25,11 @@ function RoutesList() {
 
   // Show nothing while checking authentication
   if (isLoading) {
-    return null; // Or return a loading spinner component
+    return (
+      <div className="flex justify-center items-center h-screen">
+        Loading...
+      </div>
+    );
   }
 
   // Define all routes
@@ -53,25 +57,33 @@ function RoutesList() {
 
   return (
     <Routes>
-      {/* Always include both sets of routes */}
-      {publicRoutes}
-      {privateRoutes}
-
-      {/* Dynamic fallback based on auth state */}
       <Route
-        path="*"
+        path="/"
         element={
           currentUser ? (
             currentDb?.url ? (
               <Navigate to={`/${currentDb.url}/home`} replace />
             ) : (
-              <Navigate to="/signin" replace />
+              // Handle no DB: show picker or error instead of loop/blank
+              <div>
+                <h1>No database selected!</h1>
+                <p>
+                  Choose one from <a href="/settings/databases">Databases</a> or
+                  create new.
+                </p>
+              </div>
             )
           ) : (
             <Navigate to="/signin" replace />
           )
         }
       />
+      {/* Always include both sets of routes */}
+      {publicRoutes}
+      {privateRoutes}
+
+      {/* Dynamic fallback based on auth state */}
+      <Route path="*" element={<PageNotFound />} />
     </Routes>
   );
 }
