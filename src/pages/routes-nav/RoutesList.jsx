@@ -65,7 +65,7 @@ function RoutesList() {
             currentDb?.url ? (
               <Navigate to={`/${currentDb.url}/home`} replace />
             ) : (
-              <Navigate to="/" replace />
+              <Navigate to="/signin" replace />
             )
           ) : (
             <Navigate to="/signin" replace />
