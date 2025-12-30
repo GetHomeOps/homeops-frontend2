@@ -1,5 +1,5 @@
 import React from "react";
-import {Routes, Route, Navigate} from "react-router-dom";
+import {Routes, Route, Navigate, useLocation} from "react-router-dom";
 
 import "../../css/style.css";
 
@@ -11,12 +11,37 @@ import Databases from "../accountSettings/Databases";
 import PageNotFound from "../utility/PageNotFound";
 import Main from "../Main";
 import {useAuth} from "../../context/AuthContext";
+import useCurrentDb from "../../hooks/useCurrentDb";
 import ContactList from "../contacts/ContactsList";
 import UsersList from "../users/UsersList";
 import User from "../users/User";
 import Contact from "../contacts/Contact";
 import PropertiesList from "../properties/PropertiesList";
 import Property from "../properties/Property";
+
+// Component to handle root path redirect
+function RootRedirect() {
+  const {currentUser} = useAuth();
+  const {currentDb} = useCurrentDb();
+  const location = useLocation();
+
+  // If user is logged in and has a database, redirect to home
+  if (currentUser && currentDb?.url) {
+    return <Navigate to={`/${currentDb.url}/home`} replace />;
+  }
+
+  // If user is logged in but no database yet, stay on current route or go to signin
+  if (currentUser) {
+    // If already on a valid route, don't redirect
+    if (location.pathname !== "/" && location.pathname !== "") {
+      return null;
+    }
+    return <Navigate to="/signin" replace />;
+  }
+
+  // Not logged in, go to signin
+  return <Navigate to="/signin" replace />;
+}
 
 function RoutesList() {
   const {currentUser, isLoading} = useAuth();
@@ -42,6 +67,7 @@ function RoutesList() {
       <Route path="/:dbUrl/contacts/new" element={<Contact />} />
       <Route path="/:dbUrl/contacts/:id" element={<Contact />} />
       <Route path="/:dbUrl/users" element={<UsersList />} />
+      <Route path="/:dbUrl/users/new" element={<User />} />
       <Route path="/:dbUrl/users/:id" element={<User />} />
       <Route path="/:dbUrl/properties" element={<PropertiesList />} />
       <Route path="/:dbUrl/properties/new" element={<Property />} />
@@ -51,14 +77,23 @@ function RoutesList() {
 
   return (
     <Routes>
+      {/* Root path redirect */}
+      <Route path="/" element={<RootRedirect />} />
+
       {/* Always include both sets of routes */}
       {publicRoutes}
       {privateRoutes}
 
-      {/* Dynamic fallback based on auth state */}
+      {/* Fallback for unknown routes */}
       <Route
         path="*"
-        element={<Navigate to={currentUser ? "/:dbName" : "/signin"} replace />}
+        element={
+          currentUser ? (
+            <Navigate to={currentUser?.databases?.[0]?.url ? `/${currentUser.databases[0].url}/home` : "/signin"} replace />
+          ) : (
+            <Navigate to="/signin" replace />
+          )
+        }
       />
     </Routes>
   );
