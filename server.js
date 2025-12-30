@@ -1,10 +1,14 @@
-const express = require('express');
-const path = require('path');
+import express from 'express';
+import path from 'path';
+import { fileURLToPath } from 'url';
+
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
 
 const app = express();
 
 // Serve all static files from your build output
-app.use(express.static(path.join(__dirname, 'dist')));  // ← change 'dist' to 'build' if using Create React App
+app.use(express.static(path.join(__dirname, 'dist')));
 
 // SPA fallback: send index.html for ANY path that isn't a static file
 app.get('*', (req, res) => {
