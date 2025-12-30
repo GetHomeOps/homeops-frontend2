@@ -245,5 +245,9 @@
   "addUser": "Add User",
   "newUser": "New User",
   "addProperty": "Add Property",
-  "newProperty": "New Property"
+  "newProperty": "New Property",
+  "allProperties": "All Properties",
+  "allUsers": "All Users",
+  "signingIn": "Signing In",
+  "signingUp": "Signing Up"
 }
