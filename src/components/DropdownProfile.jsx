@@ -102,7 +102,7 @@ function DropdownProfile({align}) {
                 {currentUser?.role}
               </div>
             </div>
-            <div className="border-b border-gray-200 dark:border-gray-700/60">
+            {/* <div className="border-b border-gray-200 dark:border-gray-700/60">
               <ul>
                 <li>
                   <Link
@@ -123,7 +123,7 @@ function DropdownProfile({align}) {
                   </Link>
                 </li>
               </ul>
-            </div>
+            </div> */}
             <div>
               <ul>
                 <li>
@@ -165,7 +165,7 @@ function DropdownProfile({align}) {
                 {currentUser?.role}
               </div>
             </div>
-            <div className="border-b border-gray-200 dark:border-gray-700/60">
+            {/* <div className="border-b border-gray-200 dark:border-gray-700/60">
               <ul>
                 <li>
                   <Link
@@ -186,7 +186,7 @@ function DropdownProfile({align}) {
                   </Link>
                 </li>
               </ul>
-            </div>
+            </div> */}
             <div>
               <ul>
                 <li>
