@@ -169,14 +169,30 @@ function InstallerBanner({installerName, systemType}) {
 
   return (
     <div
-      className="mb-6 rounded-lg border p-3"
-      style={{backgroundColor: "#E3F2FD", borderColor: "#BBDEFB"}}
+      className="mb-6 w-1/2 min-w-[400px] max-w-lg rounded-2xl bg-white dark:bg-gray-800 p-4 transition-all duration-300 ease-out"
+      style={{
+        boxShadow:
+          "0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06), 0 0 0 1px rgba(0, 0, 0, 0.05)",
+      }}
+      onMouseEnter={(e) => {
+        e.currentTarget.style.boxShadow =
+          "0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05), 0 0 0 1px rgba(0, 0, 0, 0.05)";
+        e.currentTarget.style.transform = "translateY(-2px)";
+      }}
+      onMouseLeave={(e) => {
+        e.currentTarget.style.boxShadow =
+          "0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06), 0 0 0 1px rgba(0, 0, 0, 0.05)";
+        e.currentTarget.style.transform = "translateY(0)";
+      }}
     >
-      <div className="flex items-center gap-3">
-        {/* Avatar/Photo - Rounded */}
+      <div className="flex items-start gap-4">
+        {/* Avatar/Photo - Left side with subtle shadow */}
         <div
-          className="w-12 h-12 rounded-full flex items-center justify-center text-gray-700 dark:text-gray-300 font-semibold text-base flex-shrink-0 bg-white border-2"
-          style={{borderColor: "#90CAF9"}}
+          className="w-14 h-14 rounded-full flex items-center justify-center text-gray-700 dark:text-gray-300 font-semibold text-base flex-shrink-0 bg-gradient-to-br from-gray-50 to-gray-100 dark:from-gray-700 dark:to-gray-800"
+          style={{
+            boxShadow:
+              "0 2px 4px rgba(0, 0, 0, 0.1), inset 0 1px 2px rgba(255, 255, 255, 0.8)",
+          }}
         >
           {displayInstaller.photo ? (
             <img
@@ -189,30 +205,33 @@ function InstallerBanner({installerName, systemType}) {
           )}
         </div>
 
-        {/* Main Content */}
+        {/* Content - Right side */}
         <div className="flex-1 min-w-0">
-          <div className="flex items-center gap-4 flex-wrap">
-            {/* Name */}
+          {/* Name/Company */}
+          <div className="mb-2.5">
             {contactName ? (
-              <div>
-                <h4 className="text-sm font-semibold text-gray-900 dark:text-gray-100">
+              <>
+                <h4 className="text-sm font-semibold text-gray-900 dark:text-gray-100 mb-0.5 tracking-tight">
                   {contactName}
                 </h4>
-                <p className="text-xs font-medium text-gray-700 dark:text-gray-300">
+                <p className="text-xs font-medium text-gray-600 dark:text-gray-400">
                   {companyName}
                 </p>
-              </div>
+              </>
             ) : (
-              <h4 className="text-sm font-semibold text-gray-900 dark:text-gray-100">
+              <h4 className="text-sm font-semibold text-gray-900 dark:text-gray-100 tracking-tight">
                 {companyName}
               </h4>
             )}
+          </div>
 
+          {/* Contact Info - Stacked vertically with better spacing */}
+          <div className="space-y-1.5">
             {/* Address */}
             {displayInstaller.address && (
-              <div className="flex items-center gap-1.5">
-                <MapPin className="w-3.5 h-3.5 text-gray-600 dark:text-gray-400 flex-shrink-0" />
-                <p className="text-xs text-gray-700 dark:text-gray-300">
+              <div className="flex items-start gap-2">
+                <MapPin className="w-3.5 h-3.5 text-gray-500 dark:text-gray-400 flex-shrink-0 mt-0.5" />
+                <p className="text-xs text-gray-700 dark:text-gray-300 leading-snug">
                   {displayInstaller.address}
                 </p>
               </div>
@@ -220,11 +239,11 @@ function InstallerBanner({installerName, systemType}) {
 
             {/* Phone */}
             {displayInstaller.phone && (
-              <div className="flex items-center gap-1.5">
-                <Phone className="w-3.5 h-3.5 text-gray-600 dark:text-gray-400 flex-shrink-0" />
+              <div className="flex items-center gap-2">
+                <Phone className="w-3.5 h-3.5 text-gray-500 dark:text-gray-400 flex-shrink-0" />
                 <a
                   href={`tel:${displayInstaller.phone}`}
-                  className="text-xs text-gray-700 dark:text-gray-300 hover:text-blue-700 dark:hover:text-blue-400"
+                  className="text-xs text-gray-700 dark:text-gray-300 hover:text-blue-600 dark:hover:text-blue-400 transition-colors font-medium"
                 >
                   {displayInstaller.phone}
                 </a>
@@ -233,11 +252,11 @@ function InstallerBanner({installerName, systemType}) {
 
             {/* Email */}
             {displayInstaller.email && (
-              <div className="flex items-center gap-1.5">
-                <Mail className="w-3.5 h-3.5 text-gray-600 dark:text-gray-400 flex-shrink-0" />
+              <div className="flex items-center gap-2">
+                <Mail className="w-3.5 h-3.5 text-gray-500 dark:text-gray-400 flex-shrink-0" />
                 <a
                   href={`mailto:${displayInstaller.email}`}
-                  className="text-xs text-gray-700 dark:text-gray-300 hover:text-blue-700 dark:hover:text-blue-400"
+                  className="text-xs text-gray-700 dark:text-gray-300 hover:text-blue-600 dark:hover:text-blue-400 transition-colors break-all font-medium"
                 >
                   {displayInstaller.email}
                 </a>

@@ -4,6 +4,7 @@ import useCurrentDb from "../../hooks/useCurrentDb";
 import SystemsTab from "./SystemsTab";
 import MaintenanceTab from "./MaintenanceTab";
 import IdentityTab from "./IdentityTab";
+import DocumentsTab from "./DocumentsTab";
 import {
   Bed,
   Bath,
@@ -1166,26 +1167,7 @@ function PropertyFormContainer() {
           )}
 
           {activeTab === "documents" && (
-            <div className="space-y-3">
-              {propertyData.documents.map((doc) => (
-                <div
-                  key={doc.id}
-                  className="border border-gray-200 dark:border-gray-800 rounded-2xl p-4 flex flex-col md:flex-row md:items-center md:justify-between gap-3"
-                >
-                  <div>
-                    <p className="text-base font-medium text-gray-900 dark:text-white">
-                      {doc.name}
-                    </p>
-                    <p className="text-sm text-gray-500 dark:text-gray-400">
-                      {doc.type} · {doc.size}
-                    </p>
-                  </div>
-                  <p className="text-sm text-gray-400">
-                    Updated {doc.updatedAt}
-                  </p>
-                </div>
-              ))}
-            </div>
+            <DocumentsTab propertyData={propertyData} />
           )}
         </div>
       </section>
