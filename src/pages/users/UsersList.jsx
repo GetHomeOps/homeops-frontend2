@@ -125,7 +125,7 @@ function UsersList() {
     // Filter the sorted users based on search term
     const searchLower = state.searchTerm.toLowerCase();
     const filtered = sortedUsers.filter((user) => {
-      const userName = (user.name || user.fullName || "").toLowerCase();
+      const userName = (user.name || "").toLowerCase();
       const email = (user.email || "").toLowerCase();
       const phone = (user.phone || "").toLowerCase();
       const role = (user.role || "").toLowerCase();

@@ -45,6 +45,7 @@ function Signup() {
   /* Handle form submit */
   async function handleSubmit(evt) {
     evt.preventDefault();
+    console.log("formData", formData);
     setIsSubmitting(true);
     try {
       await signup(formData);

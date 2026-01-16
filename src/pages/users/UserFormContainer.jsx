@@ -1,6 +1,13 @@
-import React, {useReducer, useEffect, useContext, useRef, useMemo} from "react";
-import {useNavigate, useParams, useLocation} from "react-router-dom";
-import {AlertCircle, Mail, User} from "lucide-react";
+import React, {
+  useReducer,
+  useEffect,
+  useContext,
+  useRef,
+  useMemo,
+  useState,
+} from "react";
+import {useNavigate, useParams, useLocation, Link} from "react-router-dom";
+import {AlertCircle, Mail, User, UserCircle, ExternalLink} from "lucide-react";
 import Banner from "../../partials/containers/Banner";
 import ModalBlank from "../../components/ModalBlank";
 import {useTranslation} from "react-i18next";
@@ -33,6 +40,7 @@ const initialState = {
   bannerMessage: "",
   formDataChanged: false,
   isInitialLoad: true,
+  isActive: false,
 };
 
 function reducer(state, action) {
@@ -57,7 +65,10 @@ function reducer(state, action) {
               name: action.payload.name || action.payload.fullName || "",
               email: action.payload.email || "",
               phone: action.payload.phone || "",
-              role: action.payload.role || "",
+              role:
+                action.payload.role === "super_admin"
+                  ? "Super Admin"
+                  : action.payload.role || "",
               contact: action.payload.contact || "",
             }
           : initialFormData,
@@ -90,7 +101,8 @@ function UsersFormContainer() {
   const navigate = useNavigate();
   const location = useLocation();
   const {t} = useTranslation();
-  const {users, createUser, deleteUser} = useContext(UserContext);
+  const {users, createUser, deleteUser, createUserConfirmationToken} =
+    useContext(UserContext);
   const {contacts} = useContext(contactContext);
   const {currentUser} = useAuth();
   const {currentDb} = useCurrentDb();
@@ -155,7 +167,10 @@ function UsersFormContainer() {
       const userData = {
         name: state.user.name || state.user.fullName || "",
         email: state.user.email || "",
-        role: state.user.role || "",
+        role:
+          state.user.role === "super_admin" || state.user.role === "superAdmin"
+            ? "Super Admin"
+            : state.user.role || "",
         phone: state.user.phone || "",
         contact: state.user.contact || "",
       };
@@ -163,8 +178,12 @@ function UsersFormContainer() {
         type: "SET_FORM_DATA",
         payload: userData,
       });
+      // Reset contact selection tracking when user changes
+      setContactSelectedByUser(false);
     } else {
       dispatch({type: "SET_FORM_DATA", payload: initialFormData});
+      // Reset contact selection tracking for new users
+      setContactSelectedByUser(false);
     }
   }, [state.user]);
 
@@ -183,6 +202,8 @@ function UsersFormContainer() {
       dispatch({type: "SET_FORM_CHANGED", payload: true});
     }
   };
+
+  // Retrieves invitation token for the current user
 
   // Generate a random password
   function generateRandomPassword() {
@@ -234,6 +255,24 @@ function UsersFormContainer() {
           },
         });
 
+        // Generate confirmation token for the new user (only if not active)
+        // The token will be stored on the user object by the context
+        if (!res.isActive && !res.is_active) {
+          try {
+            // Get the token from backend and store it on the user
+            const token = await createUserConfirmationToken(res.id);
+
+            // Update local state with user including token
+            if (token) {
+              const updatedUser = {...res, confirmationToken: token};
+              dispatch({type: "SET_USER", payload: updatedUser});
+            }
+          } catch (tokenError) {
+            console.error("Error creating confirmation token:", tokenError);
+            // Don't show error to user - token creation is optional
+          }
+        }
+
         // Show success banner
         dispatch({
           type: "SET_BANNER",
@@ -268,11 +307,16 @@ function UsersFormContainer() {
     if (!validateForm()) return;
 
     // Create userData with only the fields the backend expects (no fullName)
+    // For super_admin users, keep the role as "super_admin" (backend format)
     const userData = {
       name: state.formData.name || "",
       email: state.formData.email || "",
       phone: state.formData.phone || "",
-      role: state.formData.role || "",
+      role: isSuperAdminUser
+        ? "super_admin"
+        : state.formData.role === "Super Admin"
+        ? "super_admin"
+        : state.formData.role,
       contact: state.formData.contact || 0,
     };
 
@@ -336,6 +380,10 @@ function UsersFormContainer() {
     } else if (!isValidEmail(state.formData.email)) {
       newErrors.email =
         t("emailValidationErrorMessage") || "Invalid email format";
+    }
+
+    if (!state.formData.role) {
+      newErrors.role = t("roleValidationErrorMessage") || "Role is required";
     }
 
     dispatch({type: "SET_ERRORS", payload: newErrors});
@@ -462,7 +510,10 @@ function UsersFormContainer() {
         name: state.user.name || state.user.fullName || "",
         email: state.user.email || "",
         phone: state.user.phone || "",
-        role: state.user.role || "",
+        role:
+          state.user.role === "super_admin" || state.user.role === "superAdmin"
+            ? "Super Admin"
+            : state.user.role || "",
         contact: state.user.contact || "",
       };
 
@@ -485,8 +536,17 @@ function UsersFormContainer() {
     }
   }
 
+  // Check if the user being edited is a super_admin
+  const isSuperAdminUser =
+    state.user?.role === "super_admin" || state.user?.role === "superAdmin";
+
   // Role options for the select dropdown based on current user's role
   const roleOptions = useMemo(() => {
+    // If the user being edited is super_admin, show only Super Admin option
+    if (isSuperAdminUser) {
+      return [{id: "Super Admin", name: "Super Admin"}];
+    }
+
     // If current user is super_admin, they can see: admin, agent, homeowner
     if (
       currentUser?.role === "superAdmin" ||
@@ -509,7 +569,7 @@ function UsersFormContainer() {
       {id: "agent", name: "Agent"},
       {id: "homeowner", name: "Homeowner"},
     ];
-  }, [currentUser?.role]);
+  }, [currentUser?.role, isSuperAdminUser]);
 
   // Handler for role change
   function handleRoleChange(value) {
@@ -532,12 +592,18 @@ function UsersFormContainer() {
     }
   }
 
+  // Track if contact has been selected by user
+  const [contactSelectedByUser, setContactSelectedByUser] = useState(false);
+
   // Handler for contact change
   function handleContactChange(value) {
     dispatch({
       type: "SET_FORM_DATA",
       payload: {contact: value},
     });
+
+    // Mark that contact was selected by user
+    setContactSelectedByUser(true);
 
     // Clear error when field is being edited
     if (state.errors.contact) {
@@ -559,6 +625,29 @@ function UsersFormContainer() {
     name: contact.name,
   }));
 
+  // Get selected contact details from form (for editing)
+  const selectedContact = useMemo(() => {
+    if (!state.formData.contact) return null;
+    return contacts.find(
+      (contact) => contact.id === Number(state.formData.contact)
+    );
+  }, [contacts, state.formData.contact]);
+
+  // Get saved contact from user data (only shows after save)
+  const savedContact = useMemo(() => {
+    if (!state.user?.contact) return null;
+    return contacts.find(
+      (contact) => contact.id === Number(state.user.contact)
+    );
+  }, [contacts, state.user?.contact]);
+
+  // Handler for navigating to contact (for saved contact only)
+  const handleNavigateToSavedContact = () => {
+    if (savedContact) {
+      navigate(`/${dbUrl}/contacts/${savedContact.id}`);
+    }
+  };
+
   // Add a helper function for label classes
   const getLabelClasses = () => {
     return "block text-sm font-medium mb-1 text-gray-500 dark:text-gray-400";
@@ -573,6 +662,7 @@ function UsersFormContainer() {
     return `${baseClasses} ${errorClasses}`;
   };
 
+  console.log("state.user: ", state.user);
   return (
     <div className="relative min-h-screen bg-[var(--color-gray-50)] dark:bg-gray-900">
       <div className="fixed top-18 right-0 w-auto sm:w-full z-50">
@@ -687,7 +777,77 @@ function UsersFormContainer() {
           </div>
         </div>
 
-        <div className="flex justify-end mb-2">
+        <div className="flex justify-between items-center mb-2">
+          {/* Contact Link Button and Status - Left aligned */}
+          <div className="flex items-center gap-3">
+            {/* Contact Link Button - Only shows saved contact from database */}
+            {savedContact ? (
+              <button
+                onClick={handleNavigateToSavedContact}
+                className="flex items-center gap-2 px-3 py-2 bg-transparent hover:bg-gray-50 dark:hover:bg-gray-800/50 border border-gray-300 dark:border-gray-600 rounded-lg text-gray-700 dark:text-gray-300 transition-all duration-200 ml-4"
+              >
+                <UserCircle className="w-4 h-4 flex-shrink-0" />
+                <span className="text-sm font-semibold">
+                  Contact <span className="font-normal">1</span>
+                </span>
+              </button>
+            ) : (
+              <div className="flex items-center gap-2 px-3 py-2 bg-transparent border border-gray-300 dark:border-gray-600 rounded-lg text-gray-500 dark:text-gray-400 ml-4">
+                <UserCircle className="w-4 h-4 flex-shrink-0" />
+                <span className="text-sm font-medium">
+                  Contact <span className="font-normal">0</span>
+                </span>
+              </div>
+            )}
+
+            {/* Activated/Pending Status Button */}
+            {state.user &&
+              (state.user.confirmationToken &&
+              !state.user.isActive &&
+              !state.user.is_active ? (
+                <a
+                  href={`${
+                    window.location.origin
+                  }/#/${dbUrl}/users/invitation?email=${encodeURIComponent(
+                    state.user.email || state.formData.email || ""
+                  )}&name=${encodeURIComponent(
+                    state.user.name ||
+                      state.user.fullName ||
+                      state.formData.name ||
+                      ""
+                  )}&token=${state.user.confirmationToken}`}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className={`flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-semibold transition-all duration-200 shadow-sm hover:shadow-md ${
+                    state.user.isActive || state.user.is_active
+                      ? "bg-[#d3f4e3] dark:bg-[#173c36] text-[#2a9f52] dark:text-[#258c4d] hover:bg-[#c0ead6] dark:hover:bg-[#1e4a42]"
+                      : "bg-[#fddddd] dark:bg-[#402431] text-[#e63939] dark:text-[#c23437] hover:bg-[#fccccc] dark:hover:bg-[#4d2a3a]"
+                  }`}
+                >
+                  <span>
+                    {state.user.isActive || state.user.is_active
+                      ? "Active"
+                      : "Pending"}
+                  </span>
+                  <ExternalLink className="w-3.5 h-3.5" />
+                </a>
+              ) : (
+                <div
+                  className={`flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-semibold shadow-sm ${
+                    state.user.isActive || state.user.is_active
+                      ? "bg-[#d3f4e3] dark:bg-[#173c36] text-[#2a9f52] dark:text-[#258c4d]"
+                      : "bg-[#fddddd] dark:bg-[#402431] text-[#e63939] dark:text-[#c23437]"
+                  }`}
+                >
+                  <span>
+                    {state.user.isActive || state.user.is_active
+                      ? "Active"
+                      : "Pending"}
+                  </span>
+                </div>
+              ))}
+          </div>
+
           {/* User Navigation */}
           <div className="flex items-center">
             {state.user && location.state && (
@@ -916,7 +1076,8 @@ function UsersFormContainer() {
                     {/* Role */}
                     <div>
                       <label className={getLabelClasses()} htmlFor="role">
-                        {t("role") || "Role"}
+                        {t("role") || "Role"}{" "}
+                        <span className="text-red-500">*</span>
                       </label>
                       <SelectDropdown
                         options={roleOptions}
@@ -925,8 +1086,17 @@ function UsersFormContainer() {
                         placeholder={t("selectRole") || "Select role"}
                         name="role"
                         id="role"
-                        clearable={true}
+                        clearable={!isSuperAdminUser}
+                        disabled={isSuperAdminUser}
+                        error={!!state.errors.role}
+                        required={true}
                       />
+                      {state.errors.role && (
+                        <div className="mt-1 flex items-center text-sm text-red-500">
+                          <AlertCircle className="h-4 w-4 mr-1" />
+                          <span>{state.errors.role}</span>
+                        </div>
+                      )}
                     </div>
 
                     {/* Contact */}

@@ -1,4 +1,5 @@
-const BASE_URL = import.meta.env.VITE_BASE_URL || "http://localhost:3000";
+/* const BASE_URL = import.meta.env.VITE_BASE_URL || "http://localhost:3000"; */
+const BASE_URL = "http://localhost:3000";
 
 /** API Class.
  *
@@ -87,10 +88,39 @@ class AppApi {
     return res.userDatabase || res.user_database;
   }
 
+  /* Activate a user */
+  static async activateUser(data) {
+    let res = await this.request(`users/activate/${data.userId}`, data, 'POST');
+    return res;
+  }
+
+
+  /* --- User Invitation --- */
+
+  /* New User Confirmation */
+  static async createUserConfirmationToken(data) {
+    let res = await this.request(`users/invite`, data, 'POST');
+    return res;
+  }
+
+  /* Find a valid user invitation token by user ID */
+  static async findValidUserInvitationToken(userId) {
+    let res = await this.request(`users/invite/${userId}`);
+    return res.result;
+  }
+
+  /* Confirm a user invitation */
+  static async confirmInvitation(data) {
+    let res = await this.request(`auth/confirm`, data, 'POST');
+    console.log("Confirm invitation response:", res);
+    return res;
+  }
+
   /* --------- Databases --------- */
 
   /** Create a new database */
   static async createDatabase(data) {
+    console.log("createDatabase", data);
     let res = await this.request(`databases`, data, "POST");
     return res.database;
   }
@@ -162,6 +192,8 @@ class AppApi {
       throw error;
     }
   }
+
+
 
 
 }

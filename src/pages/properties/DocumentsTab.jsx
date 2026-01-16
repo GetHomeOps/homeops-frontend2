@@ -85,6 +85,24 @@ const mockDocuments = [
   },
   {
     id: "DOC-002",
+    name: "Roof Repair Estimate - Spring 2024.pdf",
+    system: "roof",
+    type: "contract",
+    size: "1.2 MB",
+    uploadedAt: "2024-03-10",
+    uploadedBy: "Sarah Chen",
+  },
+  {
+    id: "DOC-003",
+    name: "Roof Inspection Report - October 2023.pdf",
+    system: "roof",
+    type: "inspection",
+    size: "3.1 MB",
+    uploadedAt: "2023-10-28",
+    uploadedBy: "Marcus Reed",
+  },
+  {
+    id: "DOC-004",
     name: "Roof Warranty - 30 Year.pdf",
     system: "roof",
     type: "warranty",
@@ -93,7 +111,16 @@ const mockDocuments = [
     uploadedBy: "Jordan Lee",
   },
   {
-    id: "DOC-003",
+    id: "DOC-004B",
+    name: "Roof Maintenance Receipt - July 2024.pdf",
+    system: "roof",
+    type: "receipt",
+    size: "678 KB",
+    uploadedAt: "2024-07-15",
+    uploadedBy: "Lena Ortiz",
+  },
+  {
+    id: "DOC-005",
     name: "HVAC Maintenance Receipt - March 2024.pdf",
     system: "heating",
     type: "receipt",
@@ -102,7 +129,7 @@ const mockDocuments = [
     uploadedBy: "Lena Ortiz",
   },
   {
-    id: "DOC-004",
+    id: "DOC-006",
     name: "Home Inspection Report - May 2024.pdf",
     system: "inspections",
     type: "inspection",
@@ -111,7 +138,7 @@ const mockDocuments = [
     uploadedBy: "Marcus Reed",
   },
   {
-    id: "DOC-005",
+    id: "DOC-007",
     name: "Electrical Permit - Panel Upgrade.pdf",
     system: "electrical",
     type: "permit",
@@ -120,7 +147,7 @@ const mockDocuments = [
     uploadedBy: "Jordan Lee",
   },
   {
-    id: "DOC-006",
+    id: "DOC-008",
     name: "Insurance Policy 2024.pdf",
     system: "general",
     type: "other",
@@ -129,7 +156,7 @@ const mockDocuments = [
     uploadedBy: "Jordan Lee",
   },
   {
-    id: "DOC-007",
+    id: "DOC-009",
     name: "Gutter Cleaning Receipt - Fall 2023.pdf",
     system: "gutters",
     type: "receipt",
@@ -138,7 +165,7 @@ const mockDocuments = [
     uploadedBy: "Lena Ortiz",
   },
   {
-    id: "DOC-008",
+    id: "DOC-010",
     name: "Plumbing Warranty - Water Heater.pdf",
     system: "waterHeating",
     type: "warranty",

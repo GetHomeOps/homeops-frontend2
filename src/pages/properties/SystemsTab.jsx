@@ -281,22 +281,29 @@ function CollapsibleSection({
   systemType,
 }) {
   return (
-    <div className="bg-gray-50 dark:bg-gray-700/50 rounded-lg border border-gray-200 dark:border-gray-700 overflow-hidden">
+    <div className="bg-gray-50 dark:bg-gray-700/50 rounded-lg border border-gray-200 dark:border-gray-700 overflow-hidden hover:border-gray-300 dark:hover:border-gray-600 transition-all duration-200 hover:shadow-sm">
       <button
         onClick={onToggle}
-        className="w-full p-6 flex items-center justify-between hover:bg-gray-100 dark:hover:bg-gray-800/50 transition-colors"
+        className="w-full p-4 md:p-5 flex items-center justify-between hover:bg-gray-100 dark:hover:bg-gray-800/50 transition-all duration-200 cursor-pointer group"
       >
-        <div className="flex items-center gap-2">
-          {Icon && <Icon className="h-5 w-5" style={{color: "#456654"}} />}
-          <h3 className="text-lg font-semibold text-gray-800 dark:text-gray-100">
+        <div className="flex items-center gap-2.5">
+          {Icon && (
+            <Icon
+              className="h-4 w-4 flex-shrink-0"
+              style={{color: "#456654"}}
+            />
+          )}
+          <h3 className="text-base font-semibold text-gray-800 dark:text-gray-100 tracking-tight">
             {title}
           </h3>
         </div>
-        {isOpen ? (
-          <ChevronDown className="w-5 h-5 text-gray-500 dark:text-gray-400" />
-        ) : (
-          <ChevronRight className="w-5 h-5 text-gray-500 dark:text-gray-400" />
-        )}
+        <div className="flex items-center gap-2">
+          {isOpen ? (
+            <ChevronDown className="w-5 h-5 text-gray-500 dark:text-gray-400 group-hover:text-gray-700 dark:group-hover:text-gray-300 transition-colors" />
+          ) : (
+            <ChevronRight className="w-5 h-5 text-gray-500 dark:text-gray-400 group-hover:text-gray-700 dark:group-hover:text-gray-300 transition-colors" />
+          )}
+        </div>
       </button>
 
       {/* Installer Banner - Always visible, even when collapsed */}

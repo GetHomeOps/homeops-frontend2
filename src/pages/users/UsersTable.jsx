@@ -38,7 +38,7 @@ function UsersTable({
   // Define columns configuration
   const columns = [
     {
-      key: "fullName",
+      key: "name",
       label: t("name"),
       sortable: true,
     },

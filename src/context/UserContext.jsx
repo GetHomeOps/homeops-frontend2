@@ -104,10 +104,7 @@ export function UserProvider({children}) {
         await fetchUsers();
         // Wait a moment for state to update, then get fresh users
         let freshUsers;
-        if (
-          currentUser?.role === "superAdmin" ||
-          currentUser?.role === "super_admin"
-        ) {
+        if (currentUser?.role === "super_admin") {
           freshUsers = await AppApi.getAllUsers();
         } else if (currentDb?.id) {
           freshUsers = await AppApi.getUsersByDatabaseId(currentDb.id);
@@ -122,7 +119,46 @@ export function UserProvider({children}) {
       }
       throw new Error("User creation failed");
     } catch (error) {
-      console.error("Error creating user:", error);
+      throw error;
+    }
+  };
+
+  // Create a new user confirmation token and add it to the user object
+  // The backend returns the token which should be stored on the user
+  const createUserConfirmationToken = async (userId) => {
+    try {
+      // Request backend to create invitation token for the user
+      const res = await AppApi.createUserConfirmationToken({
+        userId,
+      });
+
+      // Extract token from response (backend should return it)
+      const token = res?.token || res?.result?.token || res?.result;
+
+      // Update the user in context with the confirmation token
+      if (token) {
+        setUsers((prevUsers) =>
+          prevUsers.map((user) =>
+            user.id === userId ? {...user, confirmationToken: token} : user
+          )
+        );
+        return token;
+      }
+
+      throw new Error("Token not returned from backend");
+    } catch (error) {
+      console.error("Error creating user confirmation token:", error);
+      throw error;
+    }
+  };
+
+  // Validate a user invitation token and confirm user
+  const validateUserInvitationToken = async (data) => {
+    try {
+      const res = await AppApi.validateUserInvitationToken(data);
+      return res;
+    } catch (error) {
+      console.error("Error validating user invitation token:", error);
       throw error;
     }
   };
@@ -244,7 +280,8 @@ export function UserProvider({children}) {
     }
   };
 
-  console.log(" users: ", users);
+  // Validate a user invitation token
+
   return (
     <UserContext.Provider
       value={{
@@ -257,6 +294,8 @@ export function UserProvider({children}) {
         deleteUser,
         duplicateUser,
         bulkDuplicateUsers,
+        createUserConfirmationToken,
+        validateUserInvitationToken,
         sortedUsers: listSortedItems,
         sortConfig: listSortConfig,
         handleSort: handleListSort,
