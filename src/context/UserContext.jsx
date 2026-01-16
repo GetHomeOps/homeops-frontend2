@@ -40,10 +40,7 @@ export function UserProvider({children}) {
       let fetchedUsers;
 
       // If user is superAdmin, get all users
-      if (
-        currentUser.role === "superAdmin" ||
-        currentUser.role === "super_admin"
-      ) {
+      if (currentUser.role === "super_admin") {
         fetchedUsers = await AppApi.getAllUsers();
       }
       // Otherwise, only get users for the current database (requires database ID)
@@ -119,6 +116,7 @@ export function UserProvider({children}) {
       }
       throw new Error("User creation failed");
     } catch (error) {
+      console.log("error:", error);
       throw error;
     }
   };

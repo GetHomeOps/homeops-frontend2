@@ -1,5 +1,5 @@
-const BASE_URL = import.meta.env.VITE_BASE_URL || "http://localhost:3000";
-/* const BASE_URL = "http://localhost:3000"; */
+/* const BASE_URL = import.meta.env.VITE_BASE_URL || "http://localhost:3000"; */
+const BASE_URL = "http://localhost:3000";
 
 /** API Class.
  *
@@ -76,6 +76,12 @@ class AppApi {
     return res.users;
   }
 
+  /* Update a user */
+  static async updateUser(id, data) {
+    let res = await this.request(`users/${id}`, data, 'PATCH');
+    return res.user;
+  }
+
   /** Delete a user */
   static async deleteUser(id) {
     let res = await this.request(`users/${id}`, {}, 'DELETE');
@@ -104,7 +110,8 @@ class AppApi {
   }
 
   /* Find a valid user invitation token by user ID */
-  static async findValidUserInvitationToken(userId) {
+  static async findInvitationToken(userId) {
+    console.log("findInvitationToken: ", userId);
     let res = await this.request(`users/invite/${userId}`);
     return res.result;
   }

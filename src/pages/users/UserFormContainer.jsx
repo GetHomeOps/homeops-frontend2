@@ -62,7 +62,7 @@ function reducer(state, action) {
         isNew: !action.payload,
         formData: action.payload
           ? {
-              name: action.payload.name || action.payload.fullName || "",
+              name: action.payload.name || "",
               email: action.payload.email || "",
               phone: action.payload.phone || "",
               role:
@@ -101,16 +101,18 @@ function UsersFormContainer() {
   const navigate = useNavigate();
   const location = useLocation();
   const {t} = useTranslation();
-  const {users, createUser, deleteUser, createUserConfirmationToken} =
+  const {users, createUser, deleteUser, createUserConfirmationToken, setUsers} =
     useContext(UserContext);
   const {contacts} = useContext(contactContext);
   const {currentUser} = useAuth();
   const {currentDb} = useCurrentDb();
   const dbUrl = currentDb?.url || currentDb?.name || "";
 
+
+
   // Fetch user based on URL's user id
   useEffect(() => {
-    function fetchUser() {
+    async function fetchUser() {
       if (id && id !== "new") {
         try {
           // Find user in context (users come from UserContext)
@@ -119,7 +121,9 @@ function UsersFormContainer() {
           );
 
           if (existingUser) {
-            dispatch({type: "SET_USER", payload: existingUser});
+            // Create token for inactive users if they don't have one
+            const userWithToken = await createAndAttachUserToken(existingUser, id);
+            dispatch({type: "SET_USER", payload: userWithToken});
           } else if (users.length > 0) {
             // If users array is populated but user not found, show error
             dispatch({
@@ -203,7 +207,41 @@ function UsersFormContainer() {
     }
   };
 
-  // Retrieves invitation token for the current user
+  // Helper function to create and attach invitation token to user
+  // Can be used for both newly created users and existing inactive users
+  async function createAndAttachUserToken(user, userId) {
+    // Skip if user is already active
+    if (user.isActive) {
+      return user;
+    }
+
+    try {
+      // Request token from backend
+      const token = await createUserConfirmationToken(userId);
+
+      if (token) {
+        const userWithToken = {...user, confirmationToken: token};
+
+        // Update local state with user including token
+        dispatch({type: "SET_USER", payload: userWithToken});
+
+        // Update user in context to preserve the token
+        setUsers((prevUsers) =>
+          prevUsers.map((u) =>
+            u.id === Number(userId) ? userWithToken : u
+          )
+        );
+
+        return userWithToken;
+      }
+    } catch (tokenError) {
+      // If token creation fails, return user without token
+      // This is not critical - token creation is optional
+      console.error("Error creating confirmation token:", tokenError);
+    }
+
+    return user;
+  }
 
   // Generate a random password
   function generateRandomPassword() {
@@ -226,7 +264,6 @@ function UsersFormContainer() {
     // Generate a random password
     const randomPassword = generateRandomPassword();
 
-    // Create userData with only the fields the backend expects (no fullName)
     const userData = {
       name: state.formData.name || "",
       email: state.formData.email || "",
@@ -241,6 +278,7 @@ function UsersFormContainer() {
 
     try {
       const res = await createUser(userData);
+      console.log("res:", res);
 
       if (res && res.id) {
         // Update state with new user
@@ -256,22 +294,7 @@ function UsersFormContainer() {
         });
 
         // Generate confirmation token for the new user (only if not active)
-        // The token will be stored on the user object by the context
-        if (!res.isActive && !res.is_active) {
-          try {
-            // Get the token from backend and store it on the user
-            const token = await createUserConfirmationToken(res.id);
-
-            // Update local state with user including token
-            if (token) {
-              const updatedUser = {...res, confirmationToken: token};
-              dispatch({type: "SET_USER", payload: updatedUser});
-            }
-          } catch (tokenError) {
-            console.error("Error creating confirmation token:", tokenError);
-            // Don't show error to user - token creation is optional
-          }
-        }
+        await createAndAttachUserToken(res, res.id);
 
         // Show success banner
         dispatch({
@@ -306,37 +329,37 @@ function UsersFormContainer() {
 
     if (!validateForm()) return;
 
-    // Create userData with only the fields the backend expects (no fullName)
-    // For super_admin users, keep the role as "super_admin" (backend format)
     const userData = {
-      name: state.formData.name || "",
-      email: state.formData.email || "",
-      phone: state.formData.phone || "",
-      role: isSuperAdminUser
-        ? "super_admin"
-        : state.formData.role === "Super Admin"
-        ? "super_admin"
-        : state.formData.role,
-      contact: state.formData.contact || 0,
+      ...state.formData,
+
+      contact: Number(state.formData.contact),
     };
 
     dispatch({type: "SET_SUBMITTING", payload: true});
 
     try {
-      // TODO: Add updateUser API method or use saveProfile
-      // Using saveProfile for now - you may need to adjust this
-      const res = await AppApi.saveProfile(state.formData.email, userData);
+      const res = await AppApi.updateUser(id, userData);
+
+      console.log("res:", res);
 
       if (res) {
+        // Preserve the confirmation token if it exists in the current user state
+        // (the backend may not return it in update responses for security)
+        const updatedUserData = {
+          ...res,
+          confirmationToken:
+            res.confirmationToken || state.user?.confirmationToken,
+        };
+
         // Update the user in the state
         dispatch({
           type: "SET_USER",
-          payload: {...userData, id: Number(id)},
+          payload: updatedUserData,
         });
 
-        // Update the user in the users context
+        // Update the users in the context
         const updatedUsers = users.map((u) =>
-          u.id === Number(id) ? {...res, id: Number(id)} : u
+          u.id === Number(id) ? {...updatedUserData, id: Number(id)} : u
         );
         setUsers(updatedUsers);
 
@@ -503,6 +526,7 @@ function UsersFormContainer() {
     }
   }
 
+  /* Handles cancel button */
   function handleCancel() {
     if (state.user) {
       // For existing users, reset to original user data
@@ -811,10 +835,7 @@ function UsersFormContainer() {
                   }/#/${dbUrl}/users/invitation?email=${encodeURIComponent(
                     state.user.email || state.formData.email || ""
                   )}&name=${encodeURIComponent(
-                    state.user.name ||
-                      state.user.fullName ||
-                      state.formData.name ||
-                      ""
+                    state.user.name || state.formData.name || ""
                   )}&token=${state.user.confirmationToken}`}
                   target="_blank"
                   rel="noopener noreferrer"

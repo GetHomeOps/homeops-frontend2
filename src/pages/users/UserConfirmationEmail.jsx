@@ -132,6 +132,8 @@ function UserConfirmationEmail() {
 
     setIsSubmitting(true);
 
+    console.log("token 0: ", token);
+
     try {
       const res = await AppApi.confirmInvitation({
         token,
