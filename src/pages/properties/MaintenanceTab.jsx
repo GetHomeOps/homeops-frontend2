@@ -507,7 +507,7 @@ function MaintenanceRecordForm({isOpen, onClose, record, systemId, onSave}) {
             <h3 className="text-base font-semibold text-gray-900 dark:text-white mb-4">
               Contractor Information
             </h3>
-            
+
             <div className="space-y-4">
               {/* Contractor Name */}
               <div>

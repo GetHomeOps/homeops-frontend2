@@ -195,11 +195,28 @@ function HomeownerHome() {
 
         {/* Hero Content */}
         <div className="absolute inset-0 flex flex-col">
-          {/* Top Section - Agent Badge */}
-          <div className="px-4 sm:px-6 lg:px-8 pt-6">
-            <div className="flex items-center gap-2 text-white/80 text-sm">
-              <Home className="w-4 h-4" />
-              <span>Powered by {propertyData.agent.name}</span>
+          {/* Top Section - Agent Card */}
+          <div className="px-4 sm:px-6 lg:px-8 pt-6 flex justify-start">
+            <div className="bg-gradient-to-br from-white via-white to-slate-100 dark:from-gray-800 dark:via-gray-800 dark:to-gray-900 backdrop-blur-xl rounded-3xl p-7 shadow-2xl border border-white/30 dark:border-gray-700/50">
+              <div className="flex items-center gap-6">
+                {/* Agent Photo */}
+                <div className="relative flex-shrink-0">
+                  <img
+                    src={propertyData.agent.photo || "https://images.unsplash.com/photo-1560250097-0b93528c311a?w=200&h=200&fit=crop&crop=face"}
+                    alt={propertyData.agent.name}
+                    className="w-24 h-24 rounded-2xl object-cover shadow-xl ring-4 ring-white/60 dark:ring-gray-700/60"
+                  />
+                  <div className="absolute -bottom-2 -right-2 w-8 h-8 bg-gradient-to-br from-emerald-400 to-emerald-600 rounded-full border-3 border-white dark:border-gray-800 flex items-center justify-center shadow-lg">
+                    <CheckCircle2 className="w-5 h-5 text-white" />
+                  </div>
+                </div>
+                {/* Agent Info */}
+                <div className="min-w-0">
+                  <p className="text-xs font-semibold uppercase tracking-wider text-gray-400 dark:text-gray-500 mb-1.5">Powered by</p>
+                  <p className="text-xl font-bold text-gray-900 dark:text-white mb-1">{propertyData.agent.name}</p>
+                  <p className="text-base text-gray-600 dark:text-gray-400">{propertyData.agent.company}</p>
+                </div>
+              </div>
             </div>
           </div>
 
