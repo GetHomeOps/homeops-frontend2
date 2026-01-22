@@ -16,6 +16,13 @@ import {
   Upload,
   X,
   File,
+  AlertCircle,
+  DollarSign,
+  Clock,
+  Mail,
+  Phone,
+  Send,
+  CheckCircle,
 } from "lucide-react";
 import ModalBlank from "../../components/ModalBlank";
 
@@ -171,12 +178,21 @@ function MaintenanceRecordForm({isOpen, onClose, record, systemId, onSave}) {
   const [formData, setFormData] = useState({
     date: "",
     contractor: "",
+    contractorEmail: "",
+    contractorPhone: "",
     description: "",
     status: "Completed",
+    priority: "Medium",
+    cost: "",
+    workOrderNumber: "",
+    nextServiceDate: "",
+    materialsUsed: "",
+    notes: "",
     files: [],
   });
 
   const [uploadedFiles, setUploadedFiles] = useState([]);
+  const [requestStatus, setRequestStatus] = useState(null); // null, 'pending', 'submitted'
 
   // Reset form when modal opens/closes or record changes
   useEffect(() => {
@@ -185,20 +201,38 @@ function MaintenanceRecordForm({isOpen, onClose, record, systemId, onSave}) {
         setFormData({
           date: record.date || "",
           contractor: record.contractor || "",
+          contractorEmail: record.contractorEmail || "",
+          contractorPhone: record.contractorPhone || "",
           description: record.description || "",
           status: record.status || "Completed",
+          priority: record.priority || "Medium",
+          cost: record.cost || "",
+          workOrderNumber: record.workOrderNumber || "",
+          nextServiceDate: record.nextServiceDate || "",
+          materialsUsed: record.materialsUsed || "",
+          notes: record.notes || "",
           files: record.files || [],
         });
         setUploadedFiles(record.files || []);
+        setRequestStatus(record.requestStatus || null);
       } else {
         setFormData({
           date: "",
           contractor: "",
+          contractorEmail: "",
+          contractorPhone: "",
           description: "",
           status: "Completed",
+          priority: "Medium",
+          cost: "",
+          workOrderNumber: "",
+          nextServiceDate: "",
+          materialsUsed: "",
+          notes: "",
           files: [],
         });
         setUploadedFiles([]);
+        setRequestStatus(null);
       }
     }
   }, [isOpen, record]);
@@ -241,18 +275,39 @@ function MaintenanceRecordForm({isOpen, onClose, record, systemId, onSave}) {
       files: uploadedFiles,
       systemId: systemId,
       id: record?.id || `MT-${Date.now()}`,
+      requestStatus: requestStatus,
     };
     onSave(recordData);
     // Reset form
     setFormData({
       date: "",
       contractor: "",
+      contractorEmail: "",
+      contractorPhone: "",
       description: "",
       status: "Completed",
+      priority: "Medium",
+      cost: "",
+      workOrderNumber: "",
+      nextServiceDate: "",
+      materialsUsed: "",
+      notes: "",
       files: [],
     });
     setUploadedFiles([]);
+    setRequestStatus(null);
     onClose();
+  };
+
+  const handleSubmitRequest = () => {
+    // Validate contractor info before submitting request
+    if (!formData.contractor || (!formData.contractorEmail && !formData.contractorPhone)) {
+      alert("Please provide contractor name and at least one contact method (email or phone) before submitting a request.");
+      return;
+    }
+    setRequestStatus("pending");
+    // In a real app, this would send a notification/email to the contractor
+    alert("Request submitted to contractor. They will be notified to fill out the maintenance report.");
   };
 
   const systemName = systemId
@@ -278,16 +333,71 @@ function MaintenanceRecordForm({isOpen, onClose, record, systemId, onSave}) {
           setFormData({
             date: "",
             contractor: "",
+            contractorEmail: "",
+            contractorPhone: "",
             description: "",
             status: "Completed",
+            priority: "Medium",
+            cost: "",
+            workOrderNumber: "",
+            nextServiceDate: "",
+            materialsUsed: "",
+            notes: "",
             files: [],
           });
           setUploadedFiles([]);
+          setRequestStatus(null);
           onClose();
         }
       }}
     >
-      <div className="p-6">
+      <div className="p-6 max-h-[90vh] overflow-y-auto">
+        {/* Request Status Banner */}
+        {requestStatus === "pending" && (
+          <div className="mb-6 p-4 bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800 rounded-lg">
+            <div className="flex items-start justify-between gap-4">
+              <div className="flex items-start gap-3 flex-1">
+                <AlertCircle className="w-5 h-5 text-amber-600 dark:text-amber-400 flex-shrink-0 mt-0.5" />
+                <div className="flex-1">
+                  <h3 className="text-sm font-semibold text-amber-900 dark:text-amber-200 mb-1">
+                    Maintenance Report Pending
+                  </h3>
+                  <p className="text-xs text-amber-700 dark:text-amber-300">
+                    A request has been sent to the contractor to fill out this maintenance form. You'll be notified once they complete it.
+                  </p>
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* Submit Request Banner - Only show when no request has been submitted */}
+        {!record && requestStatus === null && (
+          <div className="mb-6 p-4 bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-lg">
+            <div className="flex items-start justify-between gap-4">
+              <div className="flex items-start gap-3 flex-1">
+                <Send className="w-5 h-5 text-blue-600 dark:text-blue-400 flex-shrink-0 mt-0.5" />
+                <div className="flex-1">
+                  <h3 className="text-sm font-semibold text-blue-900 dark:text-blue-200 mb-1">
+                    Submit Request for Filling
+                  </h3>
+                  <p className="text-xs text-blue-700 dark:text-blue-300 mb-3">
+                    Need the contractor to fill out this form? Fill in the contractor details below and click "Submit Request" to notify them.
+                  </p>
+                  <button
+                    type="button"
+                    onClick={handleSubmitRequest}
+                    className="inline-flex items-center gap-2 px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white text-sm font-medium rounded-lg transition-colors"
+                  >
+                    <Send className="w-4 h-4" />
+                    Submit Request
+                  </button>
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
+
         <div className="mb-6">
           <h2 className="text-2xl font-bold text-gray-900 dark:text-white mb-2">
             {record ? "Edit" : "Add"} Maintenance Record
@@ -298,61 +408,162 @@ function MaintenanceRecordForm({isOpen, onClose, record, systemId, onSave}) {
         </div>
 
         <form onSubmit={handleSubmit} className="space-y-6">
-          {/* Date */}
+          {/* Work Order Number & Priority Row */}
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            {/* Work Order Number */}
+            <div>
+              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                <FileCheck className="w-4 h-4 inline mr-2" />
+                Work Order #
+              </label>
+              <input
+                type="text"
+                name="workOrderNumber"
+                value={formData.workOrderNumber}
+                onChange={handleInputChange}
+                placeholder="Optional work order reference"
+                className="form-input w-full"
+              />
+            </div>
+
+            {/* Priority */}
+            <div>
+              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                <AlertCircle className="w-4 h-4 inline mr-2" />
+                Priority
+              </label>
+              <select
+                name="priority"
+                value={formData.priority}
+                onChange={handleInputChange}
+                className="form-select w-full"
+              >
+                <option value="Low">Low</option>
+                <option value="Medium">Medium</option>
+                <option value="High">High</option>
+                <option value="Emergency">Emergency</option>
+              </select>
+            </div>
+          </div>
+
+          {/* Date & Status Row */}
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            {/* Date */}
+            <div>
+              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                <Calendar className="w-4 h-4 inline mr-2" />
+                Date <span className="text-red-500">*</span>
+              </label>
+              <input
+                type="date"
+                name="date"
+                value={formData.date}
+                onChange={handleInputChange}
+                required
+                className="form-input w-full"
+              />
+            </div>
+
+            {/* Status */}
+            <div>
+              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                Status
+              </label>
+              <select
+                name="status"
+                value={formData.status}
+                onChange={handleInputChange}
+                className="form-select w-full"
+              >
+                <option value="Completed">Completed</option>
+                <option value="Scheduled">Scheduled</option>
+                <option value="In Progress">In Progress</option>
+                <option value="Pending Contractor">Pending Contractor Fill-out</option>
+                <option value="Cancelled">Cancelled</option>
+              </select>
+            </div>
+          </div>
+
+          {/* Next Service Date */}
           <div>
             <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-              <Calendar className="w-4 h-4 inline mr-2" />
-              Date <span className="text-red-500">*</span>
+              <Clock className="w-4 h-4 inline mr-2" />
+              Next Service Date
             </label>
             <input
               type="date"
-              name="date"
-              value={formData.date}
+              name="nextServiceDate"
+              value={formData.nextServiceDate}
               onChange={handleInputChange}
-              required
               className="form-input w-full"
             />
+            <p className="mt-1 text-xs text-gray-500 dark:text-gray-400">
+              When is the next maintenance service scheduled?
+            </p>
           </div>
 
-          {/* Contractor */}
-          <div>
-            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-              <User className="w-4 h-4 inline mr-2" />
-              Contractor
-            </label>
-            <input
-              type="text"
-              name="contractor"
-              value={formData.contractor}
-              onChange={handleInputChange}
-              placeholder="Enter contractor name"
-              className="form-input w-full"
-            />
-          </div>
+          {/* Contractor Information Section */}
+          <div className="border-t border-gray-200 dark:border-gray-700 pt-6">
+            <h3 className="text-base font-semibold text-gray-900 dark:text-white mb-4">
+              Contractor Information
+            </h3>
+            
+            <div className="space-y-4">
+              {/* Contractor Name */}
+              <div>
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                  <User className="w-4 h-4 inline mr-2" />
+                  Contractor Name
+                </label>
+                <input
+                  type="text"
+                  name="contractor"
+                  value={formData.contractor}
+                  onChange={handleInputChange}
+                  placeholder="Enter contractor or company name"
+                  className="form-input w-full"
+                />
+              </div>
 
-          {/* Status */}
-          <div>
-            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-              Status
-            </label>
-            <select
-              name="status"
-              value={formData.status}
-              onChange={handleInputChange}
-              className="form-select w-full"
-            >
-              <option value="Completed">Completed</option>
-              <option value="Scheduled">Scheduled</option>
-              <option value="In Progress">In Progress</option>
-              <option value="Cancelled">Cancelled</option>
-            </select>
+              {/* Contractor Contact Info */}
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                    <Mail className="w-4 h-4 inline mr-2" />
+                    Email
+                  </label>
+                  <input
+                    type="email"
+                    name="contractorEmail"
+                    value={formData.contractorEmail}
+                    onChange={handleInputChange}
+                    placeholder="contractor@email.com"
+                    className="form-input w-full"
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                    <Phone className="w-4 h-4 inline mr-2" />
+                    Phone
+                  </label>
+                  <input
+                    type="tel"
+                    name="contractorPhone"
+                    value={formData.contractorPhone}
+                    onChange={handleInputChange}
+                    placeholder="(555) 123-4567"
+                    className="form-input w-full"
+                  />
+                </div>
+              </div>
+            </div>
           </div>
 
           {/* Description */}
           <div>
             <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
               <FileText className="w-4 h-4 inline mr-2" />
-              Description <span className="text-red-500">*</span>
+              Work Description <span className="text-red-500">*</span>
             </label>
             <textarea
               name="description"
@@ -360,7 +571,63 @@ function MaintenanceRecordForm({isOpen, onClose, record, systemId, onSave}) {
               onChange={handleInputChange}
               required
               rows={4}
-              placeholder="Describe the maintenance work performed..."
+              placeholder="Describe the maintenance work performed, issues found, and actions taken..."
+              className="form-input w-full"
+            />
+            <p className="mt-1 text-xs text-gray-500 dark:text-gray-400">
+              Provide a detailed description of the work completed
+            </p>
+          </div>
+
+          {/* Materials Used */}
+          <div>
+            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+              <Wrench className="w-4 h-4 inline mr-2" />
+              Materials Used
+            </label>
+            <textarea
+              name="materialsUsed"
+              value={formData.materialsUsed}
+              onChange={handleInputChange}
+              rows={3}
+              placeholder="List materials, parts, or supplies used (e.g., HVAC filter, pipe fittings, paint)"
+              className="form-input w-full"
+            />
+          </div>
+
+          {/* Cost */}
+          <div>
+            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+              <DollarSign className="w-4 h-4 inline mr-2" />
+              Total Cost
+            </label>
+            <input
+              type="number"
+              name="cost"
+              value={formData.cost}
+              onChange={handleInputChange}
+              placeholder="0.00"
+              step="0.01"
+              min="0"
+              className="form-input w-full"
+            />
+            <p className="mt-1 text-xs text-gray-500 dark:text-gray-400">
+              Total amount charged for this maintenance service
+            </p>
+          </div>
+
+          {/* Additional Notes */}
+          <div>
+            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+              <FileText className="w-4 h-4 inline mr-2" />
+              Additional Notes
+            </label>
+            <textarea
+              name="notes"
+              value={formData.notes}
+              onChange={handleInputChange}
+              rows={3}
+              placeholder="Any additional notes, recommendations, or follow-up actions needed..."
               className="form-input w-full"
             />
           </div>
@@ -428,27 +695,32 @@ function MaintenanceRecordForm({isOpen, onClose, record, systemId, onSave}) {
           </div>
 
           {/* Form Actions */}
-          <div className="flex justify-end gap-3 pt-4 border-t border-gray-200 dark:border-gray-700">
-            <button
-              type="button"
-              onClick={onClose}
-              className="btn bg-white dark:bg-gray-800 border-gray-200 dark:border-gray-700 hover:border-gray-300 dark:hover:border-gray-600 text-gray-800 dark:text-gray-300"
-            >
-              Cancel
-            </button>
-            <button
-              type="submit"
-              className="btn text-white"
-              style={{backgroundColor: "#456654"}}
-              onMouseEnter={(e) => {
-                e.target.style.backgroundColor = "#3a5548";
-              }}
-              onMouseLeave={(e) => {
-                e.target.style.backgroundColor = "#456654";
-              }}
-            >
-              {record ? "Update" : "Save"} Record
-            </button>
+          <div className="flex justify-between items-center gap-3 pt-4 border-t border-gray-200 dark:border-gray-700">
+            <div className="text-xs text-gray-500 dark:text-gray-400">
+              <span className="text-red-500">*</span> Required fields
+            </div>
+            <div className="flex gap-3">
+              <button
+                type="button"
+                onClick={onClose}
+                className="btn bg-white dark:bg-gray-800 border-gray-200 dark:border-gray-700 hover:border-gray-300 dark:hover:border-gray-600 text-gray-800 dark:text-gray-300"
+              >
+                Cancel
+              </button>
+              <button
+                type="submit"
+                className="btn text-white"
+                style={{backgroundColor: "#456654"}}
+                onMouseEnter={(e) => {
+                  e.target.style.backgroundColor = "#3a5548";
+                }}
+                onMouseLeave={(e) => {
+                  e.target.style.backgroundColor = "#456654";
+                }}
+              >
+                {record ? "Update" : "Save"} Record
+              </button>
+            </div>
           </div>
         </form>
       </div>

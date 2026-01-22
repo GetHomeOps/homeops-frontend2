@@ -226,6 +226,16 @@ function ContactsList() {
     dispatch({type: "SET_FILTERED_CONTACTS", payload: filteredContacts});
   }, [filteredContacts]);
 
+  // Validate current page - reset to page 1 if current page is invalid
+  useEffect(() => {
+    if (filteredContacts.length > 0) {
+      const maxPage = Math.ceil(filteredContacts.length / state.itemsPerPage);
+      if (state.currentPage > maxPage) {
+        dispatch({type: "SET_CURRENT_PAGE", payload: 1});
+      }
+    }
+  }, [filteredContacts.length, state.itemsPerPage, state.currentPage]);
+
   // Group contacts by type for group view
   const groupedItems = useMemo(() => {
     if (viewMode !== "list") {

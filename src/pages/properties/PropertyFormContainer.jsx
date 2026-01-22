@@ -5,6 +5,9 @@ import SystemsTab from "./SystemsTab";
 import MaintenanceTab from "./MaintenanceTab";
 import IdentityTab from "./IdentityTab";
 import DocumentsTab from "./DocumentsTab";
+import CircularProgress from "../../partials/propertyFeatures/CircularProgress";
+import DonutChart from "../../partials/propertyFeatures/DonutChart";
+import ScoreCard from "./ScoreCard";
 import {
   Bed,
   Bath,
@@ -166,106 +169,6 @@ const createInitialPropertyState = () => ({
   documents: propertyProfile.documents.map((doc) => ({...doc})),
 });
 
-// Circular Progress Component for HPS Score
-function CircularProgress({percentage, size = 120, strokeWidth = 8}) {
-  const radius = (size - strokeWidth) / 2;
-  const circumference = radius * 2 * Math.PI;
-  const offset = circumference - (percentage / 100) * circumference;
-
-  return (
-    <div
-      className="relative flex items-center justify-center"
-      style={{width: size, height: size}}
-    >
-      <svg
-        className="transform -rotate-90 absolute inset-0"
-        width={size}
-        height={size}
-      >
-        {/* Background circle */}
-        <circle
-          cx={size / 2}
-          cy={size / 2}
-          r={radius}
-          stroke="currentColor"
-          strokeWidth={strokeWidth}
-          fill="none"
-          className="text-gray-200 dark:text-gray-700"
-        />
-        {/* Progress circle */}
-        <circle
-          cx={size / 2}
-          cy={size / 2}
-          r={radius}
-          stroke="currentColor"
-          strokeWidth={strokeWidth}
-          fill="none"
-          strokeDasharray={circumference}
-          strokeDashoffset={offset}
-          strokeLinecap="round"
-          className="text-green-400 dark:text-green-500 transition-all duration-500"
-        />
-      </svg>
-      <div className="relative z-10 flex flex-col items-center justify-center">
-        <div className="text-2xl font-bold text-gray-900 dark:text-white leading-none">
-          {percentage}
-        </div>
-        <div className="text-[10px] font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider mt-0.5">
-          HPS
-        </div>
-      </div>
-    </div>
-  );
-}
-
-// Donut Chart Component for Health Score
-function DonutChart({percentage, size = 160, strokeWidth = 12}) {
-  const radius = (size - strokeWidth) / 2;
-  const circumference = radius * 2 * Math.PI;
-  const offset = circumference - (percentage / 100) * circumference;
-
-  // Adjust text size based on chart size
-  const textSizeClass = size <= 80 ? "text-xl" : "text-4xl";
-
-  return (
-    <div className="relative" style={{width: size, height: size}}>
-      <svg className="transform -rotate-90" width={size} height={size}>
-        {/* Background circle */}
-        <circle
-          cx={size / 2}
-          cy={size / 2}
-          r={radius}
-          stroke="currentColor"
-          strokeWidth={strokeWidth}
-          fill="none"
-          className="text-gray-200 dark:text-gray-700"
-        />
-        {/* Progress circle */}
-        <circle
-          cx={size / 2}
-          cy={size / 2}
-          r={radius}
-          stroke="currentColor"
-          strokeWidth={strokeWidth}
-          fill="none"
-          strokeDasharray={circumference}
-          strokeDashoffset={offset}
-          strokeLinecap="round"
-          className="text-green-400 dark:text-green-500 transition-all duration-500"
-        />
-      </svg>
-      <div className="absolute inset-0 flex items-center justify-center">
-        <div className="text-center">
-          <div
-            className={`${textSizeClass} font-bold text-gray-900 dark:text-white`}
-          >
-            {percentage}%
-          </div>
-        </div>
-      </div>
-    </div>
-  );
-}
 
 // Mock properties list for navigation (should be replaced with actual properties context/API)
 const mockProperties = [
@@ -290,7 +193,6 @@ function PropertyFormContainer() {
   const [activeTab, setActiveTab] = useState("identity");
   const [formChanged, setFormChanged] = useState(false);
   const [teamMenuOpen, setTeamMenuOpen] = useState(false);
-  const [scorecardOpen, setScorecardOpen] = useState(false);
   const teamMenuRef = useRef(null);
 
   // Close team menu when clicking outside
@@ -516,73 +418,155 @@ function PropertyFormContainer() {
       </div>
 
       <div className="space-y-8">
-        {/* Hero Section: Property Vitals */}
-        <section className="bg-white dark:bg-gray-900 rounded-2xl shadow-sm border border-gray-100 dark:border-gray-800 overflow-hidden">
-          <div className="flex flex-col md:flex-row">
-            {/* Property Image - Wider with margin */}
-            <div className="w-full md:w-2/5 lg:w-2/5 p-4 md:p-6">
-              <div className="relative h-56 md:h-64 lg:h-72 rounded-xl overflow-hidden shadow-md">
-                <img
-                  src={propertyData.mainPhoto}
-                  alt={propertyData.address}
-                  className="w-full h-full object-cover"
-                />
-              </div>
+        {/* Property Passport Card */}
+        <section className="bg-white dark:bg-gray-800 rounded-2xl shadow-lg border border-gray-200 dark:border-gray-700 overflow-hidden">
+          {/* Passport Header - Modern Sleek Design */}
+          <div className="relative bg-gradient-to-br from-[#456564] via-[#3a5548] to-[#2a4241] px-6 py-5 overflow-hidden">
+            {/* Subtle pattern overlay */}
+            <div className="absolute inset-0 opacity-5">
+              <div className="absolute inset-0" style={{
+                backgroundImage: `radial-gradient(circle at 2px 2px, white 1px, transparent 0)`,
+                backgroundSize: "24px 24px"
+              }}></div>
             </div>
 
-            {/* Property Details */}
-            <div className="flex-1 p-6 md:p-8 lg:p-10 flex flex-col justify-between">
-              {/* Top Section: Property ID and HPS Score */}
-              <div className="flex justify-between items-start mb-5">
+            <div className="relative flex items-center justify-between">
+              <div className="flex items-center gap-4">
+                <div className="relative">
+                  <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-white/10 to-white/5 backdrop-blur-sm border border-white/20 flex items-center justify-center shadow-lg">
+                    <Shield className="w-6 h-6 text-white" />
+                  </div>
+                  <div className="absolute -top-1 -right-1 w-4 h-4 bg-[#5a7a78] rounded-full border-2 border-[#2a4241]"></div>
+                </div>
                 <div>
-                  <span className="text-xs font-semibold tracking-wide uppercase text-gray-400 dark:text-gray-500 mb-1.5 block">
-                    Property ID
-                  </span>
-                  <span className="text-sm font-medium text-gray-700 dark:text-gray-300">
-                    {propertyData.id}
-                  </span>
+                  <h2 className="text-base font-bold text-white mb-0.5 tracking-tight">
+                    Home Passport
+                  </h2>
+                  <p className="text-xs text-white/70 font-medium">Digital Property Record</p>
                 </div>
-                <div className="flex items-center gap-4">
-                  <CircularProgress percentage={propertyData.hpsScore || 92} />
+              </div>
+              <div className="flex items-center gap-6">
+                <div className="text-right hidden sm:block">
+                  <div className="text-xs text-white/60 uppercase tracking-wider mb-1">Health Score</div>
+                  <div className="text-sm font-semibold text-white">{propertyData.hpsScore || 92}/100</div>
+                </div>
+                <CircularProgress percentage={propertyData.hpsScore || 92} size={80} strokeWidth={6} />
+              </div>
+            </div>
+          </div>
+
+          {/* Passport Body */}
+          <div className="p-6 md:p-8">
+            <div className="flex flex-col lg:flex-row gap-6 lg:gap-8">
+              {/* Property Image */}
+              <div className="w-full lg:w-2/5 flex-shrink-0">
+                <div className="relative h-64 lg:h-80 rounded-lg overflow-hidden border-2 border-gray-200 dark:border-gray-700 shadow-sm">
+                  <img
+                    src={propertyData.mainPhoto}
+                    alt={propertyData.address}
+                    className="w-full h-full object-cover"
+                  />
                 </div>
               </div>
 
-              {/* Middle Section: Address */}
-              <div className="mb-5">
-                <h1 className="text-xl md:text-2xl lg:text-2xl font-semibold text-gray-900 dark:text-white mb-1.5 tracking-tight leading-tight">
-                  {propertyData.address}
-                </h1>
-                <p className="text-sm md:text-base text-gray-600 dark:text-gray-400 font-medium">
-                  {propertyData.city}, {propertyData.state} {propertyData.zip}
-                </p>
-              </div>
+              {/* Property Information */}
+              <div className="flex-1 space-y-6">
+                {/* Property Identity */}
+                <div>
+                  <div className="flex items-start justify-between mb-3">
+                    <div className="flex-1">
+                      <div className="flex items-center gap-2 mb-2">
+                        <MapPin className="w-4 h-4 text-[#456564] dark:text-[#5a7a78]" />
+                        <span className="text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide">
+                          Property Location
+                        </span>
+                      </div>
+                      <h1 className="text-2xl md:text-3xl font-bold text-gray-900 dark:text-white mb-1.5 leading-tight">
+                        {propertyData.address}
+                      </h1>
+                      <p className="text-base text-gray-600 dark:text-gray-300 font-medium">
+                        {propertyData.city}, {propertyData.state} {propertyData.zip}
+                      </p>
+                    </div>
+                  </div>
 
-              {/* Bottom Section: Vitals Bar */}
-              <div className="flex flex-wrap items-center gap-3 md:gap-4 bg-gray-50 dark:bg-gray-800/50 rounded-lg p-3 md:p-4">
-                <div className="flex items-center gap-2 text-gray-700 dark:text-gray-300">
-                  <Bed className="w-4 h-4 text-gray-500 dark:text-gray-400" />
-                  <span className="text-sm font-medium">
-                    {propertyData.rooms} Beds
-                  </span>
+                  {/* Passport ID */}
+                  <div className="mt-4 pt-4 border-t border-gray-200 dark:border-gray-700">
+                    <div className="flex items-center gap-2 mb-1">
+                      <FileCheck className="w-4 h-4 text-gray-400 dark:text-gray-500" />
+                      <span className="text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wide">
+                        Passport ID
+                      </span>
+                    </div>
+                    <p className="text-sm font-mono text-gray-700 dark:text-gray-300 font-semibold">
+                      {propertyData.id}
+                    </p>
+                  </div>
                 </div>
-                <div className="flex items-center gap-2 text-gray-700 dark:text-gray-300">
-                  <Bath className="w-4 h-4 text-gray-500 dark:text-gray-400" />
-                  <span className="text-sm font-medium">
-                    {propertyData.bathrooms || 3} Baths
-                  </span>
+
+                {/* Property Specifications */}
+                <div className="pt-4 border-t border-gray-200 dark:border-gray-700">
+                  <div className="flex items-center gap-2 mb-4">
+                    <Building className="w-4 h-4 text-gray-400 dark:text-gray-500" />
+                    <span className="text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide">
+                      Property Specifications
+                    </span>
+                  </div>
+                  <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                    <div className="flex flex-col">
+                      <div className="flex items-center gap-1.5 mb-1">
+                        <Bed className="w-3.5 h-3.5 text-gray-400 dark:text-gray-500" />
+                        <span className="text-xs text-gray-500 dark:text-gray-400">Bedrooms</span>
+                      </div>
+                      <span className="text-lg font-semibold text-gray-900 dark:text-white">
+                        {propertyData.rooms}
+                      </span>
+                    </div>
+                    <div className="flex flex-col">
+                      <div className="flex items-center gap-1.5 mb-1">
+                        <Bath className="w-3.5 h-3.5 text-gray-400 dark:text-gray-500" />
+                        <span className="text-xs text-gray-500 dark:text-gray-400">Bathrooms</span>
+                      </div>
+                      <span className="text-lg font-semibold text-gray-900 dark:text-white">
+                        {propertyData.bathrooms || 3}
+                      </span>
+                    </div>
+                    <div className="flex flex-col">
+                      <div className="flex items-center gap-1.5 mb-1">
+                        <Ruler className="w-3.5 h-3.5 text-gray-400 dark:text-gray-500" />
+                        <span className="text-xs text-gray-500 dark:text-gray-400">Square Feet</span>
+                      </div>
+                      <span className="text-lg font-semibold text-gray-900 dark:text-white">
+                        {propertyData.squareFeet.toLocaleString()}
+                      </span>
+                    </div>
+                    <div className="flex flex-col">
+                      <div className="flex items-center gap-1.5 mb-1">
+                        <Calendar className="w-3.5 h-3.5 text-gray-400 dark:text-gray-500" />
+                        <span className="text-xs text-gray-500 dark:text-gray-400">Year Built</span>
+                      </div>
+                      <span className="text-lg font-semibold text-gray-900 dark:text-white">
+                        {propertyData.yearBuilt || 1995}
+                      </span>
+                    </div>
+                  </div>
                 </div>
-                <div className="flex items-center gap-2 text-gray-700 dark:text-gray-300">
-                  <Ruler className="w-4 h-4 text-gray-500 dark:text-gray-400" />
-                  <span className="text-sm font-medium">
-                    {propertyData.squareFeet.toLocaleString()} Sq Ft
-                  </span>
-                </div>
-                <div className="flex items-center gap-2 text-gray-700 dark:text-gray-300">
-                  <Calendar className="w-4 h-4 text-gray-500 dark:text-gray-400" />
-                  <span className="text-sm font-medium">
-                    Built {propertyData.yearBuilt || 1995}
-                  </span>
-                </div>
+
+                {/* Property Value */}
+                {propertyData.price && (
+                  <div className="pt-4 border-t border-gray-200 dark:border-gray-700">
+                    <div className="flex items-center justify-between">
+                      <div>
+                        <span className="text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide block mb-1">
+                          Estimated Value
+                        </span>
+                        <p className="text-2xl font-bold text-gray-900 dark:text-white">
+                          {formatCurrency.format(propertyData.price)}
+                        </p>
+                      </div>
+                    </div>
+                  </div>
+                )}
               </div>
             </div>
           </div>
@@ -795,446 +779,14 @@ function PropertyFormContainer() {
               </div>
 
               {/* Scorecard Section */}
-              <div className="mt-8 pt-8 border-t border-gray-200 dark:border-gray-700">
-                <button
-                  onClick={() => setScorecardOpen(!scorecardOpen)}
-                  className="flex items-center justify-between w-full mb-4 text-left"
-                >
-                  <h3 className="text-lg font-semibold text-gray-900 dark:text-white">
-                    Scorecard
-                  </h3>
-                  {scorecardOpen ? (
-                    <ChevronUp className="w-5 h-5 text-gray-500 dark:text-gray-400" />
-                  ) : (
-                    <ChevronDown className="w-5 h-5 text-gray-500 dark:text-gray-400" />
-                  )}
-                </button>
-                {scorecardOpen && (
-                  <div className="space-y-6 pl-2">
-                    {/* Documents Scorecard */}
-                    <div className="bg-gradient-to-br from-white to-gray-50 dark:from-gray-800 dark:to-gray-900 rounded-xl p-5 border border-gray-200 dark:border-gray-700 shadow-sm">
-                      <div className="flex items-center justify-between mb-4">
-                        <div className="flex items-center gap-2">
-                          <FileText className="w-5 h-5 text-blue-600 dark:text-blue-400" />
-                          <h4 className="text-base font-bold text-gray-900 dark:text-white">
-                            Documents
-                          </h4>
-                        </div>
-                        <div className="text-right">
-                          <div className="text-2xl font-bold text-gray-900 dark:text-white">
-                            {Math.round(
-                              ((propertyData.healthMetrics?.documentsUploaded
-                                .current || 8) /
-                                (propertyData.healthMetrics?.documentsUploaded
-                                  .total || 10)) *
-                                100
-                            )}
-                            %
-                          </div>
-                          <div className="text-xs text-gray-500 dark:text-gray-400">
-                            {propertyData.healthMetrics?.documentsUploaded
-                              .current || 8}
-                            /
-                            {propertyData.healthMetrics?.documentsUploaded
-                              .total || 10}
-                          </div>
-                        </div>
-                      </div>
-
-                      {/* Mini Donut Chart */}
-                      <div className="flex items-center gap-6 mb-4">
-                        <div className="flex-shrink-0">
-                          <DonutChart
-                            percentage={Math.round(
-                              ((propertyData.healthMetrics?.documentsUploaded
-                                .current || 8) /
-                                (propertyData.healthMetrics?.documentsUploaded
-                                  .total || 10)) *
-                                100
-                            )}
-                            size={80}
-                            strokeWidth={8}
-                          />
-                        </div>
-                        <div className="flex-1 space-y-2">
-                          <div className="flex items-center justify-between">
-                            <span className="text-sm text-gray-600 dark:text-gray-400">
-                              Completed
-                            </span>
-                            <span className="text-sm font-semibold text-green-600 dark:text-green-400">
-                              {propertyData.healthMetrics?.documentsUploaded
-                                .current || 8}
-                            </span>
-                          </div>
-                          <div className="w-full bg-gray-200 dark:bg-gray-700 rounded-full h-2">
-                            <div
-                              className="bg-green-500 dark:bg-green-400 h-2 rounded-full transition-all duration-500"
-                              style={{
-                                width: `${
-                                  ((propertyData.healthMetrics
-                                    ?.documentsUploaded.current || 8) /
-                                    (propertyData.healthMetrics
-                                      ?.documentsUploaded.total || 10)) *
-                                  100
-                                }%`,
-                              }}
-                            ></div>
-                          </div>
-                          <div className="flex items-center justify-between">
-                            <span className="text-sm text-gray-600 dark:text-gray-400">
-                              Pending
-                            </span>
-                            <span className="text-sm font-semibold text-orange-600 dark:text-orange-400">
-                              {(propertyData.healthMetrics?.documentsUploaded
-                                .total || 10) -
-                                (propertyData.healthMetrics?.documentsUploaded
-                                  .current || 8)}
-                            </span>
-                          </div>
-                          <div className="w-full bg-gray-200 dark:bg-gray-700 rounded-full h-2">
-                            <div
-                              className="bg-orange-500 dark:bg-orange-400 h-2 rounded-full transition-all duration-500"
-                              style={{
-                                width: `${
-                                  (((propertyData.healthMetrics
-                                    ?.documentsUploaded.total || 10) -
-                                    (propertyData.healthMetrics
-                                      ?.documentsUploaded.current || 8)) /
-                                    (propertyData.healthMetrics
-                                      ?.documentsUploaded.total || 10)) *
-                                  100
-                                }%`,
-                              }}
-                            ></div>
-                          </div>
-                        </div>
-                      </div>
-
-                      {/* Document List */}
-                      <div className="mt-4 pt-4 border-t border-gray-200 dark:border-gray-700">
-                        <div className="grid grid-cols-1 md:grid-cols-2 gap-2 text-sm">
-                          {[
-                            "Inspection Report",
-                            "Insurance Policy",
-                            "Warranty Documents",
-                            "Permits & Certificates",
-                            "Tax Records",
-                            "HOA Documents",
-                            "Utility Bills",
-                            "Maintenance Records",
-                            "Appraisal Report",
-                            "Title Documents",
-                          ]
-                            .slice(
-                              0,
-                              propertyData.healthMetrics?.documentsUploaded
-                                .total || 10
-                            )
-                            .map((doc, idx) => {
-                              const isCompleted =
-                                idx <
-                                (propertyData.healthMetrics?.documentsUploaded
-                                  .current || 8);
-                              return (
-                                <div
-                                  key={doc}
-                                  className="flex items-center gap-2 py-1"
-                                >
-                                  {isCompleted ? (
-                                    <CheckCircle2 className="w-4 h-4 text-green-500 dark:text-green-400 flex-shrink-0" />
-                                  ) : (
-                                    <div className="w-4 h-4 rounded-full border-2 border-gray-300 dark:border-gray-600 flex-shrink-0"></div>
-                                  )}
-                                  <span
-                                    className={
-                                      isCompleted
-                                        ? "text-gray-700 dark:text-gray-300 line-through"
-                                        : "text-gray-500 dark:text-gray-400"
-                                    }
-                                  >
-                                    {doc}
-                                  </span>
-                                </div>
-                              );
-                            })}
-                        </div>
-                      </div>
-                    </div>
-
-                    {/* Systems Scorecard */}
-                    <div className="bg-gradient-to-br from-white to-gray-50 dark:from-gray-800 dark:to-gray-900 rounded-xl p-5 border border-gray-200 dark:border-gray-700 shadow-sm">
-                      <div className="flex items-center justify-between mb-4">
-                        <div className="flex items-center gap-2">
-                          <Settings className="w-5 h-5 text-purple-600 dark:text-purple-400" />
-                          <h4 className="text-base font-bold text-gray-900 dark:text-white">
-                            Systems
-                          </h4>
-                        </div>
-                        <div className="text-right">
-                          <div className="text-2xl font-bold text-gray-900 dark:text-white">
-                            {Math.round(
-                              ((propertyData.healthMetrics?.systemsIdentified
-                                .current || 3) /
-                                (propertyData.healthMetrics?.systemsIdentified
-                                  .total || 6)) *
-                                100
-                            )}
-                            %
-                          </div>
-                          <div className="text-xs text-gray-500 dark:text-gray-400">
-                            {propertyData.healthMetrics?.systemsIdentified
-                              .current || 3}
-                            /
-                            {propertyData.healthMetrics?.systemsIdentified
-                              .total || 6}
-                          </div>
-                        </div>
-                      </div>
-
-                      {/* Mini Donut Chart */}
-                      <div className="flex items-center gap-6 mb-4">
-                        <div className="flex-shrink-0">
-                          <DonutChart
-                            percentage={Math.round(
-                              ((propertyData.healthMetrics?.systemsIdentified
-                                .current || 3) /
-                                (propertyData.healthMetrics?.systemsIdentified
-                                  .total || 6)) *
-                                100
-                            )}
-                            size={80}
-                            strokeWidth={8}
-                          />
-                        </div>
-                        <div className="flex-1 space-y-2">
-                          <div className="flex items-center justify-between">
-                            <span className="text-sm text-gray-600 dark:text-gray-400">
-                              Identified
-                            </span>
-                            <span className="text-sm font-semibold text-green-600 dark:text-green-400">
-                              {propertyData.healthMetrics?.systemsIdentified
-                                .current || 3}
-                            </span>
-                          </div>
-                          <div className="w-full bg-gray-200 dark:bg-gray-700 rounded-full h-2">
-                            <div
-                              className="bg-green-500 dark:bg-green-400 h-2 rounded-full transition-all duration-500"
-                              style={{
-                                width: `${
-                                  ((propertyData.healthMetrics
-                                    ?.systemsIdentified.current || 3) /
-                                    (propertyData.healthMetrics
-                                      ?.systemsIdentified.total || 6)) *
-                                  100
-                                }%`,
-                              }}
-                            ></div>
-                          </div>
-                          <div className="flex items-center justify-between">
-                            <span className="text-sm text-gray-600 dark:text-gray-400">
-                              Missing
-                            </span>
-                            <span className="text-sm font-semibold text-orange-600 dark:text-orange-400">
-                              {(propertyData.healthMetrics?.systemsIdentified
-                                .total || 6) -
-                                (propertyData.healthMetrics?.systemsIdentified
-                                  .current || 3)}
-                            </span>
-                          </div>
-                          <div className="w-full bg-gray-200 dark:bg-gray-700 rounded-full h-2">
-                            <div
-                              className="bg-orange-500 dark:bg-orange-400 h-2 rounded-full transition-all duration-500"
-                              style={{
-                                width: `${
-                                  (((propertyData.healthMetrics
-                                    ?.systemsIdentified.total || 6) -
-                                    (propertyData.healthMetrics
-                                      ?.systemsIdentified.current || 3)) /
-                                    (propertyData.healthMetrics
-                                      ?.systemsIdentified.total || 6)) *
-                                  100
-                                }%`,
-                              }}
-                            ></div>
-                          </div>
-                        </div>
-                      </div>
-
-                      {/* Systems List */}
-                      <div className="mt-4 pt-4 border-t border-gray-200 dark:border-gray-700">
-                        <div className="grid grid-cols-1 md:grid-cols-2 gap-2 text-sm">
-                          {[
-                            {name: "Roof", icon: Building},
-                            {name: "HVAC", icon: Zap},
-                            {name: "Plumbing", icon: Droplet},
-                            {name: "Electrical", icon: Zap},
-                            {name: "Foundation", icon: Building},
-                            {name: "Windows", icon: Home},
-                          ]
-                            .slice(
-                              0,
-                              propertyData.healthMetrics?.systemsIdentified
-                                .total || 6
-                            )
-                            .map((system, idx) => {
-                              const Icon = system.icon;
-                              const isIdentified =
-                                idx <
-                                (propertyData.healthMetrics?.systemsIdentified
-                                  .current || 3);
-                              return (
-                                <div
-                                  key={system.name}
-                                  className="flex items-center gap-2 py-1"
-                                >
-                                  {isIdentified ? (
-                                    <CheckCircle2 className="w-4 h-4 text-green-500 dark:text-green-400 flex-shrink-0" />
-                                  ) : (
-                                    <div className="w-4 h-4 rounded-full border-2 border-gray-300 dark:border-gray-600 flex-shrink-0"></div>
-                                  )}
-                                  <Icon className="w-4 h-4 text-gray-400 dark:text-gray-500 flex-shrink-0" />
-                                  <span
-                                    className={
-                                      isIdentified
-                                        ? "text-gray-700 dark:text-gray-300"
-                                        : "text-gray-500 dark:text-gray-400"
-                                    }
-                                  >
-                                    {system.name}
-                                  </span>
-                                </div>
-                              );
-                            })}
-                        </div>
-                      </div>
-                    </div>
-
-                    {/* Maintenance Scorecard */}
-                    <div className="bg-gradient-to-br from-white to-gray-50 dark:from-gray-800 dark:to-gray-900 rounded-xl p-5 border border-gray-200 dark:border-gray-700 shadow-sm">
-                      <div className="flex items-center justify-between mb-4">
-                        <div className="flex items-center gap-2">
-                          <Wrench className="w-5 h-5 text-amber-600 dark:text-amber-400" />
-                          <h4 className="text-base font-bold text-gray-900 dark:text-white">
-                            Maintenance
-                          </h4>
-                        </div>
-                        <div className="text-right">
-                          <div className="text-2xl font-bold text-gray-900 dark:text-white">
-                            {propertyData.healthMetrics?.maintenanceProfileSetup
-                              .complete
-                              ? "100%"
-                              : "0%"}
-                          </div>
-                          <div className="text-xs text-gray-500 dark:text-gray-400">
-                            {propertyData.healthMetrics?.maintenanceProfileSetup
-                              .complete
-                              ? "Complete"
-                              : "Incomplete"}
-                          </div>
-                        </div>
-                      </div>
-
-                      {/* Mini Donut Chart */}
-                      <div className="flex items-center gap-6 mb-4">
-                        <div className="flex-shrink-0">
-                          <DonutChart
-                            percentage={
-                              propertyData.healthMetrics
-                                ?.maintenanceProfileSetup.complete
-                                ? 100
-                                : 0
-                            }
-                            size={80}
-                            strokeWidth={8}
-                          />
-                        </div>
-                        <div className="flex-1 space-y-3">
-                          <div className="w-full bg-gray-200 dark:bg-gray-700 rounded-full h-3">
-                            <div
-                              className={`h-3 rounded-full transition-all duration-500 ${
-                                propertyData.healthMetrics
-                                  ?.maintenanceProfileSetup.complete
-                                  ? "bg-green-500 dark:bg-green-400"
-                                  : "bg-orange-500 dark:bg-orange-400"
-                              }`}
-                              style={{
-                                width: `${
-                                  propertyData.healthMetrics
-                                    ?.maintenanceProfileSetup.complete
-                                    ? 100
-                                    : 0
-                                }%`,
-                              }}
-                            ></div>
-                          </div>
-                          <div className="flex items-center gap-2">
-                            {propertyData.healthMetrics?.maintenanceProfileSetup
-                              .complete ? (
-                              <>
-                                <CheckCircle2 className="w-5 h-5 text-green-500 dark:text-green-400" />
-                                <span className="text-sm font-semibold text-green-600 dark:text-green-400">
-                                  Profile Configured
-                                </span>
-                              </>
-                            ) : (
-                              <>
-                                <AlertTriangle className="w-5 h-5 text-orange-500 dark:text-orange-400" />
-                                <span className="text-sm font-semibold text-orange-600 dark:text-orange-400">
-                                  Setup Required
-                                </span>
-                              </>
-                            )}
-                          </div>
-                        </div>
-                      </div>
-
-                      {/* Maintenance Checklist */}
-                      <div className="mt-4 pt-4 border-t border-gray-200 dark:border-gray-700">
-                        <div className="space-y-2 text-sm">
-                          {[
-                            "Schedule Setup",
-                            "Define Maintenance Tasks",
-                            "Set Reminder Intervals",
-                            "Configure Notifications",
-                          ].map((task, idx) => {
-                            const isComplete =
-                              propertyData.healthMetrics
-                                ?.maintenanceProfileSetup.complete && idx < 4;
-                            return (
-                              <div
-                                key={task}
-                                className="flex items-center gap-2 py-1"
-                              >
-                                {isComplete ? (
-                                  <CheckCircle2 className="w-4 h-4 text-green-500 dark:text-green-400 flex-shrink-0" />
-                                ) : (
-                                  <div className="w-4 h-4 rounded-full border-2 border-gray-300 dark:border-gray-600 flex-shrink-0"></div>
-                                )}
-                                <span
-                                  className={
-                                    isComplete
-                                      ? "text-gray-700 dark:text-gray-300"
-                                      : "text-gray-500 dark:text-gray-400"
-                                  }
-                                >
-                                  {task}
-                                </span>
-                              </div>
-                            );
-                          })}
-                        </div>
-                      </div>
-                    </div>
-                  </div>
-                )}
-              </div>
+              <ScoreCard propertyData={propertyData} />
             </div>
           </div>
         </section>
 
         {/* Navigation Tabs */}
-        <section className="bg-white dark:bg-gray-900 rounded-2xl shadow-sm border border-gray-100 dark:border-gray-800">
-          <div className="border-b border-gray-200 dark:border-gray-800 px-6">
+        <section className="bg-white dark:bg-gray-800 rounded-2xl shadow-sm border border-gray-200 dark:border-gray-700">
+          <div className="border-b border-gray-200 dark:border-gray-700 px-6">
             <nav className="flex flex-wrap gap-1">
               {tabs.map((tab) => {
                 const icons = {
@@ -1334,24 +886,34 @@ function PropertyFormContainer() {
               <DocumentsTab propertyData={propertyData} />
             )}
           </div>
-        </section>
 
-        {formChanged && (
-          <div className="sticky bottom-0 bg-white dark:bg-gray-900 border-t border-gray-200 dark:border-gray-800 rounded-b-2xl shadow-md px-6 py-4 flex flex-wrap items-center justify-end gap-3">
-            <button
-              className="btn border-gray-200 dark:border-gray-700 hover:border-gray-300 dark:hover:border-gray-600 text-gray-700 dark:text-gray-200"
-              onClick={handleCancelChanges}
+          {formChanged && (
+            <div
+              className={`${
+                formChanged ? "sticky" : "hidden"
+              } bottom-0 bg-white dark:bg-gray-800 border-t border-gray-200 dark:border-gray-700 px-6 py-4 rounded-b-2xl transition-all duration-200`}
             >
-              Cancel
-            </button>
-            <button
-              className="btn bg-indigo-600 hover:bg-indigo-700 text-white"
-              onClick={handleUpdate}
-            >
-              Update Property
-            </button>
-          </div>
-        )}
+              <div className="flex justify-end gap-3">
+                <button
+                  type="button"
+                  className="btn bg-white dark:bg-gray-800 border-gray-200 dark:border-gray-700 hover:border-gray-300 dark:hover:border-gray-600 text-gray-800 dark:text-gray-300 transition-colors duration-200 shadow-sm"
+                  onClick={handleCancelChanges}
+                >
+                  Cancel
+                </button>
+                <button
+                  type="button"
+                  className={`btn text-white transition-colors duration-200 shadow-sm min-w-[100px] ${
+                    "bg-[#456564] hover:bg-[#34514f]"
+                  }`}
+                  onClick={handleUpdate}
+                >
+                  Update Property
+                </button>
+              </div>
+            </div>
+          )}
+        </section>
       </div>
     </div>
   );

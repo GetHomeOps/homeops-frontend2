@@ -69,7 +69,8 @@ function reducer(state, action) {
                 action.payload.role === "super_admin"
                   ? "Super Admin"
                   : action.payload.role || "",
-              contact: action.payload.contact || "",
+            contact: action.payload.contact || "",
+            isActive: action.payload.isActive || false,
             }
           : initialFormData,
         formDataChanged: false,
@@ -109,7 +110,6 @@ function UsersFormContainer() {
   const dbUrl = currentDb?.url || currentDb?.name || "";
 
 
-
   // Fetch user based on URL's user id
   useEffect(() => {
     async function fetchUser() {
@@ -119,11 +119,8 @@ function UsersFormContainer() {
           const existingUser = users.find(
             (user) => Number(user.id) === Number(id)
           );
-
           if (existingUser) {
-            // Create token for inactive users if they don't have one
-            const userWithToken = await createAndAttachUserToken(existingUser, id);
-            dispatch({type: "SET_USER", payload: userWithToken});
+            dispatch({type: "SET_USER", payload: existingUser});
           } else if (users.length > 0) {
             // If users array is populated but user not found, show error
             dispatch({
@@ -151,7 +148,7 @@ function UsersFormContainer() {
       }
     }
     fetchUser();
-  }, [id, users, t]);
+  }, [id, users]);
 
   // Banner timeout useEffect with the custom hook
   useAutoCloseBanner(state.bannerOpen, state.bannerMessage, () =>
@@ -207,41 +204,32 @@ function UsersFormContainer() {
     }
   };
 
-  // Helper function to create and attach invitation token to user
-  // Can be used for both newly created users and existing inactive users
-  async function createAndAttachUserToken(user, userId) {
-    // Skip if user is already active
-    if (user.isActive) {
-      return user;
-    }
 
+/* Fetches a new user confirmation token */
+  async function fetchUserConfirmationToken(userId) {
+    let userData = {
+      userId: userId,
+    };
     try {
-      // Request token from backend
-      const token = await createUserConfirmationToken(userId);
+      const token = await AppApi.createUserConfirmationToken(userData);
+      console.log("token:", token);
 
-      if (token) {
-        const userWithToken = {...user, confirmationToken: token};
-
-        // Update local state with user including token
-        dispatch({type: "SET_USER", payload: userWithToken});
-
-        // Update user in context to preserve the token
-        setUsers((prevUsers) =>
-          prevUsers.map((u) =>
-            u.id === Number(userId) ? userWithToken : u
-          )
-        );
-
-        return userWithToken;
+      // Open invitation route in new tab with token result
+      // UserConfirmationEmail expects email, name, and token as query parameters
+      // Using HashRouter, so URL needs # prefix
+      if (token?.result && state.user) {
+        const email = encodeURIComponent(state.user.email || state.formData.email || "");
+        const name = encodeURIComponent(state.user.name || state.formData.name || "");
+        const tokenValue = encodeURIComponent(token.result);
+        const url = `/#/${dbUrl}/invite/confirm?token=${tokenValue}&email=${email}&name=${name}`;
+        window.open(url, "_blank", "noopener,noreferrer");
       }
-    } catch (tokenError) {
-      // If token creation fails, return user without token
-      // This is not critical - token creation is optional
-      console.error("Error creating confirmation token:", tokenError);
+    } catch (error) {
+      console.error("Error fetching user confirmation token:", error);
+      return null;
     }
-
-    return user;
   }
+
 
   // Generate a random password
   function generateRandomPassword() {
@@ -278,7 +266,6 @@ function UsersFormContainer() {
 
     try {
       const res = await createUser(userData);
-      console.log("res:", res);
 
       if (res && res.id) {
         // Update state with new user
@@ -292,9 +279,6 @@ function UsersFormContainer() {
             visibleContactIds: [...users.map((u) => u.id), res.id],
           },
         });
-
-        // Generate confirmation token for the new user (only if not active)
-        await createAndAttachUserToken(res, res.id);
 
         // Show success banner
         dispatch({
@@ -331,8 +315,8 @@ function UsersFormContainer() {
 
     const userData = {
       ...state.formData,
-
       contact: Number(state.formData.contact),
+      isActive: state.formData.isActive,
     };
 
     dispatch({type: "SET_SUBMITTING", payload: true});
@@ -343,23 +327,16 @@ function UsersFormContainer() {
       console.log("res:", res);
 
       if (res) {
-        // Preserve the confirmation token if it exists in the current user state
-        // (the backend may not return it in update responses for security)
-        const updatedUserData = {
-          ...res,
-          confirmationToken:
-            res.confirmationToken || state.user?.confirmationToken,
-        };
 
         // Update the user in the state
         dispatch({
           type: "SET_USER",
-          payload: updatedUserData,
+          payload: res,
         });
 
         // Update the users in the context
         const updatedUsers = users.map((u) =>
-          u.id === Number(id) ? {...updatedUserData, id: Number(id)} : u
+          u.id === Number(id) ? {...res, id: Number(id)} : u
         );
         setUsers(updatedUsers);
 
@@ -686,7 +663,7 @@ function UsersFormContainer() {
     return `${baseClasses} ${errorClasses}`;
   };
 
-  console.log("state.user: ", state.user);
+
   return (
     <div className="relative min-h-screen bg-[var(--color-gray-50)] dark:bg-gray-900">
       <div className="fixed top-18 right-0 w-auto sm:w-full z-50">
@@ -826,45 +803,22 @@ function UsersFormContainer() {
 
             {/* Activated/Pending Status Button */}
             {state.user &&
-              (state.user.confirmationToken &&
-              !state.user.isActive &&
-              !state.user.is_active ? (
+              (!state.user.isActive && !state.user.is_active ? (
                 <a
-                  href={`${
-                    window.location.origin
-                  }/#/${dbUrl}/users/invitation?email=${encodeURIComponent(
-                    state.user.email || state.formData.email || ""
-                  )}&name=${encodeURIComponent(
-                    state.user.name || state.formData.name || ""
-                  )}&token=${state.user.confirmationToken}`}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className={`flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-semibold transition-all duration-200 shadow-sm hover:shadow-md ${
-                    state.user.isActive || state.user.is_active
-                      ? "bg-[#d3f4e3] dark:bg-[#173c36] text-[#2a9f52] dark:text-[#258c4d] hover:bg-[#c0ead6] dark:hover:bg-[#1e4a42]"
-                      : "bg-[#fddddd] dark:bg-[#402431] text-[#e63939] dark:text-[#c23437] hover:bg-[#fccccc] dark:hover:bg-[#4d2a3a]"
-                  }`}
+                  onClick={(e) => {
+                    e.preventDefault();
+                    fetchUserConfirmationToken(state.user.id);
+                  }}
+                  className="flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-semibold transition-all duration-200 shadow-sm hover:shadow-md bg-[#fddddd] dark:bg-[#402431] text-[#e63939] dark:text-[#c23437] hover:bg-[#fccccc] dark:hover:bg-[#4d2a3a] cursor-pointer"
                 >
-                  <span>
-                    {state.user.isActive || state.user.is_active
-                      ? "Active"
-                      : "Pending"}
-                  </span>
+                  <span>Pending</span>
                   <ExternalLink className="w-3.5 h-3.5" />
                 </a>
               ) : (
                 <div
-                  className={`flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-semibold shadow-sm ${
-                    state.user.isActive || state.user.is_active
-                      ? "bg-[#d3f4e3] dark:bg-[#173c36] text-[#2a9f52] dark:text-[#258c4d]"
-                      : "bg-[#fddddd] dark:bg-[#402431] text-[#e63939] dark:text-[#c23437]"
-                  }`}
+                  className="flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-semibold shadow-sm bg-[#d3f4e3] dark:bg-[#173c36] text-[#2a9f52] dark:text-[#258c4d]"
                 >
-                  <span>
-                    {state.user.isActive || state.user.is_active
-                      ? "Active"
-                      : "Pending"}
-                  </span>
+                  <span>Active</span>
                 </div>
               ))}
           </div>

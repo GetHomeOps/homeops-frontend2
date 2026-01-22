@@ -19,6 +19,7 @@ import Contact from "../contacts/Contact";
 import PropertiesList from "../properties/PropertiesList";
 import Property from "../properties/Property";
 import UserConfirmationEmail from "../users/UserConfirmationEmail";
+import HealthMetrics from "../configuration/HealthMetrics";
 
 function RoutesList() {
   const {currentUser, isLoading} = useAuth();
@@ -54,9 +55,10 @@ function RoutesList() {
       <Route path="/:dbUrl/properties/new" element={<Property />} />
       <Route path="/:dbUrl/properties/:id" element={<Property />} />
       <Route
-        path="/:dbUrl/users/invitation"
+        path="/:dbUrl/invite/:invitation"
         element={<UserConfirmationEmail />}
       />
+      <Route path="/:dbUrl/configuration/healthmetrics" element={<HealthMetrics />} />
     </>
   );
 

@@ -289,5 +289,6 @@
   "searchPropertiesPlaceholder": "Search properties by name or address...",
   "namePlaceholder": "Enter your name",
   "selectContact": "Select Contact",
-  "userDeleteConfirmationMessage": "Are you sure you want to delete this user?"
+  "userDeleteConfirmationMessage": "Are you sure you want to delete this user?",
+  "userNotFoundErrorMessage": "User not found"
 }

@@ -31,7 +31,7 @@ function UsersTable({
   const allSelected = useMemo(() => {
     return (
       currentUsers.length > 0 &&
-      currentUsers.every((contact) => selectedItems.includes(contact.id))
+      currentUsers.every((user) => selectedItems.includes(user.id))
     );
   }, [currentUsers, selectedItems]);
 
@@ -52,6 +52,25 @@ function UsersTable({
       label: t("role"),
       sortable: true,
     },
+    {
+      key: "status",
+      label: t("status") || "Status",
+      sortable: true,
+      render: (value, item) => {
+        const isActive = item.isActive || item.is_active;
+        return (
+          <span
+            className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-semibold ${
+              isActive
+                ? "bg-[#d3f4e3] dark:bg-[#173c36] text-[#2a9f52] dark:text-[#258c4d]"
+                : "bg-[#fddddd] dark:bg-[#402431] text-[#e63939] dark:text-[#c23437]"
+            }`}
+          >
+            {isActive ? t("active") || "Active" : t("pending") || "Pending"}
+          </span>
+        );
+      },
+    },
   ];
 
   // Custom item renderer
@@ -64,6 +83,10 @@ function UsersTable({
       onItemClick={onItemClick}
     />
   );
+
+  console.log("Current users from DataTable: ", currentUsers);
+  console.log("Users from UsersTable: ", users);
+
 
   return (
     <DataTable

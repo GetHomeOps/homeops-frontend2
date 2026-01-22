@@ -13,12 +13,14 @@ function Tooltip({children, className, bg, size, position, content}) {
       case "bottom":
         return "top-full left-1/2 -translate-x-1/2";
       default:
-        return "bottom-full left-1/2 -translate-x-1/2";
+        return "top-full left-1/2 -translate-x-1/2";
     }
   };
 
   const sizeClasses = (size) => {
     switch (size) {
+      case "xl":
+        return "min-w-64 max-w-sm px-4 py-2 text-sm";
       case "lg":
         return "min-w-32 px-3 py-2 text-sm";
       case "md":
@@ -50,7 +52,7 @@ function Tooltip({children, className, bg, size, position, content}) {
       case "bottom":
         return "mt-2";
       default:
-        return "mb-2";
+        return "mt-2";
     }
   };
 

@@ -116,23 +116,13 @@ function UserConfirmationEmail() {
     return Object.keys(newErrors).length === 0;
   };
 
-  const handleSubmit = async (e) => {
-    e.preventDefault();
+/* Handles the submission of the form */
+  async function handleSubmit(event) {
+    event.preventDefault();
 
     if (!validateForm()) {
-      return;
+      throw new Error("Invalid form data");
     }
-
-    if (!token) {
-      setErrors({
-        submit: "Invalid invitation link. Please check your invitation URL.",
-      });
-      return;
-    }
-
-    setIsSubmitting(true);
-
-    console.log("token 0: ", token);
 
     try {
       const res = await AppApi.confirmInvitation({
@@ -140,41 +130,21 @@ function UserConfirmationEmail() {
         password: formData.password,
         name: formData.name,
       });
+      console.log("Confirm invitation response:", res);
 
-      if (res.success) {
+      // Set success if the response indicates success
+      if (res && res.success === true) {
         setSuccess(true);
-        setIsSubmitting(false);
-      } else {
-        setErrors({
-          submit: "Failed to confirm user invitation. Please try again.",
-        });
-        setIsSubmitting(false);
       }
     } catch (error) {
       console.error("Error confirming user invitation:", error);
-      const errorMessage = Array.isArray(error)
-        ? error.join(", ")
-        : error.message || "An error occurred. Please try again.";
-      setErrors({
-        submit: errorMessage,
-      });
-      setIsSubmitting(false);
+      throw new Error(error.message);
     }
   };
 
-  const handleCopyUrl = async () => {
+  /* Handles the copying of the email content */
+  async function handleCopyEmailContent() {
     try {
-      await navigator.clipboard.writeText(currentUrl);
-      setCopied(true);
-      setTimeout(() => setCopied(false), 2000);
-    } catch (err) {
-      console.error("Failed to copy URL:", err);
-    }
-  };
-
-  const handleCopyEmailContent = async () => {
-    try {
-      // Get the email HTML content
       const emailContent = document.querySelector(".email-template-content");
       if (emailContent) {
         const textContent = emailContent.innerText;
@@ -182,11 +152,25 @@ function UserConfirmationEmail() {
         setEmailCopied(true);
         setTimeout(() => setEmailCopied(false), 2000);
       }
-    } catch (err) {
-      console.error("Failed to copy email content:", err);
+    } catch (error) {
+      console.error("Error copying email content:", error);
+      throw new Error(error.message);
     }
   };
 
+  /* Handles the copying of the URL */
+  async function handleCopyUrl() {
+    try {
+      await navigator.clipboard.writeText(currentUrl);
+      setCopied(true);
+      setTimeout(() => setCopied(false), 2000);
+    } catch (error) {
+      console.error("Error copying URL:", error);
+      throw new Error(error.message);
+    }
+  };
+
+  /* If the user confirmation is successful, show the success message */
   if (success) {
     return (
       <div className="min-h-screen relative overflow-hidden">
@@ -227,6 +211,7 @@ function UserConfirmationEmail() {
     );
   }
 
+  /* If the user confirmation is not successful, show the email confirmation page */
   return (
     <div className="min-h-screen relative overflow-hidden">
       {/* Background Pattern with Gradient */}
@@ -425,7 +410,7 @@ function UserConfirmationEmail() {
                   </p>
                 </div>
 
-                {/* Name Field - Enhanced */}
+                {/* Name Field */}
                 <div>
                   <label
                     className="flex items-center text-sm font-medium mb-2 text-gray-700 dark:text-gray-300"

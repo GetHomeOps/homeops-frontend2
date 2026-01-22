@@ -105,13 +105,6 @@ function UsersList() {
     currentPage: Number(localStorage.getItem(PAGE_STORAGE_KEY)) || 1,
   });
 
-  // Update localStorage when page changes
-  useEffect(() => {
-    if (state.currentPage) {
-      localStorage.setItem(PAGE_STORAGE_KEY, state.currentPage);
-    }
-  }, [state.currentPage]);
-
   // Memoize filtered users based on search term
   const filteredUsers = useMemo(() => {
     if (!users || users.length === 0) return [];
@@ -140,6 +133,23 @@ function UsersList() {
 
     return filtered;
   }, [state.searchTerm, users, sortedUsers]);
+
+  // Validate current page - reset to page 1 if current page is invalid
+  useEffect(() => {
+    if (filteredUsers.length > 0) {
+      const maxPage = Math.ceil(filteredUsers.length / state.itemsPerPage);
+      if (state.currentPage > maxPage) {
+        dispatch({type: "SET_CURRENT_PAGE", payload: 1});
+      }
+    }
+  }, [filteredUsers.length, state.itemsPerPage, state.currentPage]);
+
+  // Update localStorage when page changes
+  useEffect(() => {
+    if (state.currentPage) {
+      localStorage.setItem(PAGE_STORAGE_KEY, state.currentPage);
+    }
+  }, [state.currentPage]);
 
   // Handle navigation to user details
   const handleUserClick = (user) => {

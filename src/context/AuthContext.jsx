@@ -43,9 +43,6 @@ export function AuthProvider({children}) {
 
           let currentUser = await AppApi.getCurrentUser(email);
 
-          // Debug check
-          console.log("Retrieved user:", currentUser);
-
           if (!currentUser || !currentUser.id) {
             console.error("Current user or user ID is undefined");
             setCurrentUser({

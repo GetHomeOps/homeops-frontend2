@@ -28,7 +28,7 @@ export function UserProvider({children}) {
     sortedItems: listSortedItems,
     sortConfig: listSortConfig,
     handleSort: handleListSort,
-  } = useTableSort(users, "fullName", false, {
+  } = useTableSort(users, "name", false, {
     storageKey: "users-sort",
     customComparators: customListComparators,
   });
@@ -277,8 +277,6 @@ export function UserProvider({children}) {
       throw error;
     }
   };
-
-  // Validate a user invitation token
 
   return (
     <UserContext.Provider
