@@ -4,7 +4,7 @@ import Sidebar from "../../partials/Sidebar";
 import Header from "../../partials/Header";
 import Banner from "../../partials/containers/Banner";
 import {
-  FileText,
+  Shield,
   Settings,
   Wrench,
   ChevronDown,
@@ -16,7 +16,7 @@ import {
 } from "lucide-react";
 
 // Default values from the Scorecard
-const defaultDocuments = [
+const defaultIdentity = [
   {id: 1, name: "Inspection Report", description: "Essential for identifying property condition, potential issues, and establishing baseline for maintenance planning"},
   {id: 2, name: "Insurance Policy", description: "Critical for protection against damages and required for mortgage compliance"},
   {id: 3, name: "Warranty Documents", description: "Important for coverage verification and warranty claims, saving significant repair costs"},
@@ -162,12 +162,12 @@ function HealthMetrics() {
   const [bannerMessage, setBannerMessage] = useState("");
 
   const [expandedSections, setExpandedSections] = useState({
-    documents: true,
+    identity: true,
     systems: false,
     maintenance: false,
   });
 
-  const [documents, setDocuments] = useState(defaultDocuments);
+  const [identity, setIdentity] = useState(defaultIdentity);
   const [systems, setSystems] = useState(defaultSystems);
   const [maintenance, setMaintenance] = useState(defaultMaintenance);
 
@@ -203,8 +203,8 @@ function HealthMetrics() {
       description: newItemDescription || "",
     };
 
-    if (newItemSection === "documents") {
-      setDocuments((prev) => [...prev, newItem]);
+    if (newItemSection === "identity") {
+      setIdentity((prev) => [...prev, newItem]);
     } else if (newItemSection === "systems") {
       setSystems((prev) => [...prev, newItem]);
     } else if (newItemSection === "maintenance") {
@@ -231,8 +231,8 @@ function HealthMetrics() {
       return;
     }
 
-    if (documents.find((d) => d.id === updatedItem.id)) {
-      setDocuments((prev) =>
+    if (identity.find((d) => d.id === updatedItem.id)) {
+      setIdentity((prev) =>
         prev.map((item) => (item.id === updatedItem.id ? updatedItem : item))
       );
     } else if (systems.find((s) => s.id === updatedItem.id)) {
@@ -252,8 +252,8 @@ function HealthMetrics() {
   };
 
   const handleDeleteItem = (id, section) => {
-    if (section === "documents") {
-      setDocuments((prev) => prev.filter((item) => item.id !== id));
+    if (section === "identity") {
+      setIdentity((prev) => prev.filter((item) => item.id !== id));
     } else if (section === "systems") {
       setSystems((prev) => prev.filter((item) => item.id !== id));
     } else if (section === "maintenance") {
@@ -267,11 +267,11 @@ function HealthMetrics() {
 
   const sections = [
     {
-      id: "documents",
-      title: "Documents",
-      icon: FileText,
-      items: documents,
-      setItems: setDocuments,
+      id: "identity",
+      title: "Identity",
+      icon: Shield,
+      items: identity,
+      setItems: setIdentity,
     },
     {
       id: "systems",
@@ -324,7 +324,7 @@ function HealthMetrics() {
                   Health Metrics Configuration
                 </h1>
                 <p className="text-sm text-gray-600 dark:text-gray-400 mt-1">
-                  Manage documents, systems, and maintenance items for property health scoring
+                  Manage identity, systems, and maintenance items for property health scoring
                 </p>
               </div>
             </div>
@@ -336,7 +336,7 @@ function HealthMetrics() {
                 <h2 className="font-semibold text-gray-800 dark:text-gray-100">
                   Health Metrics Configuration{" "}
                   <span className="text-gray-400 dark:text-gray-500 font-medium">
-                    {documents.length + systems.length + maintenance.length}
+                    {identity.length + systems.length + maintenance.length}
                   </span>
                 </h2>
               </header>

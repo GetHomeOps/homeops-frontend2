@@ -1,6 +1,7 @@
 import React, {useState} from "react";
 import {useTranslation} from "react-i18next";
 import {useAuth} from "../../context/AuthContext";
+import ModalBlank from "../../components/ModalBlank";
 import {
   Bell,
   Calendar,
@@ -32,6 +33,10 @@ import {
   Award,
   Target,
   ChevronLeft,
+  X,
+  Search,
+  Filter,
+  MoreVertical,
 } from "lucide-react";
 
 // Mock data
@@ -150,6 +155,8 @@ function HomeownerHome() {
   const {currentUser} = useAuth();
   const propertyData = mockPropertyData;
   const [activeTab, setActiveTab] = useState("all");
+  const [remindersModalOpen, setRemindersModalOpen] = useState(false);
+  const [reminderFilter, setReminderFilter] = useState("all"); // all, overdue, urgent, upcoming
 
   const homeownerName = currentUser?.fullName?.split(" ")[0] || currentUser?.name?.split(" ")[0] || "Homeowner";
 
@@ -197,23 +204,27 @@ function HomeownerHome() {
         <div className="absolute inset-0 flex flex-col">
           {/* Top Section - Agent Card */}
           <div className="px-4 sm:px-6 lg:px-8 pt-6 flex justify-start">
-            <div className="bg-gradient-to-br from-white via-white to-slate-100 dark:from-gray-800 dark:via-gray-800 dark:to-gray-900 backdrop-blur-xl rounded-3xl p-7 shadow-2xl border border-white/30 dark:border-gray-700/50">
-              <div className="flex items-center gap-6">
+            <div className="relative overflow-hidden bg-white/95 dark:bg-gray-800/95 backdrop-blur-xl rounded-2xl p-6 shadow-xl border border-gray-200/80 dark:border-gray-700/80">
+              {/* Subtle gradient accent */}
+              <div className="absolute top-0 right-0 w-40 h-40 bg-gradient-to-br from-blue-100/40 to-indigo-100/40 dark:from-blue-900/20 dark:to-indigo-900/20 blur-3xl" />
+              <div className="absolute bottom-0 left-0 w-32 h-32 bg-gradient-to-tr from-emerald-100/30 to-cyan-100/30 dark:from-emerald-900/10 dark:to-cyan-900/10 blur-2xl" />
+
+              <div className="relative flex items-center gap-6">
                 {/* Agent Photo */}
                 <div className="relative flex-shrink-0">
                   <img
                     src={propertyData.agent.photo || "https://images.unsplash.com/photo-1560250097-0b93528c311a?w=200&h=200&fit=crop&crop=face"}
                     alt={propertyData.agent.name}
-                    className="w-24 h-24 rounded-2xl object-cover shadow-xl ring-4 ring-white/60 dark:ring-gray-700/60"
+                    className="w-20 h-20 rounded-xl object-cover ring-2 ring-gray-200 dark:ring-gray-700"
                   />
-                  <div className="absolute -bottom-2 -right-2 w-8 h-8 bg-gradient-to-br from-emerald-400 to-emerald-600 rounded-full border-3 border-white dark:border-gray-800 flex items-center justify-center shadow-lg">
-                    <CheckCircle2 className="w-5 h-5 text-white" />
+                  <div className="absolute -bottom-1.5 -right-1.5 w-7 h-7 bg-emerald-500 rounded-full border-2 border-white dark:border-gray-800 flex items-center justify-center shadow-md">
+                    <CheckCircle2 className="w-4 h-4 text-white" />
                   </div>
                 </div>
                 {/* Agent Info */}
                 <div className="min-w-0">
-                  <p className="text-xs font-semibold uppercase tracking-wider text-gray-400 dark:text-gray-500 mb-1.5">Powered by</p>
-                  <p className="text-xl font-bold text-gray-900 dark:text-white mb-1">{propertyData.agent.name}</p>
+                  <p className="text-[10px] font-medium uppercase tracking-wider text-gray-500 dark:text-gray-400 mb-1.5">Your Agent</p>
+                  <p className="text-xl font-semibold text-gray-900 dark:text-white mb-0.5">{propertyData.agent.name}</p>
                   <p className="text-base text-gray-600 dark:text-gray-400">{propertyData.agent.company}</p>
                 </div>
               </div>
@@ -377,59 +388,127 @@ function HomeownerHome() {
           </a>
         </div>
 
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-          {/* Reminders */}
-          <div className="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 p-4">
-            <div className="flex items-center gap-2 mb-4">
-              <Bell className="w-4 h-4 text-gray-500 dark:text-gray-400" />
-              <span className="text-sm font-medium text-gray-700 dark:text-gray-300">Reminders</span>
-              <span className="ml-auto text-xs font-medium px-2 py-0.5 rounded-full bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400">
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-5">
+          {/* Reminders - Warm tones with left accent border */}
+          <div className="relative bg-gradient-to-br from-amber-50/80 via-white to-orange-50/50 dark:from-amber-950/20 dark:via-gray-800 dark:to-orange-950/10 rounded-2xl border border-amber-200/60 dark:border-amber-800/30 p-5 shadow-sm">
+            {/* Header */}
+            <div className="flex items-center justify-between mb-5">
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-amber-400 to-orange-500 flex items-center justify-center shadow-lg shadow-amber-500/25">
+                  <Bell className="w-5 h-5 text-white" />
+                </div>
+                <div>
+                  <h3 className="text-base font-semibold text-gray-900 dark:text-white">Reminders</h3>
+                  <p className="text-xs text-gray-500 dark:text-gray-400">Action needed</p>
+                </div>
+              </div>
+              <span className="text-xs font-bold px-2.5 py-1 rounded-full bg-amber-500 text-white shadow-sm">
                 {propertyData.reminders.filter(r => r.status === "pending").length}
               </span>
             </div>
+            {/* Items */}
             <div className="space-y-2">
               {propertyData.reminders.slice(0, 3).map((item) => {
                 const daysUntil = getDaysUntil(item.date);
                 const isUrgent = daysUntil <= 7 && daysUntil > 0;
                 const isOverdue = daysUntil <= 0;
                 return (
-                  <div key={item.id} className="flex items-center justify-between p-3 rounded-lg bg-gray-50 dark:bg-gray-700/50 hover:bg-gray-100 dark:hover:bg-gray-700 cursor-pointer transition-colors">
-                    <div className="flex items-center gap-3">
-                      <div className={`w-2 h-2 rounded-full ${isOverdue ? "bg-red-500" : isUrgent ? "bg-amber-500" : "bg-gray-400"}`} />
-                      <span className="text-sm text-gray-900 dark:text-white">{item.title}</span>
+                  <div
+                    key={item.id}
+                    className={`flex items-center gap-3 p-3.5 rounded-xl cursor-pointer transition-all ${
+                      isOverdue
+                        ? "bg-red-50/50 dark:bg-red-950/20 hover:bg-red-100/70 dark:hover:bg-red-950/30"
+                        : isUrgent
+                        ? "bg-amber-50/50 dark:bg-amber-950/20 hover:bg-amber-100/70 dark:hover:bg-amber-950/30"
+                        : "bg-gray-50/50 dark:bg-gray-800/50 hover:bg-gray-100/70 dark:hover:bg-gray-700/50"
+                    }`}
+                  >
+                    <div className="flex-1 min-w-0">
+                      <p className="text-sm font-medium text-gray-900 dark:text-white mb-0.5">{item.title}</p>
+                      <p className="text-xs text-gray-500 dark:text-gray-400">{formatDate(item.date)}</p>
                     </div>
-                    <span className={`text-xs font-medium ${isOverdue ? "text-red-600" : isUrgent ? "text-amber-600" : "text-gray-500"}`}>
-                      {isOverdue ? "Overdue" : `${daysUntil}d`}
-                    </span>
+                    <div className="flex items-center gap-2">
+                      {item.priority === "high" && (
+                        <AlertTriangle className="w-4 h-4 text-amber-500" />
+                      )}
+                      <span className={`text-xs font-semibold px-2 py-1 rounded-md ${
+                        isOverdue
+                          ? "bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400"
+                          : isUrgent
+                          ? "bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400"
+                          : "bg-gray-100 text-gray-600 dark:bg-gray-700 dark:text-gray-400"
+                      }`}>
+                        {isOverdue ? "Overdue" : `${daysUntil}d left`}
+                      </span>
+                    </div>
                   </div>
                 );
               })}
             </div>
+            {/* Footer */}
+            <button
+              type="button"
+              onClick={(e) => {
+                e.preventDefault();
+                e.stopPropagation();
+                setRemindersModalOpen(true);
+              }}
+              className="mt-4 text-sm font-medium text-amber-700 dark:text-amber-400 hover:text-amber-800 flex items-center gap-1 transition-colors"
+            >
+              View all reminders
+              <ChevronRight className="w-4 h-4" />
+            </button>
           </div>
 
-          {/* Scheduled Work */}
-          <div className="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 p-4">
-            <div className="flex items-center gap-2 mb-4">
-              <Calendar className="w-4 h-4 text-gray-500 dark:text-gray-400" />
-              <span className="text-sm font-medium text-gray-700 dark:text-gray-300">Scheduled Work</span>
-              <span className="ml-auto text-xs font-medium px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-400">
+          {/* Scheduled Work - Cool tones with calendar-style dates */}
+          <div className="relative bg-gradient-to-br from-blue-50/80 via-white to-slate-50/50 dark:from-blue-950/20 dark:via-gray-800 dark:to-slate-950/10 rounded-2xl border border-blue-200/60 dark:border-blue-800/30 p-5 shadow-sm">
+            {/* Header */}
+            <div className="flex items-center justify-between mb-5">
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-blue-500 to-indigo-600 flex items-center justify-center shadow-lg shadow-blue-500/25">
+                  <Calendar className="w-5 h-5 text-white" />
+                </div>
+                <div>
+                  <h3 className="text-base font-semibold text-gray-900 dark:text-white">Scheduled Work</h3>
+                  <p className="text-xs text-gray-500 dark:text-gray-400">Upcoming appointments</p>
+                </div>
+              </div>
+              <span className="text-xs font-bold px-2.5 py-1 rounded-full bg-blue-500 text-white shadow-sm">
                 {propertyData.scheduledMaintenance.length}
               </span>
             </div>
-            <div className="space-y-2">
-              {propertyData.scheduledMaintenance.map((item) => (
-                <div key={item.id} className="flex items-center justify-between p-3 rounded-lg bg-gray-50 dark:bg-gray-700/50">
-                  <div>
-                    <p className="text-sm font-medium text-gray-900 dark:text-white">{item.title}</p>
-                    <p className="text-xs text-gray-500 dark:text-gray-400">{item.contractor}</p>
+            {/* Items */}
+            <div className="space-y-3">
+              {propertyData.scheduledMaintenance.map((item) => {
+                const dateObj = new Date(item.date);
+                const month = dateObj.toLocaleDateString("en-US", {month: "short"});
+                const day = dateObj.getDate();
+                return (
+                  <div key={item.id} className="flex items-center gap-4 p-3.5 rounded-xl bg-white/80 dark:bg-gray-800/80 cursor-pointer transition-all hover:bg-white dark:hover:bg-gray-700/50">
+                    {/* Calendar Date Block */}
+                    <div className="flex-shrink-0 w-14 h-14 rounded-xl bg-gradient-to-br from-blue-100 to-indigo-100 dark:from-blue-900/40 dark:to-indigo-900/40 flex flex-col items-center justify-center">
+                      <span className="text-[10px] font-semibold uppercase text-blue-600 dark:text-blue-400">{month}</span>
+                      <span className="text-xl font-bold text-blue-700 dark:text-blue-300 leading-none">{day}</span>
+                    </div>
+                    {/* Details */}
+                    <div className="flex-1 min-w-0">
+                      <p className="text-sm font-medium text-gray-900 dark:text-white mb-0.5">{item.title}</p>
+                      <p className="text-xs text-gray-500 dark:text-gray-400">{item.contractor}</p>
+                    </div>
+                    {/* Status */}
+                    <div className="flex items-center gap-1.5 text-xs font-medium text-emerald-600 dark:text-emerald-400 bg-emerald-100 dark:bg-emerald-900/30 px-2.5 py-1.5 rounded-lg">
+                      <CheckCircle2 className="w-3.5 h-3.5" />
+                      <span>Confirmed</span>
+                    </div>
                   </div>
-                  <div className="text-right">
-                    <p className="text-xs font-medium text-gray-900 dark:text-white">{formatDate(item.date)}</p>
-                    <p className="text-xs text-emerald-600 dark:text-emerald-400">{item.status}</p>
-                  </div>
-                </div>
-              ))}
+                );
+              })}
             </div>
+            {/* Footer */}
+            <button className="mt-4 text-sm font-medium text-blue-700 dark:text-blue-400 hover:text-blue-800 flex items-center gap-1 transition-colors">
+              View calendar
+              <ChevronRight className="w-4 h-4" />
+            </button>
           </div>
         </div>
       </section>
@@ -597,6 +676,191 @@ function HomeownerHome() {
           ))}
         </div>
       </section>
+
+      {/* ============================================ */}
+      {/* REMINDERS MODAL */}
+      {/* ============================================ */}
+      <ModalBlank id="reminders-modal" modalOpen={remindersModalOpen} setModalOpen={setRemindersModalOpen}>
+        <div className="flex flex-col h-full max-h-[90vh]">
+          {/* Header */}
+          <div className="flex items-center justify-between p-6 border-b border-gray-200 dark:border-gray-700">
+            <div>
+              <h2 className="text-xl font-semibold text-gray-900 dark:text-white">All Reminders</h2>
+              <p className="text-sm text-gray-500 dark:text-gray-400 mt-0.5">
+                {propertyData.reminders.length} total reminders
+              </p>
+            </div>
+            <button
+              type="button"
+              onClick={() => setRemindersModalOpen(false)}
+              className="p-2 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors"
+            >
+              <X className="w-5 h-5 text-gray-500 dark:text-gray-400" />
+            </button>
+          </div>
+
+          {/* Filters */}
+          <div className="px-6 py-4 border-b border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800/50">
+            <div className="flex items-center gap-2 overflow-x-auto pb-1">
+              {[
+                {id: "all", label: "All", count: propertyData.reminders.length},
+                {id: "overdue", label: "Overdue", count: propertyData.reminders.filter(r => getDaysUntil(r.date) <= 0 && r.status !== "scheduled").length},
+                {id: "urgent", label: "Urgent", count: propertyData.reminders.filter(r => {
+                  const days = getDaysUntil(r.date);
+                  return days > 0 && days <= 7 && r.status !== "scheduled";
+                }).length},
+                {id: "upcoming", label: "Upcoming", count: propertyData.reminders.filter(r => getDaysUntil(r.date) > 7).length},
+              ].map((filter) => (
+                <button
+                  key={filter.id}
+                  onClick={() => setReminderFilter(filter.id)}
+                  className={`px-4 py-2 rounded-lg text-sm font-medium whitespace-nowrap transition-colors ${
+                    reminderFilter === filter.id
+                      ? "bg-gray-900 dark:bg-white text-white dark:text-gray-900"
+                      : "bg-white dark:bg-gray-700 text-gray-600 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-600"
+                  }`}
+                >
+                  {filter.label}
+                  <span className={`ml-2 px-1.5 py-0.5 rounded text-xs ${
+                    reminderFilter === filter.id
+                      ? "bg-white/20 dark:bg-gray-900/20"
+                      : "bg-gray-100 dark:bg-gray-600"
+                  }`}>
+                    {filter.count}
+                  </span>
+                </button>
+              ))}
+            </div>
+          </div>
+
+          {/* Reminders List */}
+          <div className="flex-1 overflow-y-auto p-6">
+            <div className="space-y-3">
+              {propertyData.reminders
+                .filter((item) => {
+                  const daysUntil = getDaysUntil(item.date);
+                  const isOverdue = daysUntil <= 0 && item.status !== "scheduled";
+                  const isUrgent = daysUntil > 0 && daysUntil <= 7 && item.status !== "scheduled";
+
+                  if (reminderFilter === "all") return true;
+                  if (reminderFilter === "overdue") return isOverdue;
+                  if (reminderFilter === "urgent") return isUrgent;
+                  if (reminderFilter === "upcoming") return daysUntil > 7;
+                  return true;
+                })
+                .map((item) => {
+                  const daysUntil = getDaysUntil(item.date);
+                  const isOverdue = daysUntil <= 0 && item.status !== "scheduled";
+                  const isUrgent = daysUntil > 0 && daysUntil <= 7 && item.status !== "scheduled";
+                  const Icon = item.type === "maintenance" ? Wrench : FileText;
+
+                  return (
+                    <div
+                      key={item.id}
+                      className={`group flex items-start gap-4 p-4 rounded-xl transition-all hover:shadow-md ${
+                        isOverdue
+                          ? "bg-red-50/50 dark:bg-red-950/20"
+                          : isUrgent
+                          ? "bg-amber-50/50 dark:bg-amber-950/20"
+                          : "bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700"
+                      }`}
+                    >
+                      {/* Icon */}
+                      <div className={`flex-shrink-0 w-10 h-10 rounded-lg flex items-center justify-center ${
+                        isOverdue
+                          ? "bg-red-100 dark:bg-red-900/30"
+                          : isUrgent
+                          ? "bg-amber-100 dark:bg-amber-900/30"
+                          : "bg-gray-100 dark:bg-gray-700"
+                      }`}>
+                        <Icon className={`w-5 h-5 ${
+                          isOverdue
+                            ? "text-red-600 dark:text-red-400"
+                            : isUrgent
+                            ? "text-amber-600 dark:text-amber-400"
+                            : "text-gray-600 dark:text-gray-400"
+                        }`} />
+                      </div>
+
+                      {/* Content */}
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-start justify-between gap-2 mb-1">
+                          <div>
+                            <h3 className="text-sm font-semibold text-gray-900 dark:text-white">{item.title}</h3>
+                            <p className="text-xs text-gray-500 dark:text-gray-400 mt-0.5">
+                              {item.type === "maintenance" ? "Maintenance" : "Document"} • Due {formatDate(item.date)}
+                            </p>
+                          </div>
+                          {item.priority === "high" && (
+                            <AlertTriangle className="w-4 h-4 text-amber-500 flex-shrink-0" />
+                          )}
+                        </div>
+
+                        {/* Status Badge */}
+                        <div className="flex items-center gap-2 mt-2">
+                          <span className={`text-xs font-medium px-2.5 py-1 rounded-md ${
+                            isOverdue
+                              ? "bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400"
+                              : isUrgent
+                              ? "bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400"
+                              : item.status === "scheduled"
+                              ? "bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-400"
+                              : "bg-gray-100 text-gray-600 dark:bg-gray-700 dark:text-gray-400"
+                          }`}>
+                            {item.status === "scheduled"
+                              ? "Scheduled"
+                              : isOverdue
+                              ? "Overdue"
+                              : isUrgent
+                              ? `Due in ${daysUntil} days`
+                              : `${daysUntil} days left`}
+                          </span>
+                        </div>
+                      </div>
+
+                      {/* Actions */}
+                      <div className="flex-shrink-0 flex items-center gap-1">
+                        <button className="p-2 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors opacity-0 group-hover:opacity-100">
+                          <MoreVertical className="w-4 h-4 text-gray-400" />
+                        </button>
+                      </div>
+                    </div>
+                  );
+                })}
+            </div>
+
+            {propertyData.reminders.filter((item) => {
+              const daysUntil = getDaysUntil(item.date);
+              const isOverdue = daysUntil <= 0 && item.status !== "scheduled";
+              const isUrgent = daysUntil > 0 && daysUntil <= 7 && item.status !== "scheduled";
+
+              if (reminderFilter === "all") return true;
+              if (reminderFilter === "overdue") return isOverdue;
+              if (reminderFilter === "urgent") return isUrgent;
+              if (reminderFilter === "upcoming") return daysUntil > 7;
+              return true;
+            }).length === 0 && (
+              <div className="text-center py-12">
+                <Bell className="w-12 h-12 text-gray-300 dark:text-gray-600 mx-auto mb-3" />
+                <p className="text-sm font-medium text-gray-500 dark:text-gray-400">No reminders found</p>
+                <p className="text-xs text-gray-400 dark:text-gray-500 mt-1">Try selecting a different filter</p>
+              </div>
+            )}
+          </div>
+
+          {/* Footer Actions */}
+          <div className="px-6 py-4 border-t border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800/50">
+            <div className="flex items-center justify-between">
+              <button className="text-sm font-medium text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white transition-colors">
+                Mark all as read
+              </button>
+              <button className="px-4 py-2 bg-gray-900 dark:bg-white text-white dark:text-gray-900 rounded-lg text-sm font-medium hover:bg-gray-800 dark:hover:bg-gray-100 transition-colors">
+                Create Reminder
+              </button>
+            </div>
+          </div>
+        </div>
+      </ModalBlank>
     </div>
   );
 }
