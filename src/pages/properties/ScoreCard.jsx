@@ -2,7 +2,7 @@ import React, {useState} from "react";
 import DonutChart from "../../partials/propertyFeatures/DonutChart";
 import Tooltip from "../../utils/Tooltip";
 import {
-  FileText,
+  Shield,
   Settings,
   Wrench,
   CheckCircle2,
@@ -17,7 +17,7 @@ import {
 } from "lucide-react";
 
 // Import default items from HealthMetrics
-const defaultDocuments = [
+const defaultIdentity = [
   {id: 1, name: "Inspection Report", description: "Essential for identifying property condition, potential issues, and establishing baseline for maintenance planning"},
   {id: 2, name: "Insurance Policy", description: "Critical for protection against damages and required for mortgage compliance"},
   {id: 3, name: "Warranty Documents", description: "Important for coverage verification and warranty claims, saving significant repair costs"},
@@ -61,13 +61,14 @@ function ScoreCard({propertyData}) {
 
   // Get the items for each section (in a real app, this would come from an API/context)
   // For now, using the defaults from HealthMetrics
-  const documents = defaultDocuments;
+  const identity = defaultIdentity;
   const systems = defaultSystems;
   const maintenance = defaultMaintenance;
 
-  // Get document items up to the total specified
-  const documentItems = documents.slice(0, propertyData.healthMetrics?.documentsUploaded.total || 10);
-  const currentDocuments = propertyData.healthMetrics?.documentsUploaded.current || 8;
+  // Get identity items up to the total specified
+  // (metric key is currently `documentsUploaded` in `propertyData.healthMetrics`)
+  const identityItems = identity.slice(0, propertyData.healthMetrics?.documentsUploaded.total || 10);
+  const currentIdentity = propertyData.healthMetrics?.documentsUploaded.current || 8;
 
   // Get system items up to the total specified
   const systemItems = systems.slice(0, propertyData.healthMetrics?.systemsIdentified.total || 6);
@@ -94,21 +95,21 @@ function ScoreCard({propertyData}) {
       </button>
       {scorecardOpen && (
         <div className="space-y-6 pl-2">
-          {/* Documents Scorecard */}
+          {/* Identity Scorecard */}
           <div className="bg-gradient-to-br from-white to-gray-50 dark:from-gray-800 dark:to-gray-900 rounded-xl p-5 border border-gray-200 dark:border-gray-700 shadow-sm">
             <div className="flex items-center justify-between mb-4">
               <div className="flex items-center gap-2">
-                <FileText className="w-5 h-5 text-blue-600 dark:text-blue-400" />
+                <Shield className="w-5 h-5 text-blue-600 dark:text-blue-400" />
                 <h4 className="text-base font-bold text-gray-900 dark:text-white">
-                  Documents
+                  Identity
                 </h4>
               </div>
               <div className="text-right">
                 <div className="text-2xl font-bold text-gray-900 dark:text-white">
-                  {Math.round((currentDocuments / documentItems.length) * 100)}%
+                  {Math.round((currentIdentity / identityItems.length) * 100)}%
                 </div>
                 <div className="text-xs text-gray-500 dark:text-gray-400">
-                  {currentDocuments}/{documentItems.length}
+                  {currentIdentity}/{identityItems.length}
                 </div>
               </div>
             </div>
@@ -117,7 +118,7 @@ function ScoreCard({propertyData}) {
             <div className="flex items-center gap-6 mb-4">
               <div className="flex-shrink-0">
                 <DonutChart
-                  percentage={Math.round((currentDocuments / documentItems.length) * 100)}
+                  percentage={Math.round((currentIdentity / identityItems.length) * 100)}
                   size={80}
                   strokeWidth={8}
                 />
@@ -125,44 +126,44 @@ function ScoreCard({propertyData}) {
               <div className="flex-1 space-y-2">
                 <div className="flex items-center justify-between">
                   <span className="text-sm text-gray-600 dark:text-gray-400">
-                    Completed
+                    Verified
                   </span>
                   <span className="text-sm font-semibold text-green-600 dark:text-green-400">
-                    {currentDocuments}
+                    {currentIdentity}
                   </span>
                 </div>
                 <div className="w-full bg-gray-200 dark:bg-gray-700 rounded-full h-2">
                   <div
                     className="bg-green-500 dark:bg-green-400 h-2 rounded-full transition-all duration-500"
                     style={{
-                      width: `${(currentDocuments / documentItems.length) * 100}%`,
+                      width: `${(currentIdentity / identityItems.length) * 100}%`,
                     }}
                   ></div>
                 </div>
                 <div className="flex items-center justify-between">
                   <span className="text-sm text-gray-600 dark:text-gray-400">
-                    Pending
+                    Missing
                   </span>
                   <span className="text-sm font-semibold text-orange-600 dark:text-orange-400">
-                    {documentItems.length - currentDocuments}
+                    {identityItems.length - currentIdentity}
                   </span>
                 </div>
                 <div className="w-full bg-gray-200 dark:bg-gray-700 rounded-full h-2">
                   <div
                     className="bg-orange-500 dark:bg-orange-400 h-2 rounded-full transition-all duration-500"
                     style={{
-                      width: `${((documentItems.length - currentDocuments) / documentItems.length) * 100}%`,
+                      width: `${((identityItems.length - currentIdentity) / identityItems.length) * 100}%`,
                     }}
                   ></div>
                 </div>
               </div>
             </div>
 
-            {/* Document List */}
+            {/* Identity Checklist */}
             <div className="mt-4 pt-4 border-t border-gray-200 dark:border-gray-700">
               <div className="grid grid-cols-1 md:grid-cols-2 gap-2 text-sm">
-                {documentItems.map((doc, idx) => {
-                  const isCompleted = idx < currentDocuments;
+                {identityItems.map((doc, idx) => {
+                  const isCompleted = idx < currentIdentity;
                   return (
                     <div key={doc.id} className="flex items-center gap-2 py-1">
                       {isCompleted ? (

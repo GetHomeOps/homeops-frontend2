@@ -17,7 +17,7 @@ function Sidebar({sidebarOpen, setSidebarOpen, variant = "default"}) {
 
   const storedSidebarExpanded = localStorage.getItem("sidebar-expanded");
   const [sidebarExpanded, setSidebarExpanded] = useState(
-    storedSidebarExpanded === null ? false : storedSidebarExpanded === "true"
+    storedSidebarExpanded === null ? false : storedSidebarExpanded === "true",
   );
 
   // close on click outside
@@ -315,7 +315,11 @@ function Sidebar({sidebarOpen, setSidebarOpen, variant = "default"}) {
               >
                 <NavLink
                   end
-                  to={dbUrl ? `/${dbUrl}/configuration/healthmetrics` : "/configuration/healthmetrics"}
+                  to={
+                    dbUrl
+                      ? `/${dbUrl}/configuration/healthmetrics`
+                      : "/configuration/healthmetrics"
+                  }
                   className={`block truncate transition duration-150 ${
                     pathname.includes("healthmetrics")
                       ? "text-[#456564]"

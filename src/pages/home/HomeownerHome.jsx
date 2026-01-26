@@ -1,4 +1,4 @@
-import React, {useState} from "react";
+import React, {useEffect, useState} from "react";
 import {useTranslation} from "react-i18next";
 import {useAuth} from "../../context/AuthContext";
 import ModalBlank from "../../components/ModalBlank";
@@ -37,6 +37,8 @@ import {
   Search,
   Filter,
   MoreVertical,
+  Phone,
+  Mail,
 } from "lucide-react";
 
 // Mock data
@@ -58,6 +60,8 @@ const mockPropertyData = {
   agent: {
     name: "Marcus Reed",
     company: "HomeOps Realty",
+    phone: "(555) 123-4567",
+    email: "marcus.reed@homeops.com",
   },
   nextAction: {
     title: "HVAC Service Due",
@@ -65,14 +69,54 @@ const mockPropertyData = {
     type: "maintenance",
   },
   reminders: [
-    {id: 1, type: "maintenance", title: "HVAC Service Due", date: "2024-01-15", priority: "high", status: "pending"},
-    {id: 2, type: "document", title: "Insurance Renewal", date: "2024-02-01", priority: "medium", status: "pending"},
-    {id: 3, type: "maintenance", title: "Gutter Cleaning", date: "2024-01-20", priority: "low", status: "scheduled"},
-    {id: 4, type: "maintenance", title: "Roof Inspection", date: "2024-02-15", priority: "medium", status: "pending"},
+    {
+      id: 1,
+      type: "maintenance",
+      title: "HVAC Service Due",
+      date: "2024-01-15",
+      priority: "high",
+      status: "pending",
+    },
+    {
+      id: 2,
+      type: "document",
+      title: "Insurance Renewal",
+      date: "2024-02-01",
+      priority: "medium",
+      status: "pending",
+    },
+    {
+      id: 3,
+      type: "maintenance",
+      title: "Gutter Cleaning",
+      date: "2024-01-20",
+      priority: "low",
+      status: "scheduled",
+    },
+    {
+      id: 4,
+      type: "maintenance",
+      title: "Roof Inspection",
+      date: "2024-02-15",
+      priority: "medium",
+      status: "pending",
+    },
   ],
   scheduledMaintenance: [
-    {id: 1, title: "Plumbing Inspection", date: "2024-01-18", contractor: "ABC Plumbing", status: "confirmed"},
-    {id: 2, title: "HVAC Annual Service", date: "2024-01-20", contractor: "Climate Control Inc", status: "confirmed"},
+    {
+      id: 1,
+      title: "Plumbing Inspection",
+      date: "2024-01-18",
+      contractor: "ABC Plumbing",
+      status: "confirmed",
+    },
+    {
+      id: 2,
+      title: "HVAC Annual Service",
+      date: "2024-01-20",
+      contractor: "Climate Control Inc",
+      status: "confirmed",
+    },
   ],
   blogPosts: [
     {
@@ -80,28 +124,32 @@ const mockPropertyData = {
       title: "10 Winter Home Maintenance Tips That Save Money",
       category: "Seasonal",
       readTime: "5 min",
-      image: "https://images.unsplash.com/photo-1580584126903-c17d41830450?w=600&h=400&fit=crop",
+      image:
+        "https://images.unsplash.com/photo-1580584126903-c17d41830450?w=600&h=400&fit=crop",
     },
     {
       id: 2,
       title: "Kitchen Remodel Ideas Under $10K",
       category: "Remodeling",
       readTime: "7 min",
-      image: "https://images.unsplash.com/photo-1556909114-f6e7ad7d3136?w=600&h=400&fit=crop",
+      image:
+        "https://images.unsplash.com/photo-1556909114-f6e7ad7d3136?w=600&h=400&fit=crop",
     },
     {
       id: 3,
       title: "Smart Home Upgrades Worth the Investment",
       category: "Technology",
       readTime: "4 min",
-      image: "https://images.unsplash.com/photo-1558618666-fcd25c85cd64?w=600&h=400&fit=crop",
+      image:
+        "https://images.unsplash.com/photo-1558618666-fcd25c85cd64?w=600&h=400&fit=crop",
     },
     {
       id: 4,
       title: "How to Prepare Your Home for Summer",
       category: "Seasonal",
       readTime: "6 min",
-      image: "https://images.unsplash.com/photo-1600585154340-be6161a56a0c?w=600&h=400&fit=crop",
+      image:
+        "https://images.unsplash.com/photo-1600585154340-be6161a56a0c?w=600&h=400&fit=crop",
     },
   ],
   neighborProjects: [
@@ -112,10 +160,12 @@ const mockPropertyData = {
       project: "Bathroom Renovation",
       contractor: "Elite Home Services",
       rating: 5,
-      comment: "Amazing work on our master bath! Completed on time and within budget.",
+      comment:
+        "Amazing work on our master bath! Completed on time and within budget.",
       timeAgo: "2 days ago",
       likes: 12,
-      image: "https://images.unsplash.com/photo-1552321554-5fefe8c9ef14?w=400&h=300&fit=crop",
+      image:
+        "https://images.unsplash.com/photo-1552321554-5fefe8c9ef14?w=400&h=300&fit=crop",
     },
     {
       id: 2,
@@ -124,10 +174,12 @@ const mockPropertyData = {
       project: "Solar Panel Installation",
       contractor: "Green Energy Solutions",
       rating: 5,
-      comment: "Professional team, great communication. Already seeing savings!",
+      comment:
+        "Professional team, great communication. Already seeing savings!",
       timeAgo: "5 days ago",
       likes: 8,
-      image: "https://images.unsplash.com/photo-1509391366360-2e959784a276?w=400&h=300&fit=crop",
+      image:
+        "https://images.unsplash.com/photo-1509391366360-2e959784a276?w=400&h=300&fit=crop",
     },
     {
       id: 3,
@@ -136,17 +188,51 @@ const mockPropertyData = {
       project: "Deck Construction",
       contractor: "Pro Builders LLC",
       rating: 4,
-      comment: "Beautiful deck! The team was professional throughout the project.",
+      comment:
+        "Beautiful deck! The team was professional throughout the project.",
       timeAgo: "1 week ago",
       likes: 15,
-      image: "https://images.unsplash.com/photo-1591825729269-caeb344f6df2?w=400&h=300&fit=crop",
+      image:
+        "https://images.unsplash.com/photo-1591825729269-caeb344f6df2?w=400&h=300&fit=crop",
     },
   ],
   recommendedContractors: [
-    {id: 1, name: "Elite Home Services", category: "General", rating: 4.9, reviews: 127, verified: true, neighborPick: true},
-    {id: 2, name: "Green Energy Solutions", category: "Solar", rating: 4.8, reviews: 89, verified: true, neighborPick: true},
-    {id: 3, name: "Pro Plumbing Co", category: "Plumbing", rating: 4.7, reviews: 203, verified: true, neighborPick: false},
-    {id: 4, name: "Coastal Roofing", category: "Roofing", rating: 4.9, reviews: 156, verified: true, neighborPick: false},
+    {
+      id: 1,
+      name: "Elite Home Services",
+      category: "General",
+      rating: 4.9,
+      reviews: 127,
+      verified: true,
+      neighborPick: true,
+    },
+    {
+      id: 2,
+      name: "Green Energy Solutions",
+      category: "Solar",
+      rating: 4.8,
+      reviews: 89,
+      verified: true,
+      neighborPick: true,
+    },
+    {
+      id: 3,
+      name: "Pro Plumbing Co",
+      category: "Plumbing",
+      rating: 4.7,
+      reviews: 203,
+      verified: true,
+      neighborPick: false,
+    },
+    {
+      id: 4,
+      name: "Coastal Roofing",
+      category: "Roofing",
+      rating: 4.9,
+      reviews: 156,
+      verified: true,
+      neighborPick: false,
+    },
   ],
 };
 
@@ -158,10 +244,22 @@ function HomeownerHome() {
   const [remindersModalOpen, setRemindersModalOpen] = useState(false);
   const [reminderFilter, setReminderFilter] = useState("all"); // all, overdue, urgent, upcoming
 
-  const homeownerName = currentUser?.fullName?.split(" ")[0] || currentUser?.name?.split(" ")[0] || "Homeowner";
+  const homeownerName =
+    currentUser?.fullName?.split(" ")[0] ||
+    currentUser?.name?.split(" ")[0] ||
+    "Homeowner";
+
+  // Defensive: close overlays on user switch (prevents stuck backdrops)
+  useEffect(() => {
+    setRemindersModalOpen(false);
+    setReminderFilter("all");
+  }, [currentUser?.id]);
 
   const formatDate = (dateString) => {
-    return new Date(dateString).toLocaleDateString("en-US", {month: "short", day: "numeric"});
+    return new Date(dateString).toLocaleDateString("en-US", {
+      month: "short",
+      day: "numeric",
+    });
   };
 
   const getDaysUntil = (dateString) => {
@@ -183,7 +281,7 @@ function HomeownerHome() {
   ];
 
   return (
-    <div className="space-y-6 -mx-4 sm:-mx-6 lg:-mx-8">
+    <div className="space-y-6 -mx-4 sm:-mx-6 lg:-mx-8 -mt-8">
       {/* ============================================ */}
       {/* HERO SECTION - Full Bleed with Floating Card */}
       {/* ============================================ */}
@@ -204,28 +302,69 @@ function HomeownerHome() {
         <div className="absolute inset-0 flex flex-col">
           {/* Top Section - Agent Card */}
           <div className="px-4 sm:px-6 lg:px-8 pt-6 flex justify-start">
-            <div className="relative overflow-hidden bg-white/95 dark:bg-gray-800/95 backdrop-blur-xl rounded-2xl p-6 shadow-xl border border-gray-200/80 dark:border-gray-700/80">
+            <div className="relative overflow-hidden bg-white/95 dark:bg-gray-800/95 backdrop-blur-xl rounded-xl p-4 sm:p-5 shadow-xl border border-gray-200/80 dark:border-gray-700/80 w-full lg:w-[480px] min-h-[105px] sm:min-h-[135px] lg:h-auto">
               {/* Subtle gradient accent */}
               <div className="absolute top-0 right-0 w-40 h-40 bg-gradient-to-br from-blue-100/40 to-indigo-100/40 dark:from-blue-900/20 dark:to-indigo-900/20 blur-3xl" />
               <div className="absolute bottom-0 left-0 w-32 h-32 bg-gradient-to-tr from-emerald-100/30 to-cyan-100/30 dark:from-emerald-900/10 dark:to-cyan-900/10 blur-2xl" />
 
-              <div className="relative flex items-center gap-6">
-                {/* Agent Photo */}
+              <div className="relative flex items-center gap-4 sm:gap-6 h-full">
+                {/* Agent Photo with Gradient Background */}
                 <div className="relative flex-shrink-0">
-                  <img
-                    src={propertyData.agent.photo || "https://images.unsplash.com/photo-1560250097-0b93528c311a?w=200&h=200&fit=crop&crop=face"}
-                    alt={propertyData.agent.name}
-                    className="w-20 h-20 rounded-xl object-cover ring-2 ring-gray-200 dark:ring-gray-700"
-                  />
-                  <div className="absolute -bottom-1.5 -right-1.5 w-7 h-7 bg-emerald-500 rounded-full border-2 border-white dark:border-gray-800 flex items-center justify-center shadow-md">
-                    <CheckCircle2 className="w-4 h-4 text-white" />
+                  {/* Gradient Background Circle - Extended horizontally */}
+                  <div className="absolute inset-0 rounded-full bg-gradient-to-br from-slate-400 via-slate-500 to-slate-600 dark:from-slate-600 dark:via-slate-700 dark:to-slate-800 opacity-40 dark:opacity-50 blur-xl scale-x-[1.4] scale-y-110" />
+                  <div className="absolute inset-0 rounded-full bg-gradient-to-tr from-blue-500/50 via-indigo-500/40 to-purple-500/50 dark:from-blue-400/40 dark:via-indigo-400/35 dark:to-purple-400/40" />
+
+                  {/* Photo Container */}
+                  <div className="relative w-24 h-24 sm:w-28 sm:h-28 lg:w-32 lg:h-32 rounded-full overflow-hidden ring-4 ring-white/50 dark:ring-gray-800/50 shadow-lg">
+                    <img
+                      src={
+                        propertyData.agent.photo ||
+                        "https://images.unsplash.com/photo-1560250097-0b93528c311a?w=200&h=200&fit=crop&crop=face"
+                      }
+                      alt={propertyData.agent.name}
+                      className="w-full h-full object-cover"
+                    />
                   </div>
                 </div>
                 {/* Agent Info */}
-                <div className="min-w-0">
-                  <p className="text-[10px] font-medium uppercase tracking-wider text-gray-500 dark:text-gray-400 mb-1.5">Your Agent</p>
-                  <p className="text-xl font-semibold text-gray-900 dark:text-white mb-0.5">{propertyData.agent.name}</p>
-                  <p className="text-base text-gray-600 dark:text-gray-400">{propertyData.agent.company}</p>
+                <div className="min-w-0 flex-1">
+                  <p className="text-[9px] sm:text-[10px] font-medium uppercase tracking-wider text-gray-500 dark:text-gray-400 mb-1 sm:mb-1.5">
+                    Your Agent
+                  </p>
+                  <p className="text-lg sm:text-xl font-semibold text-gray-900 dark:text-white mb-0.5">
+                    {propertyData.agent.name}
+                  </p>
+                  <p className="text-sm sm:text-base text-gray-600 dark:text-gray-400 mb-2 sm:mb-2.5">
+                    {propertyData.agent.company}
+                  </p>
+                  {/* Contact Info */}
+                  <div className="flex flex-row items-center gap-2 flex-wrap">
+                    {propertyData.agent.phone && (
+                      <div className="flex items-center gap-1.5">
+                        <Phone className="w-3 h-3 text-gray-500 dark:text-gray-400 flex-shrink-0" />
+                        <a
+                          href={`tel:${propertyData.agent.phone}`}
+                          className="text-[10px] sm:text-xs text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-200 transition-colors whitespace-nowrap"
+                        >
+                          {propertyData.agent.phone}
+                        </a>
+                      </div>
+                    )}
+                    {propertyData.agent.phone && propertyData.agent.email && (
+                      <span className="text-gray-400 dark:text-gray-500 text-[10px] sm:text-xs">|</span>
+                    )}
+                    {propertyData.agent.email && (
+                      <div className="flex items-center gap-1.5 min-w-0">
+                        <Mail className="w-3 h-3 text-gray-500 dark:text-gray-400 flex-shrink-0" />
+                        <a
+                          href={`mailto:${propertyData.agent.email}`}
+                          className="text-[10px] sm:text-xs text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-200 transition-colors truncate"
+                        >
+                          {propertyData.agent.email}
+                        </a>
+                      </div>
+                    )}
+                  </div>
                 </div>
               </div>
             </div>
@@ -242,7 +381,10 @@ function HomeownerHome() {
             </h1>
             <div className="flex items-center gap-2 text-white/90">
               <MapPin className="w-4 h-4" />
-              <span className="text-base">{propertyData.address}, {propertyData.city}, {propertyData.state}</span>
+              <span className="text-base">
+                {propertyData.address}, {propertyData.city},{" "}
+                {propertyData.state}
+              </span>
             </div>
           </div>
         </div>
@@ -258,40 +400,69 @@ function HomeownerHome() {
                 <div className="flex items-center gap-5">
                   {/* Score Circle */}
                   <div className="relative w-20 h-20 lg:w-24 lg:h-24 flex-shrink-0">
-                    <svg className="w-full h-full transform -rotate-90" viewBox="0 0 100 100">
-                      <circle cx="50" cy="50" r="42" stroke="currentColor" strokeWidth="8" fill="none" className="text-gray-200 dark:text-gray-700" />
+                    <svg
+                      className="w-full h-full transform -rotate-90"
+                      viewBox="0 0 100 100"
+                    >
                       <circle
-                        cx="50" cy="50" r="42"
+                        cx="50"
+                        cy="50"
+                        r="42"
+                        stroke="currentColor"
+                        strokeWidth="8"
+                        fill="none"
+                        className="text-gray-200 dark:text-gray-700"
+                      />
+                      <circle
+                        cx="50"
+                        cy="50"
+                        r="42"
                         stroke="url(#scoreGradient)"
                         strokeWidth="8"
                         fill="none"
                         strokeLinecap="round"
                         strokeDasharray={264}
-                        strokeDashoffset={264 - (propertyData.hpsScore / 100) * 264}
+                        strokeDashoffset={
+                          264 - (propertyData.hpsScore / 100) * 264
+                        }
                         className="transition-all duration-1000"
                       />
                       <defs>
-                        <linearGradient id="scoreGradient" x1="0%" y1="0%" x2="100%" y2="100%">
+                        <linearGradient
+                          id="scoreGradient"
+                          x1="0%"
+                          y1="0%"
+                          x2="100%"
+                          y2="100%"
+                        >
                           <stop offset="0%" stopColor="#10b981" />
                           <stop offset="100%" stopColor="#059669" />
                         </linearGradient>
                       </defs>
                     </svg>
                     <div className="absolute inset-0 flex flex-col items-center justify-center">
-                      <span className="text-2xl lg:text-3xl font-bold text-gray-900 dark:text-white">{propertyData.hpsScore}</span>
+                      <span className="text-2xl lg:text-3xl font-bold text-gray-900 dark:text-white">
+                        {propertyData.hpsScore}
+                      </span>
                     </div>
                   </div>
                   {/* Score Info */}
                   <div>
                     <div className="flex items-center gap-2 mb-1">
-                      <span className="text-xs font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400">Home Passport Score</span>
+                      <span className="text-xs font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400">
+                        Home Passport Score
+                      </span>
                       <span className="flex items-center gap-0.5 text-xs font-semibold text-emerald-600 dark:text-emerald-400">
-                        <TrendingUp className="w-3 h-3" />
-                        +{propertyData.scoreChange}
+                        <TrendingUp className="w-3 h-3" />+
+                        {propertyData.scoreChange}
                       </span>
                     </div>
-                    <p className="text-lg font-semibold text-emerald-600 dark:text-emerald-400">Excellent</p>
-                    <p className="text-xs text-gray-500 dark:text-gray-400 mt-0.5">Top 15% in your area</p>
+                    <p className="text-lg font-semibold text-emerald-600 dark:text-emerald-400">
+                      Excellent
+                    </p>
+                    <p className="text-xs text-gray-500 dark:text-gray-400 mt-0.5">
+                      Top 15% in your area
+                    </p>
                   </div>
                 </div>
 
@@ -301,16 +472,32 @@ function HomeownerHome() {
                 {/* Quick Stats */}
                 <div className="flex-1 grid grid-cols-3 gap-4">
                   {[
-                    {label: "Identity", value: propertyData.healthProgress.identity, icon: Shield},
-                    {label: "Condition", value: propertyData.healthProgress.condition, icon: Target},
-                    {label: "Maintenance", value: propertyData.healthProgress.maintenance, icon: Wrench},
+                    {
+                      label: "Identity",
+                      value: propertyData.healthProgress.identity,
+                      icon: Shield,
+                    },
+                    {
+                      label: "Condition",
+                      value: propertyData.healthProgress.condition,
+                      icon: Target,
+                    },
+                    {
+                      label: "Maintenance",
+                      value: propertyData.healthProgress.maintenance,
+                      icon: Wrench,
+                    },
                   ].map((stat) => (
                     <div key={stat.label} className="text-center">
                       <div className="flex items-center justify-center gap-1.5 mb-1">
                         <stat.icon className="w-3.5 h-3.5 text-gray-400 dark:text-gray-500" />
-                        <span className="text-xs text-gray-500 dark:text-gray-400">{stat.label}</span>
+                        <span className="text-xs text-gray-500 dark:text-gray-400">
+                          {stat.label}
+                        </span>
                       </div>
-                      <div className="text-xl font-bold text-gray-900 dark:text-white">{stat.value}%</div>
+                      <div className="text-xl font-bold text-gray-900 dark:text-white">
+                        {stat.value}%
+                      </div>
                       <div className="w-full bg-gray-200 dark:bg-gray-700 rounded-full h-1.5 mt-1.5">
                         <div
                           className={`h-1.5 rounded-full ${stat.value >= 80 ? "bg-emerald-500" : stat.value >= 60 ? "bg-amber-500" : "bg-red-500"}`}
@@ -323,7 +510,7 @@ function HomeownerHome() {
 
                 {/* CTA */}
                 <button className="hidden lg:flex items-center gap-2 px-4 py-2.5 bg-gray-900 dark:bg-white text-white dark:text-gray-900 rounded-xl font-medium text-sm hover:bg-gray-800 dark:hover:bg-gray-100 transition-colors">
-                  Improve Score
+                  {t("goToProperty")}
                   <ArrowRight className="w-4 h-4" />
                 </button>
               </div>
@@ -345,10 +532,14 @@ function HomeownerHome() {
               key={idx}
               className="flex items-center gap-2.5 px-4 py-3 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-xl hover:border-gray-300 dark:hover:border-gray-600 transition-colors flex-shrink-0"
             >
-              <div className={`w-8 h-8 ${action.color} rounded-lg flex items-center justify-center`}>
+              <div
+                className={`w-8 h-8 ${action.color} rounded-lg flex items-center justify-center`}
+              >
                 <action.icon className="w-4 h-4 text-white" />
               </div>
-              <span className="text-sm font-medium text-gray-900 dark:text-white whitespace-nowrap">{action.label}</span>
+              <span className="text-sm font-medium text-gray-900 dark:text-white whitespace-nowrap">
+                {action.label}
+              </span>
             </button>
           ))}
         </div>
@@ -365,8 +556,12 @@ function HomeownerHome() {
                 <AlertTriangle className="w-5 h-5 text-amber-600 dark:text-amber-400" />
               </div>
               <div>
-                <p className="text-sm font-semibold text-gray-900 dark:text-white">{propertyData.nextAction.title}</p>
-                <p className="text-xs text-gray-600 dark:text-gray-400">Due in {propertyData.nextAction.daysUntil} days</p>
+                <p className="text-sm font-semibold text-gray-900 dark:text-white">
+                  {propertyData.nextAction.title}
+                </p>
+                <p className="text-xs text-gray-600 dark:text-gray-400">
+                  Due in {propertyData.nextAction.daysUntil} days
+                </p>
               </div>
             </div>
             <button className="text-sm font-medium text-amber-700 dark:text-amber-400 hover:text-amber-800 dark:hover:text-amber-300 flex items-center gap-1">
@@ -382,8 +577,13 @@ function HomeownerHome() {
       {/* ============================================ */}
       <section className="px-4 sm:px-6 lg:px-8">
         <div className="flex items-center justify-between mb-4">
-          <h2 className="text-lg font-semibold text-gray-900 dark:text-white">Your Property</h2>
-          <a href="#" className="text-sm font-medium text-blue-600 dark:text-blue-400 flex items-center gap-1 hover:text-blue-700">
+          <h2 className="text-lg font-semibold text-gray-900 dark:text-white">
+            Your Property
+          </h2>
+          <a
+            href="#"
+            className="text-sm font-medium text-blue-600 dark:text-blue-400 flex items-center gap-1 hover:text-blue-700"
+          >
             View all <ChevronRight className="w-4 h-4" />
           </a>
         </div>
@@ -398,12 +598,19 @@ function HomeownerHome() {
                   <Bell className="w-5 h-5 text-white" />
                 </div>
                 <div>
-                  <h3 className="text-base font-semibold text-gray-900 dark:text-white">Reminders</h3>
-                  <p className="text-xs text-gray-500 dark:text-gray-400">Action needed</p>
+                  <h3 className="text-base font-semibold text-gray-900 dark:text-white">
+                    Reminders
+                  </h3>
+                  <p className="text-xs text-gray-500 dark:text-gray-400">
+                    Action needed
+                  </p>
                 </div>
               </div>
               <span className="text-xs font-bold px-2.5 py-1 rounded-full bg-amber-500 text-white shadow-sm">
-                {propertyData.reminders.filter(r => r.status === "pending").length}
+                {
+                  propertyData.reminders.filter((r) => r.status === "pending")
+                    .length
+                }
               </span>
             </div>
             {/* Items */}
@@ -419,25 +626,31 @@ function HomeownerHome() {
                       isOverdue
                         ? "bg-red-50/50 dark:bg-red-950/20 hover:bg-red-100/70 dark:hover:bg-red-950/30"
                         : isUrgent
-                        ? "bg-amber-50/50 dark:bg-amber-950/20 hover:bg-amber-100/70 dark:hover:bg-amber-950/30"
-                        : "bg-gray-50/50 dark:bg-gray-800/50 hover:bg-gray-100/70 dark:hover:bg-gray-700/50"
+                          ? "bg-amber-50/50 dark:bg-amber-950/20 hover:bg-amber-100/70 dark:hover:bg-amber-950/30"
+                          : "bg-gray-50/50 dark:bg-gray-800/50 hover:bg-gray-100/70 dark:hover:bg-gray-700/50"
                     }`}
                   >
                     <div className="flex-1 min-w-0">
-                      <p className="text-sm font-medium text-gray-900 dark:text-white mb-0.5">{item.title}</p>
-                      <p className="text-xs text-gray-500 dark:text-gray-400">{formatDate(item.date)}</p>
+                      <p className="text-sm font-medium text-gray-900 dark:text-white mb-0.5">
+                        {item.title}
+                      </p>
+                      <p className="text-xs text-gray-500 dark:text-gray-400">
+                        {formatDate(item.date)}
+                      </p>
                     </div>
                     <div className="flex items-center gap-2">
                       {item.priority === "high" && (
                         <AlertTriangle className="w-4 h-4 text-amber-500" />
                       )}
-                      <span className={`text-xs font-semibold px-2 py-1 rounded-md ${
-                        isOverdue
-                          ? "bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400"
-                          : isUrgent
-                          ? "bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400"
-                          : "bg-gray-100 text-gray-600 dark:bg-gray-700 dark:text-gray-400"
-                      }`}>
+                      <span
+                        className={`text-xs font-semibold px-2 py-1 rounded-md ${
+                          isOverdue
+                            ? "bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400"
+                            : isUrgent
+                              ? "bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400"
+                              : "bg-gray-100 text-gray-600 dark:bg-gray-700 dark:text-gray-400"
+                        }`}
+                      >
                         {isOverdue ? "Overdue" : `${daysUntil}d left`}
                       </span>
                     </div>
@@ -469,8 +682,12 @@ function HomeownerHome() {
                   <Calendar className="w-5 h-5 text-white" />
                 </div>
                 <div>
-                  <h3 className="text-base font-semibold text-gray-900 dark:text-white">Scheduled Work</h3>
-                  <p className="text-xs text-gray-500 dark:text-gray-400">Upcoming appointments</p>
+                  <h3 className="text-base font-semibold text-gray-900 dark:text-white">
+                    Scheduled Work
+                  </h3>
+                  <p className="text-xs text-gray-500 dark:text-gray-400">
+                    Upcoming appointments
+                  </p>
                 </div>
               </div>
               <span className="text-xs font-bold px-2.5 py-1 rounded-full bg-blue-500 text-white shadow-sm">
@@ -481,19 +698,32 @@ function HomeownerHome() {
             <div className="space-y-3">
               {propertyData.scheduledMaintenance.map((item) => {
                 const dateObj = new Date(item.date);
-                const month = dateObj.toLocaleDateString("en-US", {month: "short"});
+                const month = dateObj.toLocaleDateString("en-US", {
+                  month: "short",
+                });
                 const day = dateObj.getDate();
                 return (
-                  <div key={item.id} className="flex items-center gap-4 p-3.5 rounded-xl bg-white/80 dark:bg-gray-800/80 cursor-pointer transition-all hover:bg-white dark:hover:bg-gray-700/50">
+                  <div
+                    key={item.id}
+                    className="flex items-center gap-4 p-3.5 rounded-xl bg-white/80 dark:bg-gray-800/80 cursor-pointer transition-all hover:bg-white dark:hover:bg-gray-700/50"
+                  >
                     {/* Calendar Date Block */}
                     <div className="flex-shrink-0 w-14 h-14 rounded-xl bg-gradient-to-br from-blue-100 to-indigo-100 dark:from-blue-900/40 dark:to-indigo-900/40 flex flex-col items-center justify-center">
-                      <span className="text-[10px] font-semibold uppercase text-blue-600 dark:text-blue-400">{month}</span>
-                      <span className="text-xl font-bold text-blue-700 dark:text-blue-300 leading-none">{day}</span>
+                      <span className="text-[10px] font-semibold uppercase text-blue-600 dark:text-blue-400">
+                        {month}
+                      </span>
+                      <span className="text-xl font-bold text-blue-700 dark:text-blue-300 leading-none">
+                        {day}
+                      </span>
                     </div>
                     {/* Details */}
                     <div className="flex-1 min-w-0">
-                      <p className="text-sm font-medium text-gray-900 dark:text-white mb-0.5">{item.title}</p>
-                      <p className="text-xs text-gray-500 dark:text-gray-400">{item.contractor}</p>
+                      <p className="text-sm font-medium text-gray-900 dark:text-white mb-0.5">
+                        {item.title}
+                      </p>
+                      <p className="text-xs text-gray-500 dark:text-gray-400">
+                        {item.contractor}
+                      </p>
                     </div>
                     {/* Status */}
                     <div className="flex items-center gap-1.5 text-xs font-medium text-emerald-600 dark:text-emerald-400 bg-emerald-100 dark:bg-emerald-900/30 px-2.5 py-1.5 rounded-lg">
@@ -518,8 +748,13 @@ function HomeownerHome() {
       {/* ============================================ */}
       <section className="px-4 sm:px-6 lg:px-8">
         <div className="flex items-center justify-between mb-4">
-          <h2 className="text-lg font-semibold text-gray-900 dark:text-white">Discover</h2>
-          <a href="#" className="text-sm font-medium text-blue-600 dark:text-blue-400 flex items-center gap-1 hover:text-blue-700">
+          <h2 className="text-lg font-semibold text-gray-900 dark:text-white">
+            Discover
+          </h2>
+          <a
+            href="#"
+            className="text-sm font-medium text-blue-600 dark:text-blue-400 flex items-center gap-1 hover:text-blue-700"
+          >
             View all <ChevronRight className="w-4 h-4" />
           </a>
         </div>
@@ -549,13 +784,21 @@ function HomeownerHome() {
               className="flex-shrink-0 w-72 sm:w-80 bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 overflow-hidden group cursor-pointer snap-start hover:shadow-lg transition-shadow"
             >
               <div className="aspect-[16/10] overflow-hidden">
-                <img src={post.image} alt={post.title} className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300" />
+                <img
+                  src={post.image}
+                  alt={post.title}
+                  className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
+                />
               </div>
               <div className="p-4">
                 <div className="flex items-center gap-2 mb-2">
-                  <span className="text-xs font-medium text-blue-600 dark:text-blue-400">{post.category}</span>
+                  <span className="text-xs font-medium text-blue-600 dark:text-blue-400">
+                    {post.category}
+                  </span>
                   <span className="text-xs text-gray-400">•</span>
-                  <span className="text-xs text-gray-500 dark:text-gray-400">{post.readTime}</span>
+                  <span className="text-xs text-gray-500 dark:text-gray-400">
+                    {post.readTime}
+                  </span>
                 </div>
                 <h3 className="text-sm font-semibold text-gray-900 dark:text-white line-clamp-2 group-hover:text-blue-600 dark:group-hover:text-blue-400 transition-colors">
                   {post.title}
@@ -573,9 +816,14 @@ function HomeownerHome() {
         <div className="flex items-center justify-between mb-4">
           <div className="flex items-center gap-2">
             <Users className="w-5 h-5 text-gray-700 dark:text-gray-300" />
-            <h2 className="text-lg font-semibold text-gray-900 dark:text-white">Community</h2>
+            <h2 className="text-lg font-semibold text-gray-900 dark:text-white">
+              Community
+            </h2>
           </div>
-          <a href="#" className="text-sm font-medium text-blue-600 dark:text-blue-400 flex items-center gap-1 hover:text-blue-700">
+          <a
+            href="#"
+            className="text-sm font-medium text-blue-600 dark:text-blue-400 flex items-center gap-1 hover:text-blue-700"
+          >
             View all <ChevronRight className="w-4 h-4" />
           </a>
         </div>
@@ -589,7 +837,11 @@ function HomeownerHome() {
             >
               {/* Project Image */}
               <div className="aspect-[4/3] overflow-hidden">
-                <img src={project.image} alt={project.project} className="w-full h-full object-cover" />
+                <img
+                  src={project.image}
+                  alt={project.project}
+                  className="w-full h-full object-cover"
+                />
               </div>
               <div className="p-4">
                 {/* Neighbor Info */}
@@ -598,21 +850,33 @@ function HomeownerHome() {
                     {project.neighborAvatar}
                   </div>
                   <div className="flex-1 min-w-0">
-                    <p className="text-sm font-medium text-gray-900 dark:text-white">{project.neighborName}</p>
-                    <p className="text-xs text-gray-500 dark:text-gray-400">{project.timeAgo}</p>
+                    <p className="text-sm font-medium text-gray-900 dark:text-white">
+                      {project.neighborName}
+                    </p>
+                    <p className="text-xs text-gray-500 dark:text-gray-400">
+                      {project.timeAgo}
+                    </p>
                   </div>
                 </div>
                 {/* Project Details */}
-                <h4 className="text-sm font-semibold text-gray-900 dark:text-white mb-1">{project.project}</h4>
+                <h4 className="text-sm font-semibold text-gray-900 dark:text-white mb-1">
+                  {project.project}
+                </h4>
                 <div className="flex items-center gap-2 mb-2">
                   <span className="text-xs text-gray-500">by</span>
-                  <span className="text-xs font-medium text-blue-600 dark:text-blue-400">{project.contractor}</span>
+                  <span className="text-xs font-medium text-blue-600 dark:text-blue-400">
+                    {project.contractor}
+                  </span>
                   <div className="flex items-center gap-0.5 ml-auto">
                     <Star className="w-3.5 h-3.5 fill-amber-400 text-amber-400" />
-                    <span className="text-xs font-medium text-gray-900 dark:text-white">{project.rating}</span>
+                    <span className="text-xs font-medium text-gray-900 dark:text-white">
+                      {project.rating}
+                    </span>
                   </div>
                 </div>
-                <p className="text-xs text-gray-600 dark:text-gray-400 line-clamp-2 mb-3">"{project.comment}"</p>
+                <p className="text-xs text-gray-600 dark:text-gray-400 line-clamp-2 mb-3">
+                  "{project.comment}"
+                </p>
                 {/* Actions */}
                 <div className="flex items-center gap-4 pt-3 border-t border-gray-100 dark:border-gray-700">
                   <button className="flex items-center gap-1.5 text-xs text-gray-500 hover:text-blue-600 transition-colors">
@@ -637,9 +901,14 @@ function HomeownerHome() {
         <div className="flex items-center justify-between mb-4">
           <div className="flex items-center gap-2">
             <Hammer className="w-5 h-5 text-gray-700 dark:text-gray-300" />
-            <h2 className="text-lg font-semibold text-gray-900 dark:text-white">Trusted Contractors</h2>
+            <h2 className="text-lg font-semibold text-gray-900 dark:text-white">
+              Trusted Contractors
+            </h2>
           </div>
-          <a href="#" className="text-sm font-medium text-blue-600 dark:text-blue-400 flex items-center gap-1 hover:text-blue-700">
+          <a
+            href="#"
+            className="text-sm font-medium text-blue-600 dark:text-blue-400 flex items-center gap-1 hover:text-blue-700"
+          >
             View all <ChevronRight className="w-4 h-4" />
           </a>
         </div>
@@ -653,10 +922,16 @@ function HomeownerHome() {
               <div className="flex items-start justify-between mb-3">
                 <div>
                   <div className="flex items-center gap-1.5 mb-0.5">
-                    <h4 className="text-sm font-semibold text-gray-900 dark:text-white">{contractor.name}</h4>
-                    {contractor.verified && <Shield className="w-4 h-4 text-emerald-500" />}
+                    <h4 className="text-sm font-semibold text-gray-900 dark:text-white">
+                      {contractor.name}
+                    </h4>
+                    {contractor.verified && (
+                      <Shield className="w-4 h-4 text-emerald-500" />
+                    )}
                   </div>
-                  <p className="text-xs text-gray-500 dark:text-gray-400">{contractor.category}</p>
+                  <p className="text-xs text-gray-500 dark:text-gray-400">
+                    {contractor.category}
+                  </p>
                 </div>
                 {contractor.neighborPick && (
                   <span className="text-[10px] font-semibold px-2 py-1 rounded-full bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400">
@@ -666,8 +941,12 @@ function HomeownerHome() {
               </div>
               <div className="flex items-center gap-1.5 mb-4">
                 <Star className="w-4 h-4 fill-amber-400 text-amber-400" />
-                <span className="text-sm font-semibold text-gray-900 dark:text-white">{contractor.rating}</span>
-                <span className="text-xs text-gray-500 dark:text-gray-400">({contractor.reviews})</span>
+                <span className="text-sm font-semibold text-gray-900 dark:text-white">
+                  {contractor.rating}
+                </span>
+                <span className="text-xs text-gray-500 dark:text-gray-400">
+                  ({contractor.reviews})
+                </span>
               </div>
               <button className="w-full text-sm font-medium text-blue-600 dark:text-blue-400 py-2 rounded-lg bg-blue-50 dark:bg-blue-900/20 hover:bg-blue-100 dark:hover:bg-blue-900/30 transition-colors">
                 Contact
@@ -680,12 +959,18 @@ function HomeownerHome() {
       {/* ============================================ */}
       {/* REMINDERS MODAL */}
       {/* ============================================ */}
-      <ModalBlank id="reminders-modal" modalOpen={remindersModalOpen} setModalOpen={setRemindersModalOpen}>
+      <ModalBlank
+        id="reminders-modal"
+        modalOpen={remindersModalOpen}
+        setModalOpen={setRemindersModalOpen}
+      >
         <div className="flex flex-col h-full max-h-[90vh]">
           {/* Header */}
           <div className="flex items-center justify-between p-6 border-b border-gray-200 dark:border-gray-700">
             <div>
-              <h2 className="text-xl font-semibold text-gray-900 dark:text-white">All Reminders</h2>
+              <h2 className="text-xl font-semibold text-gray-900 dark:text-white">
+                All Reminders
+              </h2>
               <p className="text-sm text-gray-500 dark:text-gray-400 mt-0.5">
                 {propertyData.reminders.length} total reminders
               </p>
@@ -704,12 +989,29 @@ function HomeownerHome() {
             <div className="flex items-center gap-2 overflow-x-auto pb-1">
               {[
                 {id: "all", label: "All", count: propertyData.reminders.length},
-                {id: "overdue", label: "Overdue", count: propertyData.reminders.filter(r => getDaysUntil(r.date) <= 0 && r.status !== "scheduled").length},
-                {id: "urgent", label: "Urgent", count: propertyData.reminders.filter(r => {
-                  const days = getDaysUntil(r.date);
-                  return days > 0 && days <= 7 && r.status !== "scheduled";
-                }).length},
-                {id: "upcoming", label: "Upcoming", count: propertyData.reminders.filter(r => getDaysUntil(r.date) > 7).length},
+                {
+                  id: "overdue",
+                  label: "Overdue",
+                  count: propertyData.reminders.filter(
+                    (r) =>
+                      getDaysUntil(r.date) <= 0 && r.status !== "scheduled",
+                  ).length,
+                },
+                {
+                  id: "urgent",
+                  label: "Urgent",
+                  count: propertyData.reminders.filter((r) => {
+                    const days = getDaysUntil(r.date);
+                    return days > 0 && days <= 7 && r.status !== "scheduled";
+                  }).length,
+                },
+                {
+                  id: "upcoming",
+                  label: "Upcoming",
+                  count: propertyData.reminders.filter(
+                    (r) => getDaysUntil(r.date) > 7,
+                  ).length,
+                },
               ].map((filter) => (
                 <button
                   key={filter.id}
@@ -721,11 +1023,13 @@ function HomeownerHome() {
                   }`}
                 >
                   {filter.label}
-                  <span className={`ml-2 px-1.5 py-0.5 rounded text-xs ${
-                    reminderFilter === filter.id
-                      ? "bg-white/20 dark:bg-gray-900/20"
-                      : "bg-gray-100 dark:bg-gray-600"
-                  }`}>
+                  <span
+                    className={`ml-2 px-1.5 py-0.5 rounded text-xs ${
+                      reminderFilter === filter.id
+                        ? "bg-white/20 dark:bg-gray-900/20"
+                        : "bg-gray-100 dark:bg-gray-600"
+                    }`}
+                  >
                     {filter.count}
                   </span>
                 </button>
@@ -739,8 +1043,12 @@ function HomeownerHome() {
               {propertyData.reminders
                 .filter((item) => {
                   const daysUntil = getDaysUntil(item.date);
-                  const isOverdue = daysUntil <= 0 && item.status !== "scheduled";
-                  const isUrgent = daysUntil > 0 && daysUntil <= 7 && item.status !== "scheduled";
+                  const isOverdue =
+                    daysUntil <= 0 && item.status !== "scheduled";
+                  const isUrgent =
+                    daysUntil > 0 &&
+                    daysUntil <= 7 &&
+                    item.status !== "scheduled";
 
                   if (reminderFilter === "all") return true;
                   if (reminderFilter === "overdue") return isOverdue;
@@ -750,8 +1058,12 @@ function HomeownerHome() {
                 })
                 .map((item) => {
                   const daysUntil = getDaysUntil(item.date);
-                  const isOverdue = daysUntil <= 0 && item.status !== "scheduled";
-                  const isUrgent = daysUntil > 0 && daysUntil <= 7 && item.status !== "scheduled";
+                  const isOverdue =
+                    daysUntil <= 0 && item.status !== "scheduled";
+                  const isUrgent =
+                    daysUntil > 0 &&
+                    daysUntil <= 7 &&
+                    item.status !== "scheduled";
                   const Icon = item.type === "maintenance" ? Wrench : FileText;
 
                   return (
@@ -761,34 +1073,43 @@ function HomeownerHome() {
                         isOverdue
                           ? "bg-red-50/50 dark:bg-red-950/20"
                           : isUrgent
-                          ? "bg-amber-50/50 dark:bg-amber-950/20"
-                          : "bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700"
+                            ? "bg-amber-50/50 dark:bg-amber-950/20"
+                            : "bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700"
                       }`}
                     >
                       {/* Icon */}
-                      <div className={`flex-shrink-0 w-10 h-10 rounded-lg flex items-center justify-center ${
-                        isOverdue
-                          ? "bg-red-100 dark:bg-red-900/30"
-                          : isUrgent
-                          ? "bg-amber-100 dark:bg-amber-900/30"
-                          : "bg-gray-100 dark:bg-gray-700"
-                      }`}>
-                        <Icon className={`w-5 h-5 ${
+                      <div
+                        className={`flex-shrink-0 w-10 h-10 rounded-lg flex items-center justify-center ${
                           isOverdue
-                            ? "text-red-600 dark:text-red-400"
+                            ? "bg-red-100 dark:bg-red-900/30"
                             : isUrgent
-                            ? "text-amber-600 dark:text-amber-400"
-                            : "text-gray-600 dark:text-gray-400"
-                        }`} />
+                              ? "bg-amber-100 dark:bg-amber-900/30"
+                              : "bg-gray-100 dark:bg-gray-700"
+                        }`}
+                      >
+                        <Icon
+                          className={`w-5 h-5 ${
+                            isOverdue
+                              ? "text-red-600 dark:text-red-400"
+                              : isUrgent
+                                ? "text-amber-600 dark:text-amber-400"
+                                : "text-gray-600 dark:text-gray-400"
+                          }`}
+                        />
                       </div>
 
                       {/* Content */}
                       <div className="flex-1 min-w-0">
                         <div className="flex items-start justify-between gap-2 mb-1">
                           <div>
-                            <h3 className="text-sm font-semibold text-gray-900 dark:text-white">{item.title}</h3>
+                            <h3 className="text-sm font-semibold text-gray-900 dark:text-white">
+                              {item.title}
+                            </h3>
                             <p className="text-xs text-gray-500 dark:text-gray-400 mt-0.5">
-                              {item.type === "maintenance" ? "Maintenance" : "Document"} • Due {formatDate(item.date)}
+                              {item.type === "maintenance"
+                                ? "Maintenance"
+                                : "Document"}{" "}
+                              • Due {formatDate(item.date)}
                             </p>
                           </div>
                           {item.priority === "high" && (
@@ -798,22 +1119,24 @@ function HomeownerHome() {
 
                         {/* Status Badge */}
                         <div className="flex items-center gap-2 mt-2">
-                          <span className={`text-xs font-medium px-2.5 py-1 rounded-md ${
-                            isOverdue
-                              ? "bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400"
-                              : isUrgent
-                              ? "bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400"
-                              : item.status === "scheduled"
-                              ? "bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-400"
-                              : "bg-gray-100 text-gray-600 dark:bg-gray-700 dark:text-gray-400"
-                          }`}>
+                          <span
+                            className={`text-xs font-medium px-2.5 py-1 rounded-md ${
+                              isOverdue
+                                ? "bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400"
+                                : isUrgent
+                                  ? "bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400"
+                                  : item.status === "scheduled"
+                                    ? "bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-400"
+                                    : "bg-gray-100 text-gray-600 dark:bg-gray-700 dark:text-gray-400"
+                            }`}
+                          >
                             {item.status === "scheduled"
                               ? "Scheduled"
                               : isOverdue
-                              ? "Overdue"
-                              : isUrgent
-                              ? `Due in ${daysUntil} days`
-                              : `${daysUntil} days left`}
+                                ? "Overdue"
+                                : isUrgent
+                                  ? `Due in ${daysUntil} days`
+                                  : `${daysUntil} days left`}
                           </span>
                         </div>
                       </div>
@@ -832,7 +1155,8 @@ function HomeownerHome() {
             {propertyData.reminders.filter((item) => {
               const daysUntil = getDaysUntil(item.date);
               const isOverdue = daysUntil <= 0 && item.status !== "scheduled";
-              const isUrgent = daysUntil > 0 && daysUntil <= 7 && item.status !== "scheduled";
+              const isUrgent =
+                daysUntil > 0 && daysUntil <= 7 && item.status !== "scheduled";
 
               if (reminderFilter === "all") return true;
               if (reminderFilter === "overdue") return isOverdue;
@@ -842,8 +1166,12 @@ function HomeownerHome() {
             }).length === 0 && (
               <div className="text-center py-12">
                 <Bell className="w-12 h-12 text-gray-300 dark:text-gray-600 mx-auto mb-3" />
-                <p className="text-sm font-medium text-gray-500 dark:text-gray-400">No reminders found</p>
-                <p className="text-xs text-gray-400 dark:text-gray-500 mt-1">Try selecting a different filter</p>
+                <p className="text-sm font-medium text-gray-500 dark:text-gray-400">
+                  No reminders found
+                </p>
+                <p className="text-xs text-gray-400 dark:text-gray-500 mt-1">
+                  Try selecting a different filter
+                </p>
               </div>
             )}
           </div>

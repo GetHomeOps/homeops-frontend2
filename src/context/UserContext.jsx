@@ -45,7 +45,7 @@ export function UserProvider({children}) {
       }
       // Otherwise, only get users for the current database (requires database ID)
       else if (currentDb?.id) {
-        fetchedUsers = await AppApi.getUsersByDatabaseId(currentDb.id);
+        fetchedUsers = await AppApi.getUsersByAgentId(currentUser.id);
       }
       // If no database is available, don't fetch users
       else {
@@ -90,7 +90,17 @@ export function UserProvider({children}) {
   // Create a new user
   const createUser = async (userData) => {
     try {
-      const res = await AppApi.signup(userData);
+      // Include current user and database context for backend to handle linking
+      const signupData = {
+        userData: {
+          ...userData,
+        },
+        createdBy: currentUser?.id,
+        createdByRole: currentUser?.role,
+        databaseId: currentDb?.id,
+      };
+      const res = await AppApi.signup(signupData);
+
       if (res && res.user) {
         // Add user to context immediately (like ContactContext does)
         setUsers((prevUsers) => [...prevUsers, res.user]);
@@ -103,8 +113,8 @@ export function UserProvider({children}) {
         let freshUsers;
         if (currentUser?.role === "super_admin") {
           freshUsers = await AppApi.getAllUsers();
-        } else if (currentDb?.id) {
-          freshUsers = await AppApi.getUsersByDatabaseId(currentDb.id);
+        } else if (currentUser?.id) {
+          freshUsers = await AppApi.getUsersByAgentId(currentUser.id);
         } else {
           freshUsers = [];
         }
@@ -114,9 +124,9 @@ export function UserProvider({children}) {
           return newUser;
         }
       }
-      throw new Error("User creation failed");
+      throw new Error("Could not retrieve users:" + res.message);
     } catch (error) {
-      console.log("error:", error);
+      console.error("Error creating user:", error);
       throw error;
     }
   };
@@ -137,8 +147,8 @@ export function UserProvider({children}) {
       if (token) {
         setUsers((prevUsers) =>
           prevUsers.map((user) =>
-            user.id === userId ? {...user, confirmationToken: token} : user
-          )
+            user.id === userId ? {...user, confirmationToken: token} : user,
+          ),
         );
         return token;
       }
@@ -169,7 +179,7 @@ export function UserProvider({children}) {
       if (res) {
         // Remove user from context immediately (like ContactContext does)
         setUsers((prevUsers) =>
-          prevUsers.filter((user) => user.id !== Number(id))
+          prevUsers.filter((user) => user.id !== Number(id)),
         );
         return res;
       }
@@ -220,7 +230,7 @@ export function UserProvider({children}) {
     try {
       const uniqueEmail = generateUniqueEmail(userToDuplicate.email);
       const uniqueName = generateUniqueName(
-        userToDuplicate.name || userToDuplicate.fullName
+        userToDuplicate.name || userToDuplicate.fullName,
       );
 
       // Generate a random password for the duplicate
@@ -231,7 +241,7 @@ export function UserProvider({children}) {
         let password = "";
         for (let i = 0; i < length; i++) {
           password += charset.charAt(
-            Math.floor(Math.random() * charset.length)
+            Math.floor(Math.random() * charset.length),
           );
         }
         return password;

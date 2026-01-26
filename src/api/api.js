@@ -76,6 +76,14 @@ class AppApi {
     return res.users;
   }
 
+  /* Get by Agent Id */
+  static async getUsersByAgentId(agentId) {
+    console.log("Agent ID: ", agentId);
+    let res = await this.request(`users/agent/${agentId}`);
+    console.log("getUsersByAgentId response: ", res);
+    return res.users;
+  }
+
   /* Update a user */
   static async updateUser(id, data) {
     let res = await this.request(`users/${id}`, data, 'PATCH');
