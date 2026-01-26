@@ -589,24 +589,24 @@ function HomeownerHome() {
         </div>
 
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-5">
-          {/* Reminders - Warm tones with left accent border */}
-          <div className="relative bg-gradient-to-br from-amber-50/80 via-white to-orange-50/50 dark:from-amber-950/20 dark:via-gray-800 dark:to-orange-950/10 rounded-2xl border border-amber-200/60 dark:border-amber-800/30 p-5 shadow-sm">
+          {/* Reminders - Sleek with warm gradients */}
+          <div className="relative bg-gradient-to-br from-amber-50/80 via-orange-50/60 to-amber-50/40 dark:from-amber-950/30 dark:via-orange-950/20 dark:to-amber-950/15 rounded-xl border border-amber-200/50 dark:border-amber-800/40 p-4 shadow-sm">
             {/* Header */}
-            <div className="flex items-center justify-between mb-5">
-              <div className="flex items-center gap-3">
-                <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-amber-400 to-orange-500 flex items-center justify-center shadow-lg shadow-amber-500/25">
-                  <Bell className="w-5 h-5 text-white" />
+            <div className="flex items-center justify-between mb-4">
+              <div className="flex items-center gap-2.5">
+                <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-amber-500 to-orange-600 flex items-center justify-center shadow-sm">
+                  <Bell className="w-4 h-4 text-white" />
                 </div>
                 <div>
-                  <h3 className="text-base font-semibold text-gray-900 dark:text-white">
+                  <h3 className="text-sm font-semibold text-gray-900 dark:text-white">
                     Reminders
                   </h3>
-                  <p className="text-xs text-gray-500 dark:text-gray-400">
+                  <p className="text-[10px] text-gray-500 dark:text-gray-400">
                     Action needed
                   </p>
                 </div>
               </div>
-              <span className="text-xs font-bold px-2.5 py-1 rounded-full bg-amber-500 text-white shadow-sm">
+              <span className="text-[10px] font-semibold px-2 py-0.5 rounded-full bg-gradient-to-r from-amber-500 to-orange-600 text-white shadow-sm">
                 {
                   propertyData.reminders.filter((r) => r.status === "pending")
                     .length
@@ -614,7 +614,7 @@ function HomeownerHome() {
               </span>
             </div>
             {/* Items */}
-            <div className="space-y-2">
+            <div className="space-y-1.5">
               {propertyData.reminders.slice(0, 3).map((item) => {
                 const daysUntil = getDaysUntil(item.date);
                 const isUrgent = daysUntil <= 7 && daysUntil > 0;
@@ -622,33 +622,33 @@ function HomeownerHome() {
                 return (
                   <div
                     key={item.id}
-                    className={`flex items-center gap-3 p-3.5 rounded-xl cursor-pointer transition-all ${
+                    className={`flex items-center gap-2.5 p-2.5 rounded-lg cursor-pointer transition-all ${
                       isOverdue
-                        ? "bg-red-50/50 dark:bg-red-950/20 hover:bg-red-100/70 dark:hover:bg-red-950/30"
+                        ? "bg-red-50/60 dark:bg-red-950/20 hover:bg-red-50/80 dark:hover:bg-red-950/30 backdrop-blur-sm"
                         : isUrgent
-                          ? "bg-amber-50/50 dark:bg-amber-950/20 hover:bg-amber-100/70 dark:hover:bg-amber-950/30"
-                          : "bg-gray-50/50 dark:bg-gray-800/50 hover:bg-gray-100/70 dark:hover:bg-gray-700/50"
+                          ? "bg-amber-50/60 dark:bg-amber-950/20 hover:bg-amber-50/80 dark:hover:bg-amber-950/30 backdrop-blur-sm"
+                          : "bg-white/50 dark:bg-gray-800/40 hover:bg-white/70 dark:hover:bg-gray-800/60 backdrop-blur-sm"
                     }`}
                   >
                     <div className="flex-1 min-w-0">
-                      <p className="text-sm font-medium text-gray-900 dark:text-white mb-0.5">
+                      <p className="text-xs font-medium text-gray-900 dark:text-white mb-0.5">
                         {item.title}
                       </p>
-                      <p className="text-xs text-gray-500 dark:text-gray-400">
+                      <p className="text-[10px] text-gray-500 dark:text-gray-400">
                         {formatDate(item.date)}
                       </p>
                     </div>
-                    <div className="flex items-center gap-2">
+                    <div className="flex items-center gap-1.5">
                       {item.priority === "high" && (
-                        <AlertTriangle className="w-4 h-4 text-amber-500" />
+                        <AlertTriangle className="w-3 h-3 text-amber-600 dark:text-amber-400" />
                       )}
                       <span
-                        className={`text-xs font-semibold px-2 py-1 rounded-md ${
+                        className={`text-[10px] font-medium px-1.5 py-0.5 rounded ${
                           isOverdue
-                            ? "bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400"
+                            ? "bg-red-100/80 text-red-700 dark:bg-red-900/40 dark:text-red-400"
                             : isUrgent
-                              ? "bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400"
-                              : "bg-gray-100 text-gray-600 dark:bg-gray-700 dark:text-gray-400"
+                              ? "bg-amber-100/80 text-amber-700 dark:bg-amber-900/40 dark:text-amber-400"
+                              : "bg-white/70 text-gray-600 dark:bg-gray-700/70 dark:text-gray-400"
                         }`}
                       >
                         {isOverdue ? "Overdue" : `${daysUntil}d left`}
@@ -666,36 +666,36 @@ function HomeownerHome() {
                 e.stopPropagation();
                 setRemindersModalOpen(true);
               }}
-              className="mt-4 text-sm font-medium text-amber-700 dark:text-amber-400 hover:text-amber-800 flex items-center gap-1 transition-colors"
+              className="mt-3 text-xs font-medium text-amber-700 dark:text-amber-400 hover:text-amber-800 dark:hover:text-amber-300 flex items-center gap-1 transition-colors"
             >
               View all reminders
-              <ChevronRight className="w-4 h-4" />
+              <ChevronRight className="w-3 h-3" />
             </button>
           </div>
 
-          {/* Scheduled Work - Cool tones with calendar-style dates */}
-          <div className="relative bg-gradient-to-br from-blue-50/80 via-white to-slate-50/50 dark:from-blue-950/20 dark:via-gray-800 dark:to-slate-950/10 rounded-2xl border border-blue-200/60 dark:border-blue-800/30 p-5 shadow-sm">
+          {/* Scheduled Work - Sleek with cool gradients */}
+          <div className="relative bg-gradient-to-br from-blue-50/80 via-indigo-50/60 to-blue-50/40 dark:from-blue-950/30 dark:via-indigo-950/20 dark:to-blue-950/15 rounded-xl border border-blue-200/50 dark:border-blue-800/40 p-4 shadow-sm">
             {/* Header */}
-            <div className="flex items-center justify-between mb-5">
-              <div className="flex items-center gap-3">
-                <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-blue-500 to-indigo-600 flex items-center justify-center shadow-lg shadow-blue-500/25">
-                  <Calendar className="w-5 h-5 text-white" />
+            <div className="flex items-center justify-between mb-4">
+              <div className="flex items-center gap-2.5">
+                <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-blue-500 to-indigo-600 flex items-center justify-center shadow-sm">
+                  <Calendar className="w-4 h-4 text-white" />
                 </div>
                 <div>
-                  <h3 className="text-base font-semibold text-gray-900 dark:text-white">
+                  <h3 className="text-sm font-semibold text-gray-900 dark:text-white">
                     Scheduled Work
                   </h3>
-                  <p className="text-xs text-gray-500 dark:text-gray-400">
+                  <p className="text-[10px] text-gray-500 dark:text-gray-400">
                     Upcoming appointments
                   </p>
                 </div>
               </div>
-              <span className="text-xs font-bold px-2.5 py-1 rounded-full bg-blue-500 text-white shadow-sm">
+              <span className="text-[10px] font-semibold px-2 py-0.5 rounded-full bg-gradient-to-r from-blue-500 to-indigo-600 text-white shadow-sm">
                 {propertyData.scheduledMaintenance.length}
               </span>
             </div>
             {/* Items */}
-            <div className="space-y-3">
+            <div className="space-y-2">
               {propertyData.scheduledMaintenance.map((item) => {
                 const dateObj = new Date(item.date);
                 const month = dateObj.toLocaleDateString("en-US", {
@@ -705,29 +705,29 @@ function HomeownerHome() {
                 return (
                   <div
                     key={item.id}
-                    className="flex items-center gap-4 p-3.5 rounded-xl bg-white/80 dark:bg-gray-800/80 cursor-pointer transition-all hover:bg-white dark:hover:bg-gray-700/50"
+                    className="flex items-center gap-3 p-2.5 rounded-lg bg-white/60 dark:bg-gray-800/60 cursor-pointer transition-all hover:bg-white/80 dark:hover:bg-gray-800/80 backdrop-blur-sm"
                   >
                     {/* Calendar Date Block */}
-                    <div className="flex-shrink-0 w-14 h-14 rounded-xl bg-gradient-to-br from-blue-100 to-indigo-100 dark:from-blue-900/40 dark:to-indigo-900/40 flex flex-col items-center justify-center">
-                      <span className="text-[10px] font-semibold uppercase text-blue-600 dark:text-blue-400">
+                    <div className="flex-shrink-0 w-12 h-12 rounded-lg bg-gradient-to-br from-blue-100 to-indigo-100 dark:from-blue-900/40 dark:to-indigo-900/40 flex flex-col items-center justify-center shadow-sm">
+                      <span className="text-[9px] font-semibold uppercase text-blue-600 dark:text-blue-400">
                         {month}
                       </span>
-                      <span className="text-xl font-bold text-blue-700 dark:text-blue-300 leading-none">
+                      <span className="text-lg font-bold text-blue-700 dark:text-blue-300 leading-none">
                         {day}
                       </span>
                     </div>
                     {/* Details */}
                     <div className="flex-1 min-w-0">
-                      <p className="text-sm font-medium text-gray-900 dark:text-white mb-0.5">
+                      <p className="text-xs font-medium text-gray-900 dark:text-white mb-0.5">
                         {item.title}
                       </p>
-                      <p className="text-xs text-gray-500 dark:text-gray-400">
+                      <p className="text-[10px] text-gray-500 dark:text-gray-400">
                         {item.contractor}
                       </p>
                     </div>
                     {/* Status */}
-                    <div className="flex items-center gap-1.5 text-xs font-medium text-emerald-600 dark:text-emerald-400 bg-emerald-100 dark:bg-emerald-900/30 px-2.5 py-1.5 rounded-lg">
-                      <CheckCircle2 className="w-3.5 h-3.5" />
+                    <div className="flex items-center gap-1 text-[10px] font-medium text-emerald-600 dark:text-emerald-400 bg-emerald-50 dark:bg-emerald-900/20 px-2 py-1 rounded">
+                      <CheckCircle2 className="w-3 h-3" />
                       <span>Confirmed</span>
                     </div>
                   </div>
@@ -735,9 +735,9 @@ function HomeownerHome() {
               })}
             </div>
             {/* Footer */}
-            <button className="mt-4 text-sm font-medium text-blue-700 dark:text-blue-400 hover:text-blue-800 flex items-center gap-1 transition-colors">
+            <button className="mt-3 text-xs font-medium text-blue-600 dark:text-blue-400 hover:text-blue-700 dark:hover:text-blue-300 flex items-center gap-1 transition-colors">
               View calendar
-              <ChevronRight className="w-4 h-4" />
+              <ChevronRight className="w-3 h-3" />
             </button>
           </div>
         </div>
