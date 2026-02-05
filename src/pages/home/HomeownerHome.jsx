@@ -351,7 +351,9 @@ function HomeownerHome() {
                       </div>
                     )}
                     {propertyData.agent.phone && propertyData.agent.email && (
-                      <span className="text-gray-400 dark:text-gray-500 text-[10px] sm:text-xs">|</span>
+                      <span className="text-gray-400 dark:text-gray-500 text-[10px] sm:text-xs">
+                        |
+                      </span>
                     )}
                     {propertyData.agent.email && (
                       <div className="flex items-center gap-1.5 min-w-0">
@@ -602,7 +604,12 @@ function HomeownerHome() {
                     Reminders
                   </h3>
                   <p className="text-xs text-gray-500 dark:text-gray-400">
-                    {propertyData.reminders.filter((r) => r.status === "pending").length} pending
+                    {
+                      propertyData.reminders.filter(
+                        (r) => r.status === "pending",
+                      ).length
+                    }{" "}
+                    pending
                   </p>
                 </div>
               </div>
@@ -622,13 +629,15 @@ function HomeownerHome() {
                     className="flex items-center gap-3 p-3 rounded-lg bg-gray-50/80 dark:bg-gray-700/30 hover:bg-gray-100/80 dark:hover:bg-gray-700/50 cursor-pointer transition-colors"
                   >
                     {/* Status dot */}
-                    <div className={`w-2 h-2 rounded-full flex-shrink-0 ${
-                      isOverdue 
-                        ? "bg-red-500" 
-                        : isUrgent 
-                          ? "bg-amber-500" 
-                          : "bg-gray-300 dark:bg-gray-600"
-                    }`} />
+                    <div
+                      className={`w-2 h-2 rounded-full flex-shrink-0 ${
+                        isOverdue
+                          ? "bg-red-500"
+                          : isUrgent
+                            ? "bg-amber-500"
+                            : "bg-gray-300 dark:bg-gray-600"
+                      }`}
+                    />
                     <div className="flex-1 min-w-0">
                       <p className="text-sm font-medium text-gray-900 dark:text-white truncate">
                         {item.title}

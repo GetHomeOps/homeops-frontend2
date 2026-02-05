@@ -1,5 +1,5 @@
-const BASE_URL = import.meta.env.VITE_BASE_URL || "http://localhost:3000";
-/* const BASE_URL = "http://localhost:3000"; */
+/* const BASE_URL = import.meta.env.VITE_BASE_URL || "http://localhost:3000"; */
+const BASE_URL = "http://localhost:3000";
 
 /** API Class.
  *
@@ -80,7 +80,6 @@ class AppApi {
   static async getUsersByAgentId(agentId) {
     console.log("Agent ID: ", agentId);
     let res = await this.request(`users/agent/${agentId}`);
-    console.log("getUsersByAgentId response: ", res);
     return res.users;
   }
 
@@ -119,7 +118,6 @@ class AppApi {
 
   /* Find a valid user invitation token by user ID */
   static async findInvitationToken(userId) {
-    console.log("findInvitationToken: ", userId);
     let res = await this.request(`users/invite/${userId}`);
     return res.result;
   }
@@ -127,7 +125,6 @@ class AppApi {
   /* Confirm a user invitation */
   static async confirmInvitation(data) {
     let res = await this.request(`auth/confirm`, data, 'POST');
-    console.log("Confirm invitation response:", res);
     return res;
   }
 
@@ -135,7 +132,6 @@ class AppApi {
 
   /** Create a new database */
   static async createDatabase(data) {
-    console.log("createDatabase", data);
     let res = await this.request(`databases`, data, "POST");
     return res.database;
   }
@@ -158,7 +154,6 @@ class AppApi {
   static async getAllContacts() {
     try {
       let res = await this.request(`contacts/`);
-      console.log("API: Raw response:", res);
       return res.contacts;
     } catch (error) {
       console.error("API: Error in getAllContacts:", error);
@@ -208,8 +203,83 @@ class AppApi {
     }
   }
 
+  /* --------- Properties --------- */
 
+  /* Create a new property */
+  static async createProperty(data) {
+    let res = await this.request(`properties`, data, 'POST');
+    return res.property;
+  }
 
+  /*  Get all properties */
+  static async getAllProperties() {
+    let res = await this.request(`properties`);
+    return res.properties;
+  }
+
+  /* Get a property by the property_uid ID */
+  static async getPropertyById(uid) {
+    let res = await this.request(`properties/${uid}`);
+    return res.property;
+  }
+
+  /* Get all properties by user ID */
+  static async getPropertiesByUserId(userId) {
+    let res = await this.request(`properties/user/${userId}`);
+    return res.properties;
+  }
+
+  /* Get property team */
+  static async getPropertyTeam(uid) {
+    let res = await this.request(`properties/team/${uid}`);
+    console.log("res: ", res);
+    return res;
+  }
+
+  /* Get Property agent by database ID */
+  static async getAgentByDbId(dbId) {
+    let res = await this.request(`properties/agent/db/${dbId}`);
+    return res.agent;
+  }
+
+  /* Add user to property */
+  static async addUsersToProperty(propertyId, users) {
+    let res = await this.request(`properties/${propertyId}/users`,
+      users, 'POST');
+    return res.property;
+  }
+
+  /* Update a property */
+  static async updateProperty(propertyId, data) {
+    console.log("Updating property with data:", data);
+    let res = await this.request(`properties/${propertyId}`, data, 'PATCH');
+    return res.property;
+  }
+
+  /* Update a property team */
+  static async updatePropertyTeam(propertyId, team) {
+    let res = await this.request(`properties/${propertyId}/team`, team, 'PATCH');
+    return res.property;
+  }
+
+  /* --------- Systems --------- */
+  /* Create a new system */
+  static async createSystem(data) {
+    let res = await this.request(`systems/${data.property_id}`, data, 'POST');
+    return res.system;
+  }
+
+  /* Update a system */
+  static async updateSystem(systemId, data) {
+    let res = await this.request(`systems/${systemId}`, data, 'PATCH');
+    return res.system;
+  }
+
+  /* Get all systems by property ID */
+  static async getSystemsByPropertyId(propertyId) {
+    let res = await this.request(`systems/${propertyId}`);
+    return res.systems;
+  }
 
 }
 

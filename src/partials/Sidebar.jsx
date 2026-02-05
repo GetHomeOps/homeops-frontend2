@@ -12,6 +12,9 @@ function Sidebar({sidebarOpen, setSidebarOpen, variant = "default"}) {
   const {currentDb} = useCurrentDb();
   const dbUrl = currentDb?.url || "";
 
+  // Home is active only when path has a segment exactly "home", not when a segment contains "home" (e.g. /home-ops/properties)
+  const isHomeActive = pathname === "/home" || /\/home(\/|$)/.test(pathname);
+
   const trigger = useRef(null);
   const sidebar = useRef(null);
 
@@ -118,14 +121,14 @@ function Sidebar({sidebarOpen, setSidebarOpen, variant = "default"}) {
               {/* Home */}
               <li
                 className={`pl-4 pr-3 py-2 rounded-lg mb-0.5 last:mb-0 ${
-                  pathname.includes("/home") ? "bg-white" : ""
+                  isHomeActive ? "bg-white" : ""
                 }`}
               >
                 <NavLink
                   end
                   to={dbUrl ? `/${dbUrl}/home` : "/home"}
                   className={`block truncate transition duration-150 ${
-                    pathname.includes("/home")
+                    isHomeActive
                       ? "text-[#456564]"
                       : "text-white hover:text-white/80"
                   }`}
@@ -133,9 +136,7 @@ function Sidebar({sidebarOpen, setSidebarOpen, variant = "default"}) {
                   <div className="flex items-center">
                     <svg
                       className={`shrink-0 fill-current ${
-                        pathname.includes("/home")
-                          ? "text-[#456564]"
-                          : "text-white/70"
+                        isHomeActive ? "text-[#456564]" : "text-white/70"
                       }`}
                       xmlns="http://www.w3.org/2000/svg"
                       width="16"

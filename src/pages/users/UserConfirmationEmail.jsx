@@ -71,7 +71,7 @@ function UserConfirmationEmail() {
           if (user && user.name) {
             setFormData((prev) => ({
               ...prev,
-              name: user.name || user.fullName || "",
+              name: user.name || "",
             }));
           }
         } catch (error) {

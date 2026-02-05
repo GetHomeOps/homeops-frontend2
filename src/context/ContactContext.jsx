@@ -53,7 +53,6 @@ export function ContactProvider({children}) {
     },
   };
 
-  /*  */
   const {
     sortedItems: listSortedItems,
     sortConfig: listSortConfig,
@@ -105,7 +104,7 @@ export function ContactProvider({children}) {
     try {
       await AppApi.addContactToDatabase(data);
       console.log(
-        `Contact ${data.contactId} successfully added to database ${data.databaseId}`
+        `Contact ${data.contactId} successfully added to database ${data.databaseId}`,
       );
     } catch (error) {
       console.error("Error adding contact to database:", error);
@@ -140,8 +139,8 @@ export function ContactProvider({children}) {
       if (res) {
         setContacts((prevContacts) =>
           prevContacts.map((contact) =>
-            contact.id === Number(id) ? res : contact
-          )
+            contact.id === Number(id) ? res : contact,
+          ),
         );
         return res;
       }
@@ -158,7 +157,7 @@ export function ContactProvider({children}) {
 
       if (res) {
         setContacts((prevContacts) =>
-          prevContacts.filter((contact) => contact.id !== Number(id))
+          prevContacts.filter((contact) => contact.id !== Number(id)),
         );
         return res;
       }
@@ -195,7 +194,7 @@ export function ContactProvider({children}) {
       //Get the current view's contacts after sorting
       const currentViewContacts = getCurrentViewContacts();
       const newIndex = currentViewContacts.findIndex(
-        (contact) => contact.id === res.id
+        (contact) => contact.id === res.id,
       );
 
       return {...res, _index: newIndex + 1};
@@ -214,7 +213,7 @@ export function ContactProvider({children}) {
       // Duplicate each selected contact
       for (const contactId of selectedContactsIds) {
         const contactToDuplicate = contacts.find(
-          (contact) => contact.id === contactId
+          (contact) => contact.id === contactId,
         );
         if (contactToDuplicate) {
           const result = await duplicateContact(contactToDuplicate);
@@ -291,7 +290,7 @@ export function ContactProvider({children}) {
       handleListSort,
       testVariable,
       handleTestVariableChange,
-    ]
+    ],
   );
 
   return (

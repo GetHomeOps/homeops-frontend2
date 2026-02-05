@@ -1,55 +1,87 @@
 import React from "react";
 import {
   Home,
-  MapPin,
   User,
-  Phone,
   Building2,
-  Hash,
   Calendar,
   Ruler,
   Bed,
-  Bath,
   Flame,
-  Car,
   School,
-  ExternalLink,
+  Check,
+  AlertCircle,
 } from "lucide-react";
+import {usStates} from "../../data/states";
+import DatePickerInput from "../../components/DatePickerInput";
+import {
+  IDENTITY_SECTIONS,
+  getSectionProgress,
+} from "./constants/identitySections";
 
-function IdentityTab({propertyData, handleInputChange}) {
-  const Field = ({
-    label,
-    name,
-    value,
-    placeholder,
-    type = "text",
-    inputClassName = "form-input w-full",
-  }) => (
+// Stable subcomponents; defined at module level so inputs don't remount on every keystroke.
+function Field({
+  label,
+  name,
+  value,
+  placeholder,
+  type = "text",
+  inputClassName = "form-input w-full",
+  onChange,
+  required = false,
+  error,
+}) {
+  const errorClasses = error
+    ? "border-red-300 dark:border-red-500 focus:border-red-500 focus:ring-red-500 dark:focus:border-red-500 dark:focus:ring-red-500"
+    : "";
+  return (
     <div>
       <label className="block text-sm font-medium text-gray-500 dark:text-gray-400 mb-1">
         {label}
+        {required && <span className="text-red-500 ml-0.5">*</span>}
       </label>
       <input
         type={type}
         name={name}
         value={value ?? ""}
-        onChange={handleInputChange}
+        onChange={onChange}
         placeholder={placeholder}
-        className={inputClassName}
+        className={`${inputClassName} ${errorClasses}`}
+        required={required}
       />
+      {error && (
+        <div className="mt-1 flex items-center text-sm text-red-500">
+          <AlertCircle className="h-4 w-4 mr-1 flex-shrink-0" />
+          <span>{error}</span>
+        </div>
+      )}
     </div>
   );
+}
 
-  const SelectField = ({label, name, value, options}) => (
+function SelectField({
+  label,
+  name,
+  value,
+  options,
+  onChange,
+  required = false,
+  error,
+}) {
+  const errorClasses = error
+    ? "border-red-300 dark:border-red-500 focus:border-red-500 focus:ring-red-500 dark:focus:border-red-500 dark:focus:ring-red-500"
+    : "";
+  return (
     <div>
       <label className="block text-sm font-medium text-gray-500 dark:text-gray-400 mb-1">
         {label}
+        {required && <span className="text-red-500 ml-0.5">*</span>}
       </label>
       <select
         name={name}
         value={value ?? ""}
-        onChange={handleInputChange}
-        className="form-select w-full"
+        onChange={onChange}
+        className={`form-select w-full ${errorClasses}`}
+        required={required}
       >
         <option value="">Select…</option>
         {options.map((opt) => (
@@ -58,72 +90,188 @@ function IdentityTab({propertyData, handleInputChange}) {
           </option>
         ))}
       </select>
+      {error && (
+        <div className="mt-1 flex items-center text-sm text-red-500">
+          <AlertCircle className="h-4 w-4 mr-1 flex-shrink-0" />
+          <span>{error}</span>
+        </div>
+      )}
     </div>
   );
+}
 
+function SectionWithProgress({
+  sectionId,
+  label,
+  icon: Icon,
+  propertyData,
+  children,
+}) {
+  const section = IDENTITY_SECTIONS.find((s) => s.id === sectionId);
+  const {percent, filled, total} = section
+    ? getSectionProgress(propertyData, section)
+    : {percent: 0, filled: 0, total: 1};
+  const isComplete = percent >= 100;
+
+  return (
+    <div className="bg-gray-50 dark:bg-gray-700/50 rounded-lg overflow-hidden relative">
+      <style>{`
+        @keyframes identityCheckPop {
+          from {
+            opacity: 0;
+            transform: scale(0.5) translate(12px, -12px);
+          }
+          to {
+            opacity: 1;
+            transform: scale(1) translate(0, 0);
+          }
+        }
+      `}</style>
+
+      {/* Progress bar - compresses (hides) when complete */}
+      <div
+        className="absolute top-0 left-0 right-0 overflow-hidden bg-gray-200 dark:bg-gray-600"
+        style={{
+          height: isComplete ? 0 : 3,
+          opacity: isComplete ? 0 : 1,
+          transition: "height 0.35s ease-out, opacity 0.25s ease-out",
+        }}
+      >
+        <div
+          className="h-full bg-emerald-400 dark:bg-emerald-400/90 transition-all duration-500 ease-out"
+          style={{width: `${percent}%`}}
+        />
+      </div>
+
+      {/* Checkmark - pops in top-right when complete */}
+      {isComplete && (
+        <div
+          className="absolute top-4 right-4 flex items-center justify-center w-7 h-7 rounded-full bg-emerald-400/20 dark:bg-emerald-400/25 text-emerald-600 dark:text-emerald-400"
+          style={{
+            animation:
+              "identityCheckPop 0.45s cubic-bezier(0.34, 1.56, 0.64, 1) forwards",
+          }}
+        >
+          <Check className="w-4 h-4" strokeWidth={2.25} />
+        </div>
+      )}
+
+      <div className="p-6 pt-7">
+        <h3 className="text-lg font-semibold text-gray-800 dark:text-gray-100 mb-6 flex items-center gap-2 pr-10">
+          <Icon className="h-5 w-5 text-[#456654] flex-shrink-0" />
+          {label}
+          {!isComplete && total > 0 && (
+            <span className="text-xs font-normal text-gray-500 dark:text-gray-400 ml-1">
+              ({filled}/{total})
+            </span>
+          )}
+        </h3>
+        {children}
+      </div>
+    </div>
+  );
+}
+
+function IdentityTab({propertyData, handleInputChange, errors = {}}) {
   return (
     <div className="space-y-4">
       {/* Identity + Address */}
-      <div className="bg-gray-50 dark:bg-gray-700/50 rounded-lg p-6">
-        <h3 className="text-lg font-semibold text-gray-800 dark:text-gray-100 mb-6 flex items-center gap-2">
-          <Home className="h-5 w-5 text-[#456654]" />
-          Identity & Address
-        </h3>
+      <SectionWithProgress
+        sectionId="identity_address"
+        label="Identity & Address"
+        icon={Home}
+        propertyData={propertyData}
+      >
         <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+          <div className="md:col-span-3">
+            <Field
+              onChange={handleInputChange}
+              label="Address"
+              name="address"
+              value={
+                propertyData.address ||
+                propertyData.fullAddress ||
+                [
+                  propertyData.address,
+                  propertyData.city,
+                  propertyData.state,
+                  propertyData.zip,
+                ]
+                  .filter(Boolean)
+                  .join(", ") ||
+                ""
+              }
+              placeholder="Street, City, State ZIP"
+              required
+              error={errors.address}
+            />
+          </div>
+
           <Field
-            label="Passport ID"
-            name="passportId"
-            value={propertyData.passportId || propertyData.id}
+            onChange={handleInputChange}
+            label="City"
+            name="city"
+            value={propertyData.city}
+            required
+            error={errors.city}
+          />
+          <SelectField
+            onChange={handleInputChange}
+            label="State"
+            name="state"
+            value={propertyData.state}
+            options={usStates.map((s) => s.code)}
+            required
+            error={errors.state}
           />
           <Field
-            label="Tax / Parcel ID"
-            name="taxId"
-            value={propertyData.taxId || propertyData.parcelTaxId}
-            placeholder="e.g. 9278300025"
+            onChange={handleInputChange}
+            label="ZIP"
+            name="zip"
+            value={propertyData.zip}
+            required
+            error={errors.zip}
           />
+
           <Field
+            onChange={handleInputChange}
             label="County"
             name="county"
             value={propertyData.county}
             placeholder="e.g. King"
           />
-
-          <div className="md:col-span-3">
-            <Field
-              label="Full Address"
-              name="fullAddress"
-              value={
-                propertyData.fullAddress ||
-                `${propertyData.address}, ${propertyData.city}, ${propertyData.state} ${propertyData.zip}`
-              }
-              placeholder="Street, City, State ZIP"
-            />
-          </div>
-
-          <Field label="City" name="city" value={propertyData.city} />
-          <Field label="State" name="state" value={propertyData.state} />
-          <Field label="ZIP" name="zip" value={propertyData.zip} />
+          <Field
+            onChange={handleInputChange}
+            label="Tax / Parcel ID"
+            name="taxId"
+            value={propertyData.taxId || propertyData.parcelTaxId}
+            placeholder="e.g. 9278300025"
+          />
         </div>
-      </div>
+      </SectionWithProgress>
 
       {/* Ownership & Occupancy */}
-      <div className="bg-gray-50 dark:bg-gray-700/50 rounded-lg p-6">
-        <h3 className="text-lg font-semibold text-gray-800 dark:text-gray-100 mb-6 flex items-center gap-2">
-          <User className="h-5 w-5 text-[#456654]" />
-          Ownership & Occupancy
-        </h3>
+      <SectionWithProgress
+        sectionId="ownership_occupancy"
+        label="Ownership & Occupancy"
+        icon={User}
+        propertyData={propertyData}
+      >
         <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
           <Field
+            onChange={handleInputChange}
             label="Owner Name"
             name="ownerName"
             value={propertyData.ownerName}
           />
           <Field
+            onChange={handleInputChange}
             label="Owner Name 2"
             name="ownerName2"
             value={propertyData.ownerName2}
           />
           <Field
+            onChange={handleInputChange}
             label="Owner City"
             name="ownerCity"
             value={propertyData.ownerCity}
@@ -131,11 +279,13 @@ function IdentityTab({propertyData, handleInputChange}) {
           />
 
           <Field
+            onChange={handleInputChange}
             label="Occupant Name"
             name="occupantName"
             value={propertyData.occupantName}
           />
           <SelectField
+            onChange={handleInputChange}
             label="Occupant Type"
             name="occupantType"
             value={propertyData.occupantType}
@@ -144,28 +294,32 @@ function IdentityTab({propertyData, handleInputChange}) {
           <div className="hidden md:block" />
 
           <Field
+            onChange={handleInputChange}
             label="Owner Phone"
             name="ownerPhone"
             value={propertyData.ownerPhone}
             placeholder="(000) 000-0000"
           />
           <Field
+            onChange={handleInputChange}
             label="Phone to Show"
             name="phoneToShow"
             value={propertyData.phoneToShow}
             placeholder="(000) 000-0000"
           />
         </div>
-      </div>
+      </SectionWithProgress>
 
       {/* General Property Info */}
-      <div className="bg-gray-50 dark:bg-gray-700/50 rounded-lg p-6">
-        <h3 className="text-lg font-semibold text-gray-800 dark:text-gray-100 mb-6 flex items-center gap-2">
-          <Building2 className="h-5 w-5 text-[#456654]" />
-          General Information
-        </h3>
+      <SectionWithProgress
+        sectionId="general_info"
+        label="General Information"
+        icon={Building2}
+        propertyData={propertyData}
+      >
         <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
           <SelectField
+            onChange={handleInputChange}
             label="Property Type"
             name="propertyType"
             value={propertyData.propertyType}
@@ -180,12 +334,14 @@ function IdentityTab({propertyData, handleInputChange}) {
             ]}
           />
           <Field
+            onChange={handleInputChange}
             label="Sub Type"
             name="subType"
             value={propertyData.subType}
             placeholder="e.g. Residential"
           />
           <Field
+            onChange={handleInputChange}
             label="Roof"
             name="roofType"
             value={propertyData.roofType}
@@ -193,84 +349,97 @@ function IdentityTab({propertyData, handleInputChange}) {
           />
 
           <Field
+            onChange={handleInputChange}
             label="Year Built"
             name="yearBuilt"
             type="number"
             value={propertyData.yearBuilt}
           />
           <Field
+            onChange={handleInputChange}
             label="Effective Yr Built"
             name="effectiveYearBuilt"
             type="number"
             value={propertyData.effectiveYearBuilt}
           />
           <Field
+            onChange={handleInputChange}
             label="Effective Yr Built Source"
             name="effectiveYearBuiltSource"
             value={propertyData.effectiveYearBuiltSource}
             placeholder="e.g. Public Records"
           />
         </div>
-      </div>
+      </SectionWithProgress>
 
       {/* Size & Lot */}
-      <div className="bg-gray-50 dark:bg-gray-700/50 rounded-lg p-6">
-        <h3 className="text-lg font-semibold text-gray-800 dark:text-gray-100 mb-6 flex items-center gap-2">
-          <Ruler className="h-5 w-5 text-[#456654]" />
-          Size & Lot
-        </h3>
+      <SectionWithProgress
+        sectionId="size_lot"
+        label="Size & Lot"
+        icon={Ruler}
+        propertyData={propertyData}
+      >
         <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
           <Field
-            label="SqFt (Total)"
+            onChange={handleInputChange}
+            label="Total (ft²)"
             name="sqFtTotal"
             type="number"
             value={propertyData.sqFtTotal || propertyData.squareFeet}
           />
           <Field
-            label="SqFt Finished"
+            onChange={handleInputChange}
+            label="Finished (ft²)"
             name="sqFtFinished"
             type="number"
             value={propertyData.sqFtFinished}
           />
           <Field
-            label="SqFt Unfinished"
+            onChange={handleInputChange}
+            label="Unfinished (ft²)"
             name="sqFtUnfinished"
             type="number"
             value={propertyData.sqFtUnfinished}
           />
 
           <Field
-            label="Garage SqFt"
+            onChange={handleInputChange}
+            label="Garage (ft²)"
             name="garageSqFt"
             type="number"
             value={propertyData.garageSqFt}
           />
           <Field
-            label="Total Dwelling SqFt"
+            onChange={handleInputChange}
+            label="Total Dwelling (ft²)"
             name="totalDwellingSqFt"
             type="number"
             value={propertyData.totalDwellingSqFt}
           />
           <Field
-            label="SqFt Source"
+            onChange={handleInputChange}
+            label="Source (ft²)"
             name="sqFtSource"
             value={propertyData.sqFtSource}
             placeholder="e.g. KCR"
           />
 
           <Field
+            onChange={handleInputChange}
             label="Lot Size"
             name="lotSize"
             value={propertyData.lotSize}
             placeholder="e.g. .200 ac / 8,700 sf"
           />
           <Field
+            onChange={handleInputChange}
             label="Lot Size Source"
             name="lotSizeSource"
             value={propertyData.lotSizeSource}
             placeholder="e.g. KCR"
           />
           <Field
+            onChange={handleInputChange}
             label="Lot Dim"
             name="lotDim"
             value={propertyData.lotDim}
@@ -278,34 +447,39 @@ function IdentityTab({propertyData, handleInputChange}) {
           />
 
           <Field
-            label="Price / SqFt"
+            onChange={handleInputChange}
+            label="Price / (ft²)"
             name="pricePerSqFt"
             value={propertyData.pricePerSqFt}
             placeholder="e.g. $602.41"
           />
           <Field
-            label="Total Price / SqFt"
+            onChange={handleInputChange}
+            label="Total Price / (ft²)"
             name="totalPricePerSqFt"
             value={propertyData.totalPricePerSqFt}
             placeholder="e.g. $602.41"
           />
         </div>
-      </div>
+      </SectionWithProgress>
 
       {/* Rooms & Baths */}
-      <div className="bg-gray-50 dark:bg-gray-700/50 rounded-lg p-6">
-        <h3 className="text-lg font-semibold text-gray-800 dark:text-gray-100 mb-6 flex items-center gap-2">
-          <Bed className="h-5 w-5 text-[#456654]" />
-          Rooms & Baths
-        </h3>
+      <SectionWithProgress
+        sectionId="rooms_baths"
+        label="Rooms & Baths"
+        icon={Bed}
+        propertyData={propertyData}
+      >
         <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
           <Field
+            onChange={handleInputChange}
             label="Bedrooms"
             name="bedCount"
             type="number"
             value={propertyData.bedCount || propertyData.rooms}
           />
           <Field
+            onChange={handleInputChange}
             label="Bathrooms"
             name="bathCount"
             type="number"
@@ -314,18 +488,21 @@ function IdentityTab({propertyData, handleInputChange}) {
           <div className="hidden md:block" />
 
           <Field
+            onChange={handleInputChange}
             label="Full Baths"
             name="fullBaths"
             type="number"
             value={propertyData.fullBaths}
           />
           <Field
+            onChange={handleInputChange}
             label="3/4 Baths"
             name="threeQuarterBaths"
             type="number"
             value={propertyData.threeQuarterBaths}
           />
           <Field
+            onChange={handleInputChange}
             label="Half Baths"
             name="halfBaths"
             type="number"
@@ -333,40 +510,46 @@ function IdentityTab({propertyData, handleInputChange}) {
           />
 
           <Field
+            onChange={handleInputChange}
             label="Number of Showers"
             name="numberOfShowers"
             type="number"
             value={propertyData.numberOfShowers}
           />
           <Field
+            onChange={handleInputChange}
             label="Number of Bathtubs"
             name="numberOfBathtubs"
             type="number"
             value={propertyData.numberOfBathtubs}
           />
         </div>
-      </div>
+      </SectionWithProgress>
 
       {/* Features & Parking */}
-      <div className="bg-gray-50 dark:bg-gray-700/50 rounded-lg p-6">
-        <h3 className="text-lg font-semibold text-gray-800 dark:text-gray-100 mb-6 flex items-center gap-2">
-          <Flame className="h-5 w-5 text-[#456654]" />
-          Features & Parking
-        </h3>
+      <SectionWithProgress
+        sectionId="features_parking"
+        label="Features & Parking"
+        icon={Flame}
+        propertyData={propertyData}
+      >
         <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
           <Field
+            onChange={handleInputChange}
             label="Fireplaces"
             name="fireplaces"
             type="number"
             value={propertyData.fireplaces}
           />
           <Field
+            onChange={handleInputChange}
             label="Fireplace Type(s)"
             name="fireplaceTypes"
             value={propertyData.fireplaceTypes}
             placeholder="e.g. Gas"
           />
           <Field
+            onChange={handleInputChange}
             label="Basement"
             name="basement"
             value={propertyData.basement}
@@ -374,84 +557,102 @@ function IdentityTab({propertyData, handleInputChange}) {
           />
 
           <Field
+            onChange={handleInputChange}
             label="Parking Type"
             name="parkingType"
             value={propertyData.parkingType}
             placeholder="e.g. Driveway Parking"
           />
           <Field
+            onChange={handleInputChange}
             label="Total Covered Parking"
             name="totalCoveredParking"
             type="number"
             value={propertyData.totalCoveredParking}
           />
           <Field
+            onChange={handleInputChange}
             label="Total Uncovered Parking"
             name="totalUncoveredParking"
             type="number"
             value={propertyData.totalUncoveredParking}
           />
         </div>
-      </div>
+      </SectionWithProgress>
 
       {/* Schools */}
-      <div className="bg-gray-50 dark:bg-gray-700/50 rounded-lg p-6">
-        <h3 className="text-lg font-semibold text-gray-800 dark:text-gray-100 mb-6 flex items-center gap-2">
-          <School className="h-5 w-5 text-[#456654]" />
-          Schools
-        </h3>
+      <SectionWithProgress
+        sectionId="schools"
+        label="Schools"
+        icon={School}
+        propertyData={propertyData}
+      >
         <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
           <Field
+            onChange={handleInputChange}
             label="School District"
             name="schoolDistrict"
             value={propertyData.schoolDistrict}
             placeholder="e.g. Seattle"
           />
           <Field
+            onChange={handleInputChange}
             label="Elementary"
             name="elementarySchool"
             value={propertyData.elementarySchool}
           />
           <Field
+            onChange={handleInputChange}
             label="Junior High"
             name="juniorHighSchool"
             value={propertyData.juniorHighSchool}
           />
           <Field
+            onChange={handleInputChange}
             label="Senior High"
             name="seniorHighSchool"
             value={propertyData.seniorHighSchool}
           />
           <Field
+            onChange={handleInputChange}
             label="School District Websites"
             name="schoolDistrictWebsites"
             value={propertyData.schoolDistrictWebsites}
             placeholder="URL(s)"
           />
         </div>
-      </div>
+      </SectionWithProgress>
 
       {/* Listing & Dates */}
-      <div className="bg-gray-50 dark:bg-gray-700/50 rounded-lg p-6">
-        <h3 className="text-lg font-semibold text-gray-800 dark:text-gray-100 mb-6 flex items-center gap-2">
-          <Calendar className="h-5 w-5 text-[#456654]" />
-          Listing & Dates
-        </h3>
+      <SectionWithProgress
+        sectionId="listing_dates"
+        label="Listing & Dates"
+        icon={Calendar}
+        propertyData={propertyData}
+      >
         <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-          <Field
-            label="List Date"
-            name="listDate"
-            value={propertyData.listDate}
-            placeholder="MM/DD/YYYY"
-          />
-          <Field
-            label="Expire Date"
-            name="expireDate"
-            value={propertyData.expireDate}
-            placeholder="MM/DD/YYYY"
-          />
+          <div>
+            <label className="block text-sm font-medium text-gray-500 dark:text-gray-400 mb-1">
+              List Date
+            </label>
+            <DatePickerInput
+              name="listDate"
+              value={propertyData.listDate ?? ""}
+              onChange={handleInputChange}
+            />
+          </div>
+          <div>
+            <label className="block text-sm font-medium text-gray-500 dark:text-gray-400 mb-1">
+              Expire Date
+            </label>
+            <DatePickerInput
+              name="expireDate"
+              value={propertyData.expireDate ?? ""}
+              onChange={handleInputChange}
+            />
+          </div>
         </div>
-      </div>
+      </SectionWithProgress>
     </div>
   );
 }

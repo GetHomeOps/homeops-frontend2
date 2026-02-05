@@ -52,13 +52,16 @@ function RoutesList() {
       <Route path="/:dbUrl/users" element={<UsersList />} />
       <Route path="/:dbUrl/users/:id" element={<User />} />
       <Route path="/:dbUrl/properties" element={<PropertiesList />} />
-      <Route path="/:dbUrl/properties/new" element={<Property />} />
-      <Route path="/:dbUrl/properties/:id" element={<Property />} />
+      <Route path="/:dbUrl/properties/:uid" element={<Property />} />
+
       <Route
         path="/:dbUrl/invite/:invitation"
         element={<UserConfirmationEmail />}
       />
-      <Route path="/:dbUrl/configuration/healthmetrics" element={<HealthMetrics />} />
+      <Route
+        path="/:dbUrl/configuration/healthmetrics"
+        element={<HealthMetrics />}
+      />
     </>
   );
 

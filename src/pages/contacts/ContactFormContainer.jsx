@@ -53,7 +53,8 @@ function mapBackendToFrontend(backendData) {
     // Find all countries that start with these 2 letters
     const matchingCountries = countries.filter(
       (c) =>
-        c.countryCode.substring(0, 2) === backendData.country_code.toUpperCase()
+        c.countryCode.substring(0, 2) ===
+        backendData.country_code.toUpperCase(),
     );
 
     // If only one match, use it; otherwise we can't reliably determine
@@ -79,8 +80,8 @@ function mapBackendToFrontend(backendData) {
       backendData.type === 2
         ? "company"
         : backendData.type === 1
-        ? "individual"
-        : backendData.contactType || "individual",
+          ? "individual"
+          : backendData.contactType || "individual",
     // Map backend 'zip_code' to frontend 'zip'
     zip: backendData.zip_code || backendData.zip || "",
     state: backendData.state || "",
@@ -114,8 +115,8 @@ function mapFrontendToBackend(formData) {
       formData.contactType === "company"
         ? 2
         : formData.contactType === "individual"
-        ? 1
-        : 1,
+          ? 1
+          : 1,
     phone: formData.phone || "",
     email: formData.email || "",
     website: formData.website || "",
@@ -277,7 +278,6 @@ function ContactsFormContainer() {
   ];
 
   const {
-    paymentTerms,
     createContact,
     updateContact,
     duplicateContact,
@@ -294,7 +294,7 @@ function ContactsFormContainer() {
         try {
           const currentViewContacts = getCurrentViewContacts();
           const existingContact = currentViewContacts.find(
-            (contact) => Number(contact.id) === Number(id)
+            (contact) => Number(contact.id) === Number(id),
           );
           if (existingContact) {
             dispatch({type: "SET_CONTACT", payload: existingContact});
@@ -302,10 +302,10 @@ function ContactsFormContainer() {
             if (
               state.bannerType !== "success" ||
               (!state.bannerMessage.includes(
-                t("contactCreatedSuccessfullyMessage")
+                t("contactCreatedSuccessfullyMessage"),
               ) &&
                 !state.bannerMessage.includes(
-                  t("contactUpdatedSuccessfullyMessage")
+                  t("contactUpdatedSuccessfullyMessage"),
                 ))
             ) {
               dispatch({
@@ -346,7 +346,7 @@ function ContactsFormContainer() {
         type: state.bannerType,
         message: state.bannerMessage,
       },
-    })
+    }),
   );
 
   // Populate form data when contact changes
@@ -677,7 +677,7 @@ function ContactsFormContainer() {
 
       //Find the current contact index in the sorted items
       const contactIndex = contacts.findIndex(
-        (contact) => contact.id === Number(id)
+        (contact) => contact.id === Number(id),
       );
 
       //Delete the contact
@@ -792,7 +792,7 @@ function ContactsFormContainer() {
   const handleCountryDropdownChange = (e) => {
     const {value} = e.target;
     const country = countries.find(
-      (c) => c.countryCode === value || c.name === value
+      (c) => c.countryCode === value || c.name === value,
     );
 
     if (country) {
@@ -833,11 +833,11 @@ function ContactsFormContainer() {
       if (formattedPhone.length > 6) {
         formattedPhone = `${formattedPhone.slice(0, 3)}-${formattedPhone.slice(
           3,
-          6
+          6,
         )}-${formattedPhone.slice(6)}`;
       } else if (formattedPhone.length > 3) {
         formattedPhone = `${formattedPhone.slice(0, 3)}-${formattedPhone.slice(
-          3
+          3,
         )}`;
       }
     }
@@ -907,7 +907,7 @@ function ContactsFormContainer() {
     });
 
     const contactIndex = sortedContacts.findIndex(
-      (contact) => Number(contact.id) === Number(contactId)
+      (contact) => Number(contact.id) === Number(contactId),
     );
 
     if (contactIndex === -1) {
@@ -1004,10 +1004,8 @@ function ContactsFormContainer() {
 
   // Get company contacts for the dropdown
   const companyContacts = contacts.filter(
-    (contact) => contact.contactType === "company" || contact.type_id === 2
+    (contact) => contact.contactType === "company" || contact.type_id === 2,
   );
-
-  console.log("Payment terms from form container: ", paymentTerms);
 
   // TagsDropdown component for multi-select tags
   function TagsDropdown({
@@ -1057,7 +1055,7 @@ function ContactsFormContainer() {
 
     // Get available options (not already selected)
     const availableOptions = options.filter(
-      (option) => !selectedValues.includes(option.id)
+      (option) => !selectedValues.includes(option.id),
     );
 
     // Match exact height of native select elements
@@ -1560,7 +1558,8 @@ function ContactsFormContainer() {
                         <span className="truncate">
                           {
                             countries.find(
-                              (c) => c.countryCode === state.contact.countryCode
+                              (c) =>
+                                c.countryCode === state.contact.countryCode,
                             )?.phoneCode
                           }{" "}
                           {state.contact.phone}
@@ -1790,7 +1789,8 @@ function ContactsFormContainer() {
                               {
                                 countries.find(
                                   (c) =>
-                                    c.countryCode === state.formData.countryCode
+                                    c.countryCode ===
+                                    state.formData.countryCode,
                                 )?.flag
                               }
                             </div>
@@ -1824,7 +1824,7 @@ function ContactsFormContainer() {
                                   (countries.find(
                                     (c) =>
                                       c.countryCode ===
-                                      state.formData.countryCode
+                                      state.formData.countryCode,
                                   )?.phoneCode?.length || 1) *
                                     0.65 +
                                   0.65
@@ -1840,7 +1840,8 @@ function ContactsFormContainer() {
                               {
                                 countries.find(
                                   (c) =>
-                                    c.countryCode === state.formData.countryCode
+                                    c.countryCode ===
+                                    state.formData.countryCode,
                                 )?.phoneCode
                               }
                             </div>
@@ -2059,7 +2060,7 @@ function ContactsFormContainer() {
                         <textarea
                           id="notes"
                           className={`${getInputClasses(
-                            "notes"
+                            "notes",
                           )} min-h-[100px]`}
                           value={state.formData.notes}
                           onChange={handleChange}

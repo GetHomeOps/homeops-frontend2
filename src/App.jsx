@@ -4,6 +4,7 @@ import RoutesList from "./pages/routes-nav/RoutesList";
 import {AuthProvider} from "./context/AuthContext";
 import {ContactProvider} from "./context/ContactContext";
 import {UserProvider} from "./context/UserContext";
+import {PropertyProvider} from "./context/PropertyContext";
 
 import "./css/style.css";
 
@@ -20,7 +21,9 @@ function App() {
     <AuthProvider>
       <ContactProvider>
         <UserProvider>
-          <RoutesList />
+          <PropertyProvider>
+            <RoutesList />
+          </PropertyProvider>
         </UserProvider>
       </ContactProvider>
     </AuthProvider>

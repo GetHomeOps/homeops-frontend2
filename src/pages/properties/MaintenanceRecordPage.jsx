@@ -1,0 +1,236 @@
+import React, {useState, useEffect, useContext} from "react";
+import {useParams, useNavigate} from "react-router-dom";
+import {ArrowLeft, Home} from "lucide-react";
+import Sidebar from "../../partials/Sidebar";
+import Header from "../../partials/Header";
+import PropertyContext from "../../context/PropertyContext";
+import ContactContext from "../../context/ContactContext";
+import {MaintenanceFormPanel} from "./partials/maintenance";
+import {
+  PROPERTY_SYSTEMS,
+  DEFAULT_SYSTEM_IDS,
+} from "./constants/propertySystems";
+
+/**
+ * Standalone page for viewing/editing a single maintenance record.
+ * Opened via "Open in New Tab" functionality from MaintenanceTab.
+ *
+ * Route: /:dbUrl/properties/:uid/maintenance/:systemId/:recordId
+ *
+ * This allows users to:
+ * - Keep reference materials open alongside the form
+ * - Work on multiple records simultaneously
+ * - Return to the record later without losing context
+ */
+function MaintenanceRecordPage() {
+  const [sidebarOpen, setSidebarOpen] = useState(false);
+  const {dbUrl, uid: propertyId, systemId, recordId} = useParams();
+  const navigate = useNavigate();
+
+  const {getPropertyById, updateProperty} = useContext(PropertyContext);
+  const {contacts} = useContext(ContactContext);
+
+  const [property, setProperty] = useState(null);
+  const [record, setRecord] = useState(null);
+  const [loading, setLoading] = useState(true);
+  const [saveMessage, setSaveMessage] = useState(null);
+
+  // Load property and find the record
+  useEffect(() => {
+    async function loadProperty() {
+      setLoading(true);
+      try {
+        const propertyData = await getPropertyById(propertyId);
+        setProperty(propertyData);
+
+        // Find the specific record if editing existing
+        if (
+          recordId &&
+          recordId !== "new" &&
+          propertyData?.maintenanceHistory
+        ) {
+          const existingRecord = propertyData.maintenanceHistory.find(
+            (r) => r.id === recordId
+          );
+          setRecord(existingRecord || null);
+        } else {
+          setRecord(null);
+        }
+      } catch (err) {
+        console.error("Error loading property:", err);
+      } finally {
+        setLoading(false);
+      }
+    }
+    loadProperty();
+  }, [propertyId, recordId, getPropertyById]);
+
+  // Get system name
+  const getSystemName = () => {
+    // Check predefined systems
+    const predefinedSystem = PROPERTY_SYSTEMS.find((s) => s.id === systemId);
+    if (predefinedSystem) return predefinedSystem.name;
+
+    // Check custom systems
+    if (systemId?.startsWith("custom-")) {
+      return systemId.replace("custom-", "");
+    }
+
+    return systemId || "System";
+  };
+
+  // Handle save
+  const handleSave = async (recordData) => {
+    try {
+      // Update the property's maintenance history
+      const updatedHistory = [...(property?.maintenanceHistory || [])];
+      const existingIndex = updatedHistory.findIndex(
+        (r) => r.id === recordData.id
+      );
+
+      if (existingIndex >= 0) {
+        updatedHistory[existingIndex] = recordData;
+      } else {
+        updatedHistory.push(recordData);
+      }
+
+      // Update property via context (if available)
+      if (updateProperty) {
+        await updateProperty(propertyId, {
+          ...property,
+          maintenanceHistory: updatedHistory,
+        });
+      }
+
+      setRecord(recordData);
+      setSaveMessage({type: "success", text: "Record saved successfully!"});
+      setTimeout(() => setSaveMessage(null), 3000);
+    } catch (err) {
+      console.error("Error saving record:", err);
+      setSaveMessage({
+        type: "error",
+        text: "Failed to save record. Please try again.",
+      });
+      setTimeout(() => setSaveMessage(null), 5000);
+    }
+  };
+
+  // Handle delete
+  const handleDelete = async (deleteRecordId) => {
+    if (
+      !window.confirm(
+        "Are you sure you want to delete this maintenance record?"
+      )
+    ) {
+      return;
+    }
+
+    try {
+      const updatedHistory = (property?.maintenanceHistory || []).filter(
+        (r) => r.id !== deleteRecordId
+      );
+
+      if (updateProperty) {
+        await updateProperty(propertyId, {
+          ...property,
+          maintenanceHistory: updatedHistory,
+        });
+      }
+
+      // Navigate back to property after deletion
+      navigate(`/${dbUrl}/properties/${propertyId}`);
+    } catch (err) {
+      console.error("Error deleting record:", err);
+      setSaveMessage({
+        type: "error",
+        text: "Failed to delete record. Please try again.",
+      });
+      setTimeout(() => setSaveMessage(null), 5000);
+    }
+  };
+
+  // Handle navigation back
+  const handleBack = () => {
+    navigate(`/${dbUrl}/properties/${propertyId}`);
+  };
+
+  if (loading) {
+    return (
+      <div className="flex h-[100dvh] overflow-hidden">
+        <Sidebar sidebarOpen={sidebarOpen} setSidebarOpen={setSidebarOpen} />
+        <div className="relative flex flex-col flex-1 overflow-y-auto overflow-x-hidden">
+          <Header sidebarOpen={sidebarOpen} setSidebarOpen={setSidebarOpen} />
+          <main className="grow flex items-center justify-center">
+            <div className="text-gray-500 dark:text-gray-400">Loading...</div>
+          </main>
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <div className="flex h-[100dvh] overflow-hidden">
+      <Sidebar sidebarOpen={sidebarOpen} setSidebarOpen={setSidebarOpen} />
+
+      <div className="relative flex flex-col flex-1 overflow-y-auto overflow-x-hidden">
+        <Header sidebarOpen={sidebarOpen} setSidebarOpen={setSidebarOpen} />
+
+        <main className="grow">
+          <div className="px-4 sm:px-6 lg:px-8 py-8 w-full max-w-4xl mx-auto">
+            {/* Breadcrumb / Navigation */}
+            <div className="mb-6">
+              <div className="flex items-center gap-4 mb-4">
+                <button
+                  onClick={handleBack}
+                  className="flex items-center gap-2 text-sm text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white transition-colors"
+                >
+                  <ArrowLeft className="w-4 h-4" />
+                  Back to Property
+                </button>
+              </div>
+
+              {/* Property info */}
+              {property && (
+                <div className="flex items-center gap-3 text-sm text-gray-500 dark:text-gray-400">
+                  <Home className="w-4 h-4" />
+                  <span>{property.address || "Property"}</span>
+                  <span>•</span>
+                  <span>{getSystemName()} Maintenance</span>
+                </div>
+              )}
+            </div>
+
+            {/* Save/Error Message */}
+            {saveMessage && (
+              <div
+                className={`mb-4 p-4 rounded-lg ${
+                  saveMessage.type === "success"
+                    ? "bg-emerald-50 dark:bg-emerald-900/20 text-emerald-700 dark:text-emerald-300 border border-emerald-200 dark:border-emerald-800"
+                    : "bg-red-50 dark:bg-red-900/20 text-red-700 dark:text-red-300 border border-red-200 dark:border-red-800"
+                }`}
+              >
+                {saveMessage.text}
+              </div>
+            )}
+
+            {/* Form Card */}
+            <div className="bg-white dark:bg-gray-800 rounded-xl shadow-lg overflow-hidden border border-gray-200 dark:border-gray-700">
+              <MaintenanceFormPanel
+                record={record}
+                systemId={systemId}
+                systemName={getSystemName()}
+                propertyId={propertyId}
+                onSave={handleSave}
+                onDelete={handleDelete}
+                contacts={contacts || []}
+                isNewRecord={!record}
+              />
+            </div>
+          </div>
+        </main>
+      </div>
+    </div>
+  );
+}
+
+export default MaintenanceRecordPage;

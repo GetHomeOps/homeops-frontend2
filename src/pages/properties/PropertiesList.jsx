@@ -1,4 +1,10 @@
-import React, {useEffect, useMemo, useReducer, useState} from "react";
+import React, {
+  useEffect,
+  useMemo,
+  useReducer,
+  useState,
+  useContext,
+} from "react";
 import {useNavigate} from "react-router-dom";
 import {useTranslation} from "react-i18next";
 
@@ -11,67 +17,9 @@ import ModalBlank from "../../components/ModalBlank";
 import Banner from "../../partials/containers/Banner";
 import ListDropdown from "../../partials/buttons/ListDropdown";
 import useCurrentDb from "../../hooks/useCurrentDb";
+import propertyContext from "../../context/PropertyContext";
 
 const PAGE_STORAGE_KEY = "properties_list_page";
-
-const mockProperties = [
-  {
-    id: "PROP-1001",
-    address: "123 Main St",
-    city: "Austin",
-    state: "TX",
-    health: 92,
-  },
-  {
-    id: "PROP-1002",
-    address: "48 Pine Ridge Rd",
-    city: "Denver",
-    state: "CO",
-    health: 76,
-  },
-  {
-    id: "PROP-1003",
-    address: "890 Sunset Blvd",
-    city: "Los Angeles",
-    state: "CA",
-    health: 64,
-  },
-  {
-    id: "PROP-1004",
-    address: "221B Baker St",
-    city: "London",
-    state: "UK",
-    health: 38,
-  },
-  {
-    id: "PROP-1005",
-    address: "742 Evergreen Terrace",
-    city: "Springfield",
-    state: "IL",
-    health: 81,
-  },
-  {
-    id: "PROP-1006",
-    address: "500 Market St",
-    city: "San Francisco",
-    state: "CA",
-    health: 33,
-  },
-  {
-    id: "PROP-1007",
-    address: "2300 Riverside Dr",
-    city: "Miami",
-    state: "FL",
-    health: 58,
-  },
-  {
-    id: "PROP-1008",
-    address: "30 Rockefeller Plaza",
-    city: "New York",
-    state: "NY",
-    health: 97,
-  },
-];
 
 const initialState = {
   currentPage: 1,
@@ -137,10 +85,9 @@ function PropertiesList() {
   const {t} = useTranslation();
   const {currentDb} = useCurrentDb();
   const dbUrl = currentDb?.url || currentDb?.name || "";
-  const [properties, setProperties] = useState(mockProperties);
   const [selectedProperties, setSelectedProperties] = useState([]);
   const [sortConfig, setSortConfig] = useState({
-    key: "id",
+    key: "passport_id",
     direction: "asc",
   });
 
@@ -149,6 +96,8 @@ function PropertiesList() {
     currentPage:
       Number(localStorage.getItem(PAGE_STORAGE_KEY)) || baseState.currentPage,
   }));
+
+  const {properties, setProperties} = useContext(propertyContext);
 
   useEffect(() => {
     localStorage.setItem(PAGE_STORAGE_KEY, state.currentPage);
@@ -175,7 +124,7 @@ function PropertiesList() {
     const term = state.searchTerm.toLowerCase();
     return properties.filter((property) => {
       return (
-        property.id.toLowerCase().includes(term) ||
+        property.passport_id.toLowerCase().includes(term) ||
         property.address.toLowerCase().includes(term) ||
         property.city.toLowerCase().includes(term) ||
         property.state.toLowerCase().includes(term)
@@ -222,8 +171,18 @@ function PropertiesList() {
   };
 
   const handleNewProperty = () => navigate(`/${dbUrl}/properties/new`);
-  const handlePropertyClick = (property) =>
-    navigate(`/${dbUrl}/properties/${property.id}`);
+  const handlePropertyClick = (property) => {
+    const propertyIndex = sortedProperties.findIndex(
+      (p) => (p.property_uid ?? p.id) === property.property_uid,
+    );
+    navigate(`/${dbUrl}/properties/${property.property_uid}`, {
+      state: {
+        currentIndex: propertyIndex + 1,
+        totalItems: sortedProperties.length,
+        visiblePropertyIds: sortedProperties.map((p) => p.property_uid ?? p.id),
+      },
+    });
+  };
 
   const handleSort = (columnKey) => {
     setSortConfig((prev) => {
@@ -250,12 +209,12 @@ function PropertiesList() {
     }
 
     setSelectedProperties((prev) =>
-      prev.includes(ids) ? prev.filter((id) => id !== ids) : [...prev, ids]
+      prev.includes(ids) ? prev.filter((id) => id !== ids) : [...prev, ids],
     );
   };
 
   const columns = [
-    {key: "id", label: "id", sortable: true},
+    {key: "passport_id", label: "Passport ID", sortable: true},
     {key: "address", label: "address", sortable: true},
     {key: "city", label: "city", sortable: true},
     {key: "state", label: "state", sortable: true},
@@ -271,7 +230,7 @@ function PropertiesList() {
     item,
     handleSelect,
     selectedItems,
-    onItemClick
+    onItemClick,
   ) => (
     <DataTableItem
       item={item}
@@ -285,7 +244,7 @@ function PropertiesList() {
   const allSelected =
     paginatedProperties.length > 0 &&
     paginatedProperties.every((property) =>
-      selectedProperties.includes(property.id)
+      selectedProperties.includes(property.id),
     );
 
   function handleDeleteClick() {
@@ -361,10 +320,10 @@ function PropertiesList() {
     try {
       const deletedIds = [...selectedProperties];
       setProperties((prev) =>
-        prev.filter((property) => !deletedIds.includes(property.id))
+        prev.filter((property) => !deletedIds.includes(property.id)),
       );
       setSelectedProperties((prev) =>
-        prev.filter((id) => !deletedIds.includes(id))
+        prev.filter((id) => !deletedIds.includes(id)),
       );
 
       const remainingItems = sortedProperties.length - deletedIds.length;

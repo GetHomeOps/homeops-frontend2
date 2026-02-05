@@ -1,0 +1,401 @@
+import React, {useEffect, useMemo, useState} from "react";
+import {UserPlus, X, UserCog, Home, Users} from "lucide-react";
+import ModalBlank from "../../../components/ModalBlank";
+import SelectDropdown from "../../contacts/SelectDropdown";
+import {useTranslation} from "react-i18next";
+
+const MEMBER_ROLES = [
+  {id: "Mortgage Partner", name: "Mortgage Partner"},
+  {id: "Insurer", name: "Insurer"},
+];
+
+/* Converts a user to a member */
+const toMember = (u, roleOverride) => ({
+  id: u.id,
+  name: u.name ?? "User",
+  role: roleOverride ?? u.role ?? "Member",
+  image: u.image ?? u.avatar,
+});
+
+/* HomeOps Team Modal Component */
+function HomeOpsTeamModal({
+  modalOpen,
+  setModalOpen,
+  teamMembers = [],
+  users = [],
+  onSave,
+}) {
+  const [selectedAgentId, setSelectedAgentId] = useState("");
+  const [homeownerSlots, setHomeownerSlots] = useState([""]);
+  const [additionalMembers, setAdditionalMembers] = useState([]);
+
+  const {t} = useTranslation();
+
+  /* Filters the users to only include agents */
+  const agents = useMemo(
+    () =>
+      users.filter(
+        (u) =>
+          (u.role ?? "").toLowerCase() === "agent" ||
+          (u.role ?? "").toLowerCase() === "admin" ||
+          (u.role ?? "").toLowerCase() === "super_admin",
+      ),
+    [users],
+  );
+
+  /* Maps the agents to options for the select dropdown */
+  const homeowners = useMemo(
+    () => users.filter((u) => (u.role ?? "").toLowerCase() === "homeowner"),
+    [users],
+  );
+
+  /* Maps the agents to options for the select dropdown */
+  const agentOptions = useMemo(
+    () => agents.map((u) => ({id: u.id, name: u.name})),
+    [agents],
+  );
+
+  /* Maps the homeowners to options for the select dropdown */
+  const homeownerOptionsBase = useMemo(
+    () => homeowners.map((u) => ({id: u.id, name: u.name})),
+    [homeowners],
+  );
+
+  /* Excludes the selected agent and the homeowners and team members already in the homeowner slot */
+  const excludedForHomeownerSlot = (idx) => {
+    const o = new Set([String(selectedAgentId)].filter(Boolean));
+    homeownerSlots.forEach((id, i) => {
+      if (i !== idx && id) o.add(String(id));
+    });
+    additionalMembers.forEach((m) => {
+      if (m.userId) o.add(String(m.userId));
+    });
+    return o;
+  };
+
+  /* Excludes the selected agent and the homeowners and team members already in the team member row */
+  const excludedForMemberRow = (idx) => {
+    const o = new Set([String(selectedAgentId)].filter(Boolean));
+    homeownerSlots.forEach((id) => {
+      if (id) o.add(String(id));
+    });
+    additionalMembers.forEach((m, i) => {
+      if (i !== idx && m.userId) o.add(String(m.userId));
+    });
+    return o;
+  };
+
+  /* Sets the selected agent, homeowners, and team members when the modal is opened */
+  useEffect(() => {
+    if (!modalOpen) return;
+    const agent = teamMembers.find(
+      (m) =>
+        (m.role ?? "").toLowerCase() === "agent" ||
+        (m.role ?? "").toLowerCase() === "admin",
+    );
+    const h = teamMembers.filter(
+      (m) => (m.role ?? "").toLowerCase() === "homeowner",
+    );
+    const others = teamMembers.filter(
+      (m) =>
+        (m.role ?? "").toLowerCase() !== "agent" &&
+        (m.role ?? "").toLowerCase() !== "admin" &&
+        (m.role ?? "").toLowerCase() !== "homeowner",
+    );
+    setSelectedAgentId(agent?.id ?? "");
+    setHomeownerSlots(h.length ? h.map((m) => m.id) : [""]);
+    setAdditionalMembers(
+      others.length
+        ? others.map((m) => ({
+            userId: m.id,
+            role: MEMBER_ROLES.some((r) => r.id === m.role)
+              ? m.role
+              : "Mortgage Partner",
+          }))
+        : [],
+    );
+  }, [modalOpen, teamMembers]);
+
+  /* Sets the selected homeowner when the homeowner row is changed */
+  const setHomeownerSlot = (idx, value) => {
+    setHomeownerSlots((prev) => {
+      const next = [...prev];
+      next[idx] = value ?? "";
+      return next;
+    });
+  };
+
+  /* Adds a new homeowner row */
+  const addHomeownerSlot = () => {
+    setHomeownerSlots((prev) => [...prev, ""]);
+  };
+
+  /* Removes a homeowner row */
+  const removeHomeownerSlot = (idx) => {
+    if (homeownerSlots.length <= 1) return;
+    setHomeownerSlots((prev) => prev.filter((_, i) => i !== idx));
+  };
+
+  /* Adds a new team member row */
+  const addMemberRow = () => {
+    setAdditionalMembers((prev) => [
+      ...prev,
+      {userId: "", role: "Mortgage Partner"},
+    ]);
+  };
+
+  /* Sets the selected team member when the team member row is changed */
+  const setMemberRow = (idx, patch) => {
+    setAdditionalMembers((prev) => {
+      const next = [...prev];
+      next[idx] = {...next[idx], ...patch};
+      return next;
+    });
+  };
+
+  /* Removes a team member row */
+  const removeMemberRow = (idx) => {
+    setAdditionalMembers((prev) => prev.filter((_, i) => i !== idx));
+  };
+
+  /* Handles the save of the team */
+  const handleSave = () => {
+    const team = [];
+    const agent = agents.find((a) => String(a.id) === String(selectedAgentId));
+    if (agent) team.push(toMember(agent));
+    homeownerSlots.forEach((id) => {
+      if (!id) return;
+      const u = homeowners.find((h) => String(h.id) === String(id));
+      if (u) team.push(toMember(u, "Homeowner"));
+    });
+
+    additionalMembers.forEach(({userId, role}) => {
+      if (!userId) return;
+      const u = users.find((x) => String(x.id) === String(userId));
+      if (u) team.push(toMember(u, role));
+    });
+
+    onSave?.(team);
+    setModalOpen(false);
+  };
+
+  return (
+    <ModalBlank
+      id="homeops-team-modal"
+      modalOpen={modalOpen}
+      setModalOpen={setModalOpen}
+      closeOnClickOutside={false}
+    >
+      <div className="p-6">
+        <div className="flex items-center justify-between mb-6 pb-1 border-b border-gray-200 dark:border-gray-700">
+          <h2 className="text-xl font-semibold text-gray-900 dark:text-white">
+            Edit team
+          </h2>
+          <button
+            type="button"
+            onClick={() => setModalOpen(false)}
+            className="p-2 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700 text-gray-500 dark:text-gray-400"
+            aria-label="Close"
+          >
+            <X className="w-5 h-5" />
+          </button>
+        </div>
+
+        <div className="space-y-6">
+          {/* Agent */}
+          <div>
+            <label className="flex items-center gap-2 text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+              <UserCog className="w-4 h-4 text-[#456654]" />
+              Agent
+            </label>
+            <SelectDropdown
+              options={agentOptions}
+              value={selectedAgentId}
+              onChange={(v) => setSelectedAgentId(v ?? "")}
+              placeholder="Select an agent"
+              name="agent"
+              id="team-agent"
+              clearable={true}
+            />
+          </div>
+
+          {/* Homeowners */}
+          <div>
+            <label className="flex items-center gap-2 text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+              <Home className="w-4 h-4 text-[#456654]" />
+              Homeowner
+            </label>
+            <div className="space-y-3">
+              {homeownerSlots.map((val, idx) => (
+                <HomeownerRow
+                  key={idx}
+                  idx={idx}
+                  value={val}
+                  onChange={(v) => setHomeownerSlot(idx, v)}
+                  onRemove={() => removeHomeownerSlot(idx)}
+                  canRemove={homeownerSlots.length > 1}
+                  homeownerOptionsBase={homeownerOptionsBase}
+                  excluded={excludedForHomeownerSlot(idx)}
+                />
+              ))}
+              <button
+                type="button"
+                onClick={addHomeownerSlot}
+                className="btn-sm border border-[#456654] text-[#456654] hover:bg-[#456654] hover:text-white transition-colors inline-flex items-center gap-1.5"
+              >
+                <UserPlus className="w-4 h-4" />
+                Add new homeowner
+              </button>
+            </div>
+          </div>
+
+          {/* Team members */}
+          <div>
+            <label className="flex items-center gap-2 text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+              <Users className="w-4 h-4 text-[#456654]" />
+              Team members
+            </label>
+            <div className="space-y-3">
+              {additionalMembers.map((row, idx) => (
+                <MemberRow
+                  key={idx}
+                  idx={idx}
+                  userId={row.userId}
+                  role={row.role}
+                  onUserIdChange={(v) => setMemberRow(idx, {userId: v ?? ""})}
+                  onRoleChange={(v) =>
+                    setMemberRow(idx, {role: v ?? "Mortgage Partner"})
+                  }
+                  onRemove={() => removeMemberRow(idx)}
+                  users={users}
+                  excluded={excludedForMemberRow(idx)}
+                />
+              ))}
+              <button
+                type="button"
+                onClick={addMemberRow}
+                className="btn-sm bg-[#456654] hover:bg-[#34514f] text-white transition-colors inline-flex items-center gap-1.5"
+              >
+                <UserPlus className="w-4 h-4" />
+                Add
+              </button>
+            </div>
+          </div>
+        </div>
+
+        <div className="flex justify-end gap-3 mt-8 pt-6 border-t border-gray-200 dark:border-gray-700">
+          <button
+            type="button"
+            onClick={() => setModalOpen(false)}
+            className="btn border border-gray-200 dark:border-gray-600 hover:bg-gray-50 dark:hover:bg-gray-700 text-gray-700 dark:text-gray-300"
+          >
+            Cancel
+          </button>
+          <button
+            type="button"
+            onClick={handleSave}
+            className="btn bg-[#456654] hover:bg-[#34514f] text-white"
+          >
+            {t(`accept`)}
+          </button>
+        </div>
+      </div>
+    </ModalBlank>
+  );
+}
+
+function HomeownerRow({
+  idx,
+  value,
+  onChange,
+  onRemove,
+  canRemove,
+  homeownerOptionsBase,
+  excluded,
+}) {
+  const options = useMemo(
+    () => homeownerOptionsBase.filter((o) => !excluded.has(String(o.id))),
+    [homeownerOptionsBase, excluded],
+  );
+  return (
+    <div className="flex gap-2 items-center flex-wrap">
+      <div className="flex-1 min-w-[200px]">
+        <SelectDropdown
+          options={options}
+          value={value}
+          onChange={onChange}
+          placeholder="Select a homeowner"
+          name={`homeowner-${idx}`}
+          id={`team-homeowner-${idx}`}
+          clearable={true}
+        />
+      </div>
+      {canRemove && (
+        <button
+          type="button"
+          onClick={onRemove}
+          className="p-2 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700 text-gray-500 dark:text-gray-400"
+          aria-label="Remove homeowner slot"
+        >
+          <X className="w-4 h-4" />
+        </button>
+      )}
+    </div>
+  );
+}
+
+/* Team Member Row */
+function MemberRow({
+  idx,
+  userId,
+  role,
+  onUserIdChange,
+  onRoleChange,
+  onRemove,
+  users,
+  excluded,
+}) {
+  const userOptions = useMemo(
+    () =>
+      users
+        .filter((u) => !excluded.has(String(u.id)))
+        .map((u) => ({id: u.id, name: u.name})),
+    [users, excluded],
+  );
+  return (
+    <div className="flex gap-2 items-center flex-wrap">
+      <div className="flex-1 min-w-[180px]">
+        <SelectDropdown
+          options={userOptions}
+          value={userId}
+          onChange={onUserIdChange}
+          placeholder="Select a user"
+          name={`member-user-${idx}`}
+          id={`team-member-user-${idx}`}
+          clearable={true}
+        />
+      </div>
+      <div className="w-40 shrink-0">
+        <SelectDropdown
+          options={MEMBER_ROLES}
+          value={role}
+          onChange={onRoleChange}
+          placeholder="Role"
+          name={`member-role-${idx}`}
+          id={`team-member-role-${idx}`}
+          clearable={false}
+        />
+      </div>
+      <button
+        type="button"
+        onClick={onRemove}
+        className="p-2 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700 text-gray-500 dark:text-gray-400"
+        aria-label="Remove member"
+      >
+        <X className="w-4 h-4" />
+      </button>
+    </div>
+  );
+}
+
+export default HomeOpsTeamModal;

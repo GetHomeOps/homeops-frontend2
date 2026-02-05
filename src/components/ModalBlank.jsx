@@ -1,18 +1,29 @@
 import React, {useRef, useEffect} from "react";
 import Transition from "../utils/Transition";
 
-function ModalBlank({children, id, modalOpen, setModalOpen}) {
+function ModalBlank({
+  children,
+  id,
+  modalOpen,
+  setModalOpen,
+  closeOnClickOutside = true,
+  contentClassName,
+}) {
   const modalContent = useRef(null);
 
-  // close on click outside
+  // close on click outside (when enabled)
   useEffect(() => {
+    if (!closeOnClickOutside) return;
     const clickHandler = ({target}) => {
-      if (!modalOpen || modalContent.current.contains(target)) return;
+      if (!modalOpen) return;
+      if (modalContent.current?.contains(target)) return;
+      // Ignore clicks on detached nodes (e.g. dropdown options that unmount on select)
+      if (target && !document.body.contains(target)) return;
       setModalOpen(false);
     };
     document.addEventListener("click", clickHandler);
     return () => document.removeEventListener("click", clickHandler);
-  });
+  }, [modalOpen, closeOnClickOutside, setModalOpen]);
 
   // close if the esc key is pressed
   useEffect(() => {
@@ -22,7 +33,7 @@ function ModalBlank({children, id, modalOpen, setModalOpen}) {
     };
     document.addEventListener("keydown", keyHandler);
     return () => document.removeEventListener("keydown", keyHandler);
-  });
+  }, [modalOpen, setModalOpen]);
 
   return (
     <>
@@ -54,7 +65,7 @@ function ModalBlank({children, id, modalOpen, setModalOpen}) {
       >
         <div
           ref={modalContent}
-          className="bg-white dark:bg-gray-800 rounded-lg shadow-lg overflow-auto max-w-2xl w-full max-h-full"
+          className={`bg-white dark:bg-gray-800 rounded-lg shadow-lg overflow-auto w-full max-h-full ${contentClassName ?? "max-w-2xl"}`}
         >
           {children}
         </div>

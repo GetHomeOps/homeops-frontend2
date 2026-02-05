@@ -56,6 +56,7 @@
   "contactNamePlaceholder": "Enter contact name",
   "contactType": "Contact Type",
   "contactUpdatedSuccessfullyMessage": "Contact updated successfully",
+  "configure": "Configure",
   "country": "Country",
   "countryPlaceholder": "Enter country",
   "countryValidationErrorMessage": "Country is required",
@@ -291,5 +292,18 @@
   "selectContact": "Select Contact",
   "userDeleteConfirmationMessage": "Are you sure you want to delete this user?",
   "userNotFoundErrorMessage": "User not found",
-  "goToProperty": "Go to Property"
+  "goToProperty": "Go to Property",
+  "yourHomeOpsTeam": "Your HomeOps Team",
+  "pending": "Pending",
+  "active": "Active",
+  "Status": "Status",
+  "Role": "Role",
+  "Email": "Email",
+  "Name": "Name",
+  "healthStatus": "Health Status",
+  "propertyDeleteConfirmationMessage": "Are you sure you want to delete this property?",
+  "propertyCreatedSuccessfullyMessage": "Property created successfully",
+  "propertyUpdatedSuccessfullyMessage": "Property updated successfully",
+  "propertyCreateErrorMessage": "Failed to create property",
+  "id": "ID"
 }

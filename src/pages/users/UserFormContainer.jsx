@@ -166,7 +166,7 @@ function UsersFormContainer() {
   useEffect(() => {
     if (state.user) {
       const userData = {
-        name: state.user.name || state.user.fullName || "",
+        name: state.user.name || "",
         email: state.user.email || "",
         role:
           state.user.role === "super_admin" || state.user.role === "superAdmin"
@@ -403,13 +403,13 @@ function UsersFormContainer() {
   If new -> return 'New User' */
   function getPageTitle() {
     if (state.user) {
-      return state.user.name || state.user.fullName || "";
+      return state.user.name || "";
     }
     return t("newUser") || "New User";
   }
 
   const displayName =
-    state.user?.name || state.user?.fullName || getPageTitle();
+    state.user?.name || getPageTitle();
   const displayEmail = state.user?.email || "";
 
   const userImage =
@@ -508,7 +508,7 @@ function UsersFormContainer() {
     if (state.user) {
       // For existing users, reset to original user data
       const originalData = {
-        name: state.user.name || state.user.fullName || "",
+        name: state.user.name || "",
         email: state.user.email || "",
         phone: state.user.phone || "",
         role:
