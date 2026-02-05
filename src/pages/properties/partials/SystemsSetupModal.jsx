@@ -14,6 +14,8 @@ function SystemsSetupModal({
   selectedSystemIds = [],
   customSystems = [],
   isNewProperty = false,
+  /** When true, skip identity step and show only systems (e.g. Configure on existing property) */
+  skipIdentityStep = false,
   formData = {},
   onIdentityFieldsChange,
   onSave,
@@ -28,7 +30,8 @@ function SystemsSetupModal({
   );
   const [newCustomName, setNewCustomName] = useState("");
   const [showSuccess, setShowSuccess] = useState(false);
-  const [step, setStep] = useState(isNewProperty ? "identity" : "systems");
+  const showSystemsOnly = skipIdentityStep || !isNewProperty;
+  const [step, setStep] = useState(showSystemsOnly ? "systems" : "identity");
   const [identityFields, setIdentityFields] = useState({
     address: "",
     city: "",
@@ -39,7 +42,8 @@ function SystemsSetupModal({
 
   useEffect(() => {
     if (!modalOpen) return;
-    setStep(isNewProperty ? "identity" : "systems");
+    const systemsOnly = skipIdentityStep || !isNewProperty;
+    setStep(systemsOnly ? "systems" : "identity");
     setIdentityFields({
       address:
         formData?.address ||
@@ -66,7 +70,7 @@ function SystemsSetupModal({
     setNewCustomName("");
     setShowSuccess(false);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [modalOpen]);
+  }, [modalOpen, skipIdentityStep, isNewProperty]);
 
   const handleIdentityFieldChange = (key, value) => {
     setIdentityFields((prev) => ({...prev, [key]: value}));
@@ -165,8 +169,8 @@ function SystemsSetupModal({
           </>
         )}
 
-        {/* Step 1: Identity & Address (new properties only) */}
-        {step === "identity" && (
+        {/* Step 1: Identity & Address (new properties only — never show for existing) */}
+        {step === "identity" && isNewProperty && (
           <div className="space-y-8">
             {/* Setup header */}
             <div className="text-center pb-2">
@@ -302,8 +306,8 @@ function SystemsSetupModal({
           </div>
         )}
 
-        {/* Step 2: Property Systems */}
-        {step === "systems" && (
+        {/* Step 2: Property Systems (always shown for existing properties, or when user continues from identity) */}
+        {(step === "systems" || (step === "identity" && !isNewProperty)) && (
           <>
             <div className="flex items-center gap-3 mb-6">
               <div className="flex items-center justify-center w-12 h-12 rounded-xl bg-[#456564]/10 dark:bg-[#456564]/20">

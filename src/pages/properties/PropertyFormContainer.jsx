@@ -23,11 +23,21 @@ import SystemsSetupModal from "./partials/SystemsSetupModal";
 import SharePropertyModal from "./partials/SharePropertyModal";
 import {
   preparePropertyValues,
+  prepareIdentityForUpdate,
   prepareTeamForProperty,
   mapPropertyFromBackend,
 } from "./helpers/preparePropertyValues";
 import {mapSystemsFromBackend} from "./helpers/mapSystemsFromBackend";
 import {prepareSystemsForApi} from "./helpers/prepareSystemsForApi";
+import {
+  splitFormDataByTabs,
+  mergeFormDataFromTabs,
+  INITIAL_IDENTITY,
+  INITIAL_SYSTEMS,
+  SYSTEM_FIELD_NAMES,
+} from "./helpers/formDataByTabs";
+import {buildPropertyPayloadFromRefresh} from "./helpers/buildPropertyPayloadFromRefresh";
+import {formSystemsToArray} from "./helpers/formSystemsToArray";
 import {
   DEFAULT_SYSTEM_IDS,
   STANDARD_CUSTOM_SYSTEM_FIELDS,
@@ -61,36 +71,9 @@ import {useTranslation} from "react-i18next";
 import Transition from "../../utils/Transition";
 
 const initialFormData = {
-  id: null,
-  address: "",
-  city: "",
-  state: "",
-  zip: "",
-  price: null,
-  rooms: null,
-  bathrooms: null,
-  squareFeet: null,
-  yearBuilt: null,
-  hpsScore: 0,
-  healthScore: 0,
-  mainPhoto: "",
-  summary: "",
-  agentId: "",
-  homeownerIds: [],
-  teamMembers: [],
-  healthMetrics: {
-    documentsUploaded: {current: 0, total: 10},
-    systemsIdentified: {current: 0, total: 6},
-    maintenanceProfileSetup: {complete: false},
-  },
-  healthHighlights: [],
-  photos: [],
-  maintenanceHistory: [],
-  documents: [],
-  selectedSystemIds: [],
-  customSystemNames: [],
-  /** Field data for custom systems (keyed by system name). Each entry uses STANDARD_CUSTOM_SYSTEM_FIELDS. */
-  customSystemsData: {},
+  identity: {...INITIAL_IDENTITY},
+  systems: {...INITIAL_SYSTEMS},
+  maintenanceRecords: [],
 };
 
 const initialState = {
@@ -111,10 +94,61 @@ const initialState = {
 
 function reducer(state, action) {
   switch (action.type) {
-    case "SET_FORM_DATA":
+    case "SET_FORM_DATA": {
+      const p = action.payload ?? {};
+      const hasTabbed =
+        "identity" in p || "systems" in p || "maintenanceRecords" in p;
+      if (hasTabbed) {
+        return {
+          ...state,
+          formData: {
+            identity: {...state.formData.identity, ...(p.identity ?? {})},
+            systems: {...state.formData.systems, ...(p.systems ?? {})},
+            maintenanceRecords:
+              p.maintenanceRecords ?? state.formData.maintenanceRecords ?? [],
+          },
+          formDataChanged: !state.isInitialLoad,
+        };
+      }
+      const split = splitFormDataByTabs(p);
       return {
         ...state,
-        formData: {...state.formData, ...action.payload},
+        formData: {
+          identity: {...state.formData.identity, ...split.identity},
+          systems: {...state.formData.systems, ...split.systems},
+          maintenanceRecords:
+            split.maintenanceRecords.length > 0
+              ? split.maintenanceRecords
+              : state.formData.maintenanceRecords ?? [],
+        },
+        formDataChanged: !state.isInitialLoad,
+      };
+    }
+    case "SET_IDENTITY_FORM_DATA":
+      return {
+        ...state,
+        formData: {
+          ...state.formData,
+          identity: {...state.formData.identity, ...action.payload},
+        },
+        formDataChanged: !state.isInitialLoad,
+      };
+    case "SET_SYSTEMS_FORM_DATA":
+      return {
+        ...state,
+        formData: {
+          ...state.formData,
+          systems: {...state.formData.systems, ...action.payload},
+        },
+        formDataChanged: !state.isInitialLoad,
+      };
+    case "SET_MAINTENANCE_FORM_DATA":
+      return {
+        ...state,
+        formData: {
+          ...state.formData,
+          maintenanceRecords: action.payload ?? [],
+        },
         formDataChanged: !state.isInitialLoad,
       };
     case "SET_ERRORS":
@@ -127,16 +161,23 @@ function reducer(state, action) {
       };
     case "SET_SUBMITTING":
       return {...state, isSubmitting: action.payload};
-    case "SET_PROPERTY":
+    case "SET_PROPERTY": {
+      const payload = action.payload;
+      const nextFormData = payload
+        ? payload.identity && payload.systems
+          ? {...payload}
+          : splitFormDataByTabs(payload)
+        : {...initialFormData};
       return {
         ...state,
-        property: action.payload,
-        isNew: !action.payload,
-        formData: action.payload ? {...action.payload} : initialFormData,
+        property: payload,
+        isNew: !payload,
+        formData: nextFormData,
         formDataChanged: false,
         isInitialLoad: true,
         errors: {},
       };
+    }
     case "SET_SYSTEMS":
       return {...state, systems: action.payload ?? []};
     case "SET_ACTIVE_TAB":
@@ -194,6 +235,7 @@ function PropertyFormContainer() {
     updateProperty,
     updateTeam,
     getSystemsByPropertyId,
+    updateSystemsForProperty,
   } = useContext(PropertyContext);
   const {users} = useContext(UserContext);
   const {contacts} = useContext(ContactContext);
@@ -244,23 +286,56 @@ function PropertyFormContainer() {
     async function loadPropertyAndSystems() {
       if (uid === "new") return;
       const property = await getPropertyById(uid);
-      const systems = await getSystemsByPropertyId(property.id);
+      const systemsArr = await getSystemsByPropertyId(property.id);
+      const flat = mapPropertyFromBackend(property) ?? property;
+      const tabbed = splitFormDataByTabs(flat);
+      const fromSystems = mapSystemsFromBackend(systemsArr ?? []);
+      const selectedIdsFromBackend = (systemsArr ?? [])
+        .map((s) => s.system_key ?? s.systemKey)
+        .filter((k) => k && !k.startsWith("custom-"));
+      const customNamesFromBackend = Object.keys(
+        fromSystems.customSystemsData ?? {}
+      );
       dispatch({
         type: "SET_PROPERTY",
-        payload: mapPropertyFromBackend(property) ?? property,
+        payload: {
+          ...tabbed,
+          systems: {
+            ...tabbed.systems,
+            ...fromSystems,
+            selectedSystemIds:
+              selectedIdsFromBackend.length > 0
+                ? selectedIdsFromBackend
+                : tabbed.systems.selectedSystemIds ?? [],
+            customSystemNames:
+              customNamesFromBackend.length > 0
+                ? customNamesFromBackend
+                : tabbed.systems.customSystemNames ?? [],
+            customSystemsData:
+              fromSystems.customSystemsData ??
+              tabbed.systems.customSystemsData ??
+              {},
+          },
+        },
       });
-      dispatch({type: "SET_SYSTEMS", payload: systems ?? []});
+      dispatch({type: "SET_SYSTEMS", payload: systemsArr ?? []});
     }
     loadPropertyAndSystems();
   }, [uid]);
 
-  /* Reset form, team, and systems when navigating to new property */
+  /* Reset form when navigating TO new from another property (not on initial mount) */
+  const prevUidRef = useRef(null);
   useEffect(() => {
     if (uid === "new") {
-      dispatch({type: "SET_PROPERTY", payload: null});
-      dispatch({type: "SET_SYSTEMS", payload: []});
-      setHomeopsTeam([]);
+      const cameFromOtherProperty =
+        prevUidRef.current != null && prevUidRef.current !== "new";
+      if (cameFromOtherProperty) {
+        dispatch({type: "SET_PROPERTY", payload: null});
+        dispatch({type: "SET_SYSTEMS", payload: []});
+        setHomeopsTeam([]);
+      }
     }
+    prevUidRef.current = uid;
   }, [uid]);
 
   /* Handles the change of the main photo */
@@ -268,7 +343,7 @@ function PropertyFormContainer() {
     const file = e.target.files?.[0];
     if (!file) return;
     const url = URL.createObjectURL(file);
-    dispatch({type: "SET_FORM_DATA", payload: {mainPhoto: url}});
+    dispatch({type: "SET_IDENTITY_FORM_DATA", payload: {mainPhoto: url}});
     if (state.isInitialLoad) {
       dispatch({type: "SET_FORM_CHANGED", payload: true});
     }
@@ -301,10 +376,10 @@ function PropertyFormContainer() {
       const systemName = idx >= 0 ? rest.slice(0, idx) : rest;
       const fieldKey = idx >= 0 ? rest.slice(idx + sep.length) : "";
       if (systemName && fieldKey) {
-        const prev = state.formData.customSystemsData ?? {};
+        const prev = state.formData.systems?.customSystemsData ?? {};
         const prevSystem = prev[systemName] ?? {};
         dispatch({
-          type: "SET_FORM_DATA",
+          type: "SET_SYSTEMS_FORM_DATA",
           payload: {
             customSystemsData: {
               ...prev,
@@ -313,6 +388,14 @@ function PropertyFormContainer() {
           },
         });
       }
+      if (state.isInitialLoad) {
+        dispatch({type: "SET_FORM_CHANGED", payload: true});
+      }
+      return;
+    }
+    if (SYSTEM_FIELD_NAMES.has(name)) {
+      const processed = value;
+      dispatch({type: "SET_SYSTEMS_FORM_DATA", payload: {[name]: processed}});
       if (state.isInitialLoad) {
         dispatch({type: "SET_FORM_CHANGED", payload: true});
       }
@@ -330,7 +413,7 @@ function PropertyFormContainer() {
         ? null
         : Number(value)
       : value;
-    dispatch({type: "SET_FORM_DATA", payload: {[name]: processed}});
+    dispatch({type: "SET_IDENTITY_FORM_DATA", payload: {[name]: processed}});
     if (state.isInitialLoad) {
       dispatch({type: "SET_FORM_CHANGED", payload: true});
     }
@@ -343,7 +426,8 @@ function PropertyFormContainer() {
   /* Handles changes in systems section completion – updates healthMetrics for persistence */
   const handleSystemsCompletionChange = useCallback(
     (completedCount, totalCount) => {
-      const currentHealthMetrics = formDataRef.current?.healthMetrics ?? {};
+      const currentHealthMetrics =
+        formDataRef.current?.identity?.healthMetrics ?? {};
       const currentSystemsIdentified =
         currentHealthMetrics.systemsIdentified ?? {
           current: 0,
@@ -354,7 +438,7 @@ function PropertyFormContainer() {
         currentSystemsIdentified.total !== totalCount
       ) {
         dispatch({
-          type: "SET_FORM_DATA",
+          type: "SET_IDENTITY_FORM_DATA",
           payload: {
             healthMetrics: {
               ...currentHealthMetrics,
@@ -381,9 +465,9 @@ function PropertyFormContainer() {
   /* Handles the submission of the property (create) */
   async function handleSubmit(event) {
     event.preventDefault();
-    const fd = state.formData;
+    const identity = state.formData.identity ?? {};
     const missing = REQUIRED_IDENTITY_FIELDS.filter(({key}) => {
-      const v = fd[key];
+      const v = identity[key];
       return v == null || (typeof v === "string" && !v.trim());
     });
     if (missing.length > 0) {
@@ -407,7 +491,8 @@ function PropertyFormContainer() {
     dispatch({type: "SET_ERRORS", payload: {}});
     dispatch({type: "SET_SUBMITTING", payload: true});
     try {
-      const propertyData = preparePropertyValues({...state.formData});
+      const merged = mergeFormDataFromTabs(state.formData);
+      const propertyData = preparePropertyValues(merged);
       const res = await createProperty(propertyData);
       if (res) {
         const propertyId = res.id;
@@ -417,12 +502,10 @@ function PropertyFormContainer() {
             prepareTeamForProperty(homeopsTeam)
           );
         }
-        console.log("Res succesful: ", res);
         const systemsPayloads = prepareSystemsForApi(
-          state.formData,
+          state.formData.systems ?? {},
           propertyId
         );
-        console.log("systemsPayloads: ", systemsPayloads);
         await createSystemsForProperty(propertyId, systemsPayloads);
         const newUid = res.property_uid ?? res.id;
 
@@ -481,7 +564,7 @@ function PropertyFormContainer() {
 
   const handleCancelChanges = () => {
     if (state.property) {
-      dispatch({type: "SET_FORM_DATA", payload: {...state.property}});
+      dispatch({type: "SET_PROPERTY", payload: state.property});
       dispatch({type: "SET_FORM_CHANGED", payload: false});
     } else {
       dispatch({type: "SET_PROPERTY", payload: null});
@@ -491,9 +574,9 @@ function PropertyFormContainer() {
 
   async function handleUpdate(event) {
     event.preventDefault();
-    const fd = state.formData;
+    const identity = state.formData.identity ?? {};
     const missing = REQUIRED_IDENTITY_FIELDS.filter(({key}) => {
-      const v = fd[key];
+      const v = identity[key];
       return v == null || (typeof v === "string" && !v.trim());
     });
     if (missing.length > 0) {
@@ -517,18 +600,30 @@ function PropertyFormContainer() {
     dispatch({type: "SET_ERRORS", payload: {}});
     dispatch({type: "SET_SUBMITTING", payload: true});
     try {
+      const propertyId = state.property?.identity?.id ?? state.property?.id;
       const res = await updateProperty(
-        state.property.id,
-        preparePropertyValues({...state.formData})
+        propertyId,
+        prepareIdentityForUpdate(state.formData.identity ?? {})
       );
       if (res) {
         await updateTeam(res.id, prepareTeamForProperty(homeopsTeam));
+
+        const systemsArray = formSystemsToArray(
+          mergeFormDataFromTabs(state.formData) ?? {},
+          res.id
+        );
+        const newSystems = await updateSystemsForProperty(res.id, systemsArray);
+        console.log("New Systems: ", newSystems);
         const refreshed = await getPropertyById(uid);
-        const payload = refreshed ?? res;
         dispatch({
           type: "SET_PROPERTY",
-          payload: mapPropertyFromBackend(payload) ?? payload,
+          payload: buildPropertyPayloadFromRefresh(
+            refreshed,
+            newSystems ?? [],
+            res
+          ),
         });
+        dispatch({type: "SET_SYSTEMS", payload: newSystems ?? []});
         dispatch({type: "SET_FORM_CHANGED", payload: false});
         dispatch({
           type: "SET_BANNER",
@@ -593,14 +688,24 @@ function PropertyFormContainer() {
     };
   };
 
-  // Main card shows only saved data (empty placeholders until first save)
-  const cardData = state.property ?? initialFormData;
+  // Merged formData for components expecting flat structure
+  const mergedFormData = mergeFormDataFromTabs(state.formData);
+
+  // Card shows saved property data only; updates after load or save, not while typing
+  const cardData = state.property
+    ? mergeFormDataFromTabs(state.property)
+    : mergedFormData;
 
   // Systems to show in Systems tab: selected from modal, or defaults if none selected
   const visibleSystemIds =
-    (state.formData.selectedSystemIds?.length ?? 0) > 0
-      ? state.formData.selectedSystemIds
+    (state.formData.systems?.selectedSystemIds?.length ?? 0) > 0
+      ? state.formData.systems.selectedSystemIds
       : DEFAULT_SYSTEM_IDS;
+
+  // Array of systems for use when updating systems on the backend (camelCase, backend-ready)
+  const propertyId = state.property?.identity?.id ?? state.property?.id;
+  const systemsArray = formSystemsToArray(mergedFormData ?? {}, propertyId ?? 0);
+  console.log("systemsArray: ", systemsArray);
 
   return (
     <div className="px-4 sm:px-6 lg:px-1 pt-1">
@@ -609,14 +714,14 @@ function PropertyFormContainer() {
         setModalOpen={setShareModalOpen}
         propertyAddress={
           [
-            state.formData.address,
-            state.formData.city,
-            state.formData.state,
-            state.formData.zip,
+            state.formData.identity?.address,
+            state.formData.identity?.city,
+            state.formData.identity?.state,
+            state.formData.identity?.zip,
           ]
             .filter(Boolean)
             .join(", ") ||
-          state.formData.fullAddress ||
+          state.formData.identity?.fullAddress ||
           ""
         }
         users={users ?? []}
@@ -633,13 +738,14 @@ function PropertyFormContainer() {
       <SystemsSetupModal
         modalOpen={systemsSetupModalOpen}
         setModalOpen={setSystemsSetupModalOpen}
-        selectedSystemIds={state.formData.selectedSystemIds ?? []}
-        customSystems={state.formData.customSystemNames ?? []}
+        selectedSystemIds={state.formData.systems?.selectedSystemIds ?? []}
+        customSystems={state.formData.systems?.customSystemNames ?? []}
         isNewProperty={uid === "new"}
-        formData={state.formData}
+        skipIdentityStep={uid !== "new"}
+        formData={mergedFormData}
         onIdentityFieldsChange={(fields) => {
           dispatch({
-            type: "SET_FORM_DATA",
+            type: "SET_IDENTITY_FORM_DATA",
             payload: {
               address: fields.address,
               city: fields.city,
@@ -651,7 +757,7 @@ function PropertyFormContainer() {
         }}
         onSave={({selectedIds, customNames}) => {
           const names = customNames ?? [];
-          const prevData = state.formData.customSystemsData ?? {};
+          const prevData = state.formData.systems?.customSystemsData ?? {};
           const nextData = {};
           names.forEach((name) => {
             nextData[name] =
@@ -660,10 +766,13 @@ function PropertyFormContainer() {
                 STANDARD_CUSTOM_SYSTEM_FIELDS.map((f) => [f.key, ""])
               );
           });
+          const predefinedOnly = (selectedIds ?? []).filter(
+            (id) => !String(id).startsWith("custom-")
+          );
           dispatch({
-            type: "SET_FORM_DATA",
+            type: "SET_SYSTEMS_FORM_DATA",
             payload: {
-              selectedSystemIds: selectedIds,
+              selectedSystemIds: predefinedOnly,
               customSystemNames: names,
               customSystemsData: nextData,
             },
@@ -963,11 +1072,11 @@ function PropertyFormContainer() {
                     Health Score
                   </div>
                   <div className="text-sm font-semibold text-white">
-                    {state.formData.hpsScore ?? 0}/100
+                    {cardData.hpsScore ?? 0}/100
                   </div>
                 </div>
                 <CircularProgress
-                  percentage={state.formData.hpsScore ?? 0}
+                  percentage={cardData.hpsScore ?? 0}
                   size={68}
                   strokeWidth={5}
                 />
@@ -1130,7 +1239,7 @@ function PropertyFormContainer() {
         {/* HomeOps Team */}
         <HomeOpsTeam
           teamMembers={homeopsTeam}
-          propertyId={state.formData.id ?? uid ?? "new"}
+          propertyId={state.formData.identity?.id ?? uid ?? "new"}
           dbUrl={dbUrl}
           onTeamChange={handleTeamChange}
         />
@@ -1139,7 +1248,7 @@ function PropertyFormContainer() {
         <div className="space-y-8">
           {/* Property Health & Completeness */}
           <section className="bg-white dark:bg-gray-800 rounded-2xl shadow-sm border border-gray-200 dark:border-gray-700 p-5 md:p-6">
-            <ScoreCard propertyData={state.formData} />
+            <ScoreCard propertyData={cardData} />
           </section>
 
           {/* Navigation Tabs */}
@@ -1191,7 +1300,7 @@ function PropertyFormContainer() {
             <div className="p-6">
               {state.activeTab === "identity" && (
                 <IdentityTab
-                  propertyData={state.formData}
+                  propertyData={mergedFormData}
                   handleInputChange={handleChange}
                   errors={state.errors}
                 />
@@ -1199,31 +1308,11 @@ function PropertyFormContainer() {
 
               {state.activeTab === "systems" && (
                 <SystemsTab
-                  propertyData={(() => {
-                    const systemsFormData = mapSystemsFromBackend(
-                      state.systems
-                    );
-                    return {
-                      ...systemsFormData,
-                      ...state.formData,
-                      customSystemsData: {
-                        ...(systemsFormData.customSystemsData ?? {}),
-                        ...(state.formData.customSystemsData ?? {}),
-                      },
-                    };
-                  })()}
+                  propertyData={mergedFormData}
                   handleInputChange={handleChange}
                   visibleSystemIds={visibleSystemIds}
                   customSystemsData={
-                    (() => {
-                      const fromBackend =
-                        mapSystemsFromBackend(state.systems)
-                          .customSystemsData ?? {};
-                      return {
-                        ...fromBackend,
-                        ...(state.formData.customSystemsData ?? {}),
-                      };
-                    })()
+                    state.formData.systems?.customSystemsData ?? {}
                   }
                   onSystemsCompletionChange={handleSystemsCompletionChange}
                 />
@@ -1231,7 +1320,7 @@ function PropertyFormContainer() {
 
               {state.activeTab === "maintenance" && (
                 <MaintenanceTab
-                  propertyData={state.formData}
+                  propertyData={mergedFormData}
                   contacts={contacts ?? []}
                 />
               )}
@@ -1243,18 +1332,20 @@ function PropertyFormContainer() {
                       Media Content
                     </h3>
                     <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-                      {(state.formData.photos ?? []).map((photo, index) => (
-                        <div
-                          key={photo}
-                          className="relative overflow-hidden rounded-2xl h-48 bg-gray-100"
-                        >
-                          <img
-                            src={photo}
-                            alt={`Property photo ${index + 1}`}
-                            className="w-full h-full object-cover"
-                          />
-                        </div>
-                      ))}
+                      {(state.formData.identity?.photos ?? []).map(
+                        (photo, index) => (
+                          <div
+                            key={photo}
+                            className="relative overflow-hidden rounded-2xl h-48 bg-gray-100"
+                          >
+                            <img
+                              src={photo}
+                              alt={`Property photo ${index + 1}`}
+                              className="w-full h-full object-cover"
+                            />
+                          </div>
+                        )
+                      )}
                     </div>
                   </div>
                 </div>
@@ -1262,23 +1353,25 @@ function PropertyFormContainer() {
 
               {state.activeTab === "photos" && (
                 <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-                  {(state.formData.photos ?? []).map((photo, index) => (
-                    <div
-                      key={photo}
-                      className="relative overflow-hidden rounded-2xl h-48 bg-gray-100"
-                    >
-                      <img
-                        src={photo}
-                        alt={`Property photo ${index + 1}`}
-                        className="w-full h-full object-cover"
-                      />
-                    </div>
-                  ))}
+                  {(state.formData.identity?.photos ?? []).map(
+                    (photo, index) => (
+                      <div
+                        key={photo}
+                        className="relative overflow-hidden rounded-2xl h-48 bg-gray-100"
+                      >
+                        <img
+                          src={photo}
+                          alt={`Property photo ${index + 1}`}
+                          className="w-full h-full object-cover"
+                        />
+                      </div>
+                    )
+                  )}
                 </div>
               )}
 
               {state.activeTab === "documents" && (
-                <DocumentsTab propertyData={state.formData} />
+                <DocumentsTab propertyData={mergedFormData} />
               )}
             </div>
           </section>

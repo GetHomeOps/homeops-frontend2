@@ -15,6 +15,8 @@ export const SYSTEM_SECTIONS = {
       "roofAge",
       "roofCondition",
       "roofWarranty",
+      "roofLastInspection",
+      "roofNextInspection",
     ],
   },
   gutters: {
@@ -27,6 +29,8 @@ export const SYSTEM_SECTIONS = {
       "gutterAge",
       "gutterCondition",
       "gutterWarranty",
+      "gutterLastInspection",
+      "gutterNextInspection",
     ],
   },
   foundation: {
@@ -48,6 +52,8 @@ export const SYSTEM_SECTIONS = {
       "sidingInstaller",
       "sidingAge",
       "sidingCondition",
+      "sidingLastInspection",
+      "sidingNextInspection",
     ],
   },
   windows: {
@@ -60,6 +66,8 @@ export const SYSTEM_SECTIONS = {
       "windowAge",
       "windowCondition",
       "windowWarranty",
+      "windowLastInspection",
+      "windowNextInspection",
     ],
   },
   heating: {
@@ -72,6 +80,8 @@ export const SYSTEM_SECTIONS = {
       "heatingAge",
       "heatingCondition",
       "heatingWarranty",
+      "heatingLastInspection",
+      "heatingNextInspection",
     ],
   },
   ac: {
@@ -84,6 +94,8 @@ export const SYSTEM_SECTIONS = {
       "acAge",
       "acCondition",
       "acWarranty",
+      "acLastInspection",
+      "acNextInspection",
     ],
   },
   waterHeating: {
@@ -96,6 +108,8 @@ export const SYSTEM_SECTIONS = {
       "waterHeatingAge",
       "waterHeatingCondition",
       "waterHeatingWarranty",
+      "waterHeatingLastInspection",
+      "waterHeatingNextInspection",
     ],
   },
   electrical: {
@@ -108,6 +122,8 @@ export const SYSTEM_SECTIONS = {
       "electricalAge",
       "electricalCondition",
       "electricalWarranty",
+      "electricalLastInspection",
+      "electricalNextInspection",
     ],
   },
   plumbing: {
@@ -120,6 +136,8 @@ export const SYSTEM_SECTIONS = {
       "plumbingAge",
       "plumbingCondition",
       "plumbingWarranty",
+      "plumbingLastInspection",
+      "plumbingNextInspection",
     ],
   },
   safety: {

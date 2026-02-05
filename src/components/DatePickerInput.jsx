@@ -1,13 +1,26 @@
 import * as React from "react";
-import {format, parse, isValid} from "date-fns";
-import {Popover, PopoverContent, PopoverTrigger} from "./ui/popover";
-import {Calendar} from "./ui/calendar";
-import {cn} from "../lib/utils";
+import { format, parse, isValid, isSameDay } from "date-fns";
+import { Popover, PopoverContent, PopoverTrigger } from "./ui/popover";
+import { Calendar } from "./ui/calendar";
+import { cn } from "../lib/utils";
+
+/**
+ * Parse a date string (YYYY-MM-DD or ISO 8601) into a Date, or undefined if invalid.
+ */
+function parseDateValue(value) {
+  if (!value || typeof value !== "string") return undefined;
+  const trimmed = value.trim();
+  if (!trimmed) return undefined;
+  const parsed = parse(trimmed, "yyyy-MM-dd", new Date());
+  if (isValid(parsed)) return parsed;
+  const iso = new Date(trimmed);
+  return isValid(iso) ? iso : undefined;
+}
 
 /**
  * Date picker input that uses Popover + Calendar (react-day-picker).
- * Keeps the same input field appearance (form-input) but shows a styled calendar dropdown.
- * Value format: YYYY-MM-DD
+ * Value format: YYYY-MM-DD (accepts ISO strings for display).
+ * Select a date to set it; click the selected date again to clear.
  */
 export default function DatePickerInput({
   name,
@@ -20,13 +33,8 @@ export default function DatePickerInput({
 }) {
   const [open, setOpen] = React.useState(false);
 
-  const dateValue = React.useMemo(() => {
-    if (!value || typeof value !== "string") return undefined;
-    const parsed = parse(value, "yyyy-MM-dd", new Date());
-    return isValid(parsed) ? parsed : undefined;
-  }, [value]);
+  const dateValue = React.useMemo(() => parseDateValue(value), [value]);
 
-  // Display in dd/MM/yyyy format for user-friendly display
   const displayValue = React.useMemo(() => {
     if (!dateValue) return "";
     return format(dateValue, "dd/MM/yyyy");
@@ -34,8 +42,12 @@ export default function DatePickerInput({
 
   const handleSelect = (date) => {
     if (!date) return;
-    const formatted = format(date, "yyyy-MM-dd");
-    onChange?.({target: {name, value: formatted}});
+    // Click selected date again = clear
+    if (dateValue && isSameDay(date, dateValue)) {
+      onChange?.({ target: { name, value: "" } });
+    } else {
+      onChange?.({ target: { name, value: format(date, "yyyy-MM-dd") } });
+    }
     setOpen(false);
   };
 
@@ -90,7 +102,7 @@ export default function DatePickerInput({
           mode="single"
           selected={dateValue}
           onSelect={handleSelect}
-          defaultMonth={dateValue}
+          defaultMonth={dateValue ?? new Date()}
           initialFocus
           fixedWeeks
         />

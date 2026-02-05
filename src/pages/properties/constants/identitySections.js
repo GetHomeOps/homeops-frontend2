@@ -160,5 +160,5 @@ export function getSectionProgress(propertyData, section) {
     isFilled(getFieldValue(propertyData, key)),
   ).length;
   const percent = total > 0 ? (filled / total) * 100 : 0;
-  return {filled, total, percent};
+  return { filled, total, percent };
 }

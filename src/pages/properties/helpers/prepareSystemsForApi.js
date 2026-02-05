@@ -3,7 +3,16 @@ import { STANDARD_CUSTOM_SYSTEM_FIELDS } from "../constants/propertySystems";
 
 /** Fields that map to next_service_date per system */
 const NEXT_SERVICE_FIELD_BY_SYSTEM = {
+  roof: "roofNextInspection",
+  gutters: "gutterNextInspection",
   foundation: "foundationNextInspection",
+  exterior: "sidingNextInspection",
+  windows: "windowNextInspection",
+  heating: "heatingNextInspection",
+  ac: "acNextInspection",
+  waterHeating: "waterHeatingNextInspection",
+  electrical: "electricalNextInspection",
+  plumbing: "plumbingNextInspection",
 };
 
 /** Convert camelCase to snake_case */

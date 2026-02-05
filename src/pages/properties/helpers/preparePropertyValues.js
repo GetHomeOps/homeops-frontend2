@@ -4,6 +4,13 @@
  * Property id is a ULID assigned by the backend on create; do not send id when creating.
  */
 
+import {IDENTITY_SECTIONS} from "../constants/identitySections";
+
+/** Fields that appear on the Identity tab form - only these are sent on property update. */
+const IDENTITY_FORM_KEYS = new Set(
+  IDENTITY_SECTIONS.flatMap((s) => s.fields ?? [])
+);
+
 /** Identity/string fields the backend expects as strings (send "" instead of null). */
 const STRING_KEYS = new Set([
   "address",
@@ -34,7 +41,6 @@ const STRING_KEYS = new Set([
   "juniorHighSchool",
   "seniorHighSchool",
   "schoolDistrictWebsites",
-  "summary",
   "mainPhoto",
   "taxId",
   "parcelTaxId",
@@ -62,7 +68,6 @@ const INTEGER_KEYS = new Set([
   "garageSqFt",
   "totalDwellingSqFt",
   "hpsScore",
-  "healthScore",
   "price",
 ]);
 
@@ -150,10 +155,7 @@ const SNAKE_MAP = {
   expireDate: "expire_date",
   price: "price",
   hpsScore: "hps_score",
-  healthScore: "health_score",
   mainPhoto: "main_photo",
-  summary: "summary",
-  agentId: "agent_id",
   homeownerIds: "homeowner_ids",
   teamMembers: "team_members",
   healthMetrics: "health_metrics",
@@ -295,6 +297,15 @@ export function preparePropertyValues(propertyData) {
     // TODO: Include custom_systems_data (customSystemsData) in API payload when backend supports it
     if (key === "customSystemsData") continue;
 
+    // health_score is not a backend column; omit from payload
+    if (key === "healthScore") continue;
+
+    // summary is not a backend column; omit from payload
+    if (key === "summary") continue;
+
+    // agent_id is not a backend column; omit from payload
+    if (key === "agentId") continue;
+
     if (Array.isArray(value)) {
       out[snakeKey] = value;
       continue;
@@ -345,6 +356,23 @@ export function preparePropertyValues(propertyData) {
   }
 
   return out;
+}
+
+/**
+ * Prepares identity form data for property update API.
+ * Only includes fields that appear on the Identity tab form.
+ * @param {Object} identityData - Identity form data (state.formData.identity)
+ * @returns {Object} Payload suitable for API (snake_case, only identity tab fields)
+ */
+export function prepareIdentityForUpdate(identityData) {
+  if (!identityData || typeof identityData !== "object") return {};
+  const filtered = {};
+  for (const key of Object.keys(identityData)) {
+    if (IDENTITY_FORM_KEYS.has(key)) {
+      filtered[key] = identityData[key];
+    }
+  }
+  return preparePropertyValues(filtered);
 }
 
 /**

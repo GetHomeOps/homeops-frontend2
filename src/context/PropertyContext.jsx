@@ -146,6 +146,20 @@ export function PropertyProvider({children}) {
       systemsPayloads.map((payload) => AppApi.createSystem(payload))
     );
   }
+  /* Update systems for a property */
+  async function updateSystemsForProperty(propertyId, systems) {
+    if (!systems?.length) return;
+    try {
+      const res = await Promise.all(
+        systems.map((system) => AppApi.updateSystem(propertyId, system))
+      );
+      return res;
+    } catch (err) {
+      console.error("There was an error updating systems for property:", err);
+      throw err;
+    }
+  }
+
   /* Get all systems by property ID */
   async function getSystemsByPropertyId(propertyId) {
     console.log("Getting systems by property ID: ", propertyId);
@@ -203,6 +217,7 @@ export function PropertyProvider({children}) {
       getPropertyTeam,
       updateTeam,
       getSystemsByPropertyId,
+      updateSystemsForProperty,
     }),
     [properties, currentDb]
   );
