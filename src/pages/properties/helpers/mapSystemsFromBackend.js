@@ -141,10 +141,11 @@ function mapCustomSystemData(data, nextServiceDate) {
 export function mapSystemsFromBackend(systems) {
   if (!Array.isArray(systems) || systems.length === 0) return {};
 
+  const includedSystems = systems.filter((s) => s.included !== false);
   const flatFormKeys = {};
   const customSystemsData = {};
 
-  for (const sys of systems) {
+  for (const sys of includedSystems) {
     const id = sys.system_key ?? sys.systemKey;
     const data = sys.data ?? {};
     const nextService = sys.next_service_date ?? sys.nextServiceDate;

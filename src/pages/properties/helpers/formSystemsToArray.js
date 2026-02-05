@@ -1,8 +1,5 @@
 import {SYSTEM_SECTIONS} from "../constants/systemSections";
-import {
-  STANDARD_CUSTOM_SYSTEM_FIELDS,
-  DEFAULT_SYSTEM_IDS,
-} from "../constants/propertySystems";
+import {STANDARD_CUSTOM_SYSTEM_FIELDS} from "../constants/propertySystems";
 
 /** Fields that map to next_service_date per system */
 const NEXT_SERVICE_FIELD_BY_SYSTEM = {
@@ -142,32 +139,36 @@ function getCustomNextServiceDate(customSystemsData, systemName) {
 
 /**
  * Converts form data into an array of system payloads ready for PostgreSQL.
- * Each element has property_id, system_key, data (snake_case keys), and optional next_service_date.
+ * Each element has property_id, system_key, included, data (snake_case keys), and optional next_service_date.
+ * Deselected systems (in existingSystems but not in form selection) are included with included: false.
  *
  * @param {Object} formData - Merged form data (from mergeFormDataFromTabs). Next inspection fields
  *   (roofNextInspection, gutterNextInspection, etc.) live in the flat structure, not in systems.
  * @param {number} propertyId - Property ID for the backend
- * @returns {Array<{ property_id: number, system_key: string, data: Object, next_service_date?: string }>}
+ * @param {Array} [existingSystems] - Systems currently on the property (from backend). Used to add deselected systems with included: false.
+ * @returns {Array<{ property_id: number, system_key: string, included: boolean, data: Object, next_service_date?: string }>}
  */
-export function formSystemsToArray(formData, propertyId) {
+export function formSystemsToArray(formData, propertyId, existingSystems = []) {
   if (!formData || typeof formData !== "object") return [];
 
   const selectedIds = formData.selectedSystemIds ?? [];
   const customNames = formData.customSystemNames ?? [];
   const customData = formData.customSystemsData ?? {};
 
-  const visibleIds =
-    selectedIds.length > 0 ? selectedIds : DEFAULT_SYSTEM_IDS;
+  const selectedCustomKeys = new Set(
+    customNames.map((n) => slugifyCustomSystemName(n))
+  );
 
   const result = [];
 
-  for (const systemId of visibleIds) {
+  for (const systemId of selectedIds) {
     const data = getPredefinedSystemData(formData, systemId);
     const nextServiceDate = getNextServiceDate(formData, systemId);
 
     result.push({
       property_id: propertyId,
       system_key: systemId,
+      included: true,
       data: Object.keys(data).length > 0 ? data : {},
       ...(nextServiceDate && {next_service_date: nextServiceDate}),
     });
@@ -181,9 +182,27 @@ export function formSystemsToArray(formData, propertyId) {
     result.push({
       property_id: propertyId,
       system_key: systemKey,
+      included: true,
       data: Object.keys(data).length > 0 ? data : {},
       ...(nextServiceDate && {next_service_date: nextServiceDate}),
     });
+  }
+
+  for (const sys of existingSystems ?? []) {
+    const key = sys.system_key ?? sys.systemKey;
+    if (!key) continue;
+    const isPredefined = !key.startsWith("custom-");
+    const isSelected = isPredefined
+      ? selectedIds.includes(key)
+      : selectedCustomKeys.has(key);
+    if (!isSelected) {
+      result.push({
+        property_id: propertyId,
+        system_key: key,
+        included: false,
+        data: {},
+      });
+    }
   }
 
   return result;

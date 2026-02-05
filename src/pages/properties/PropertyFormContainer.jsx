@@ -38,10 +38,7 @@ import {
 } from "./helpers/formDataByTabs";
 import {buildPropertyPayloadFromRefresh} from "./helpers/buildPropertyPayloadFromRefresh";
 import {formSystemsToArray} from "./helpers/formSystemsToArray";
-import {
-  DEFAULT_SYSTEM_IDS,
-  STANDARD_CUSTOM_SYSTEM_FIELDS,
-} from "./constants/propertySystems";
+import {STANDARD_CUSTOM_SYSTEM_FIELDS} from "./constants/propertySystems";
 import Banner from "../../partials/containers/Banner";
 import {useAutoCloseBanner} from "../../hooks/useAutoCloseBanner";
 import {
@@ -287,10 +284,13 @@ function PropertyFormContainer() {
       if (uid === "new") return;
       const property = await getPropertyById(uid);
       const systemsArr = await getSystemsByPropertyId(property.id);
+      const includedSystems = (systemsArr ?? []).filter(
+        (s) => s.included !== false
+      );
       const flat = mapPropertyFromBackend(property) ?? property;
       const tabbed = splitFormDataByTabs(flat);
-      const fromSystems = mapSystemsFromBackend(systemsArr ?? []);
-      const selectedIdsFromBackend = (systemsArr ?? [])
+      const fromSystems = mapSystemsFromBackend(includedSystems);
+      const selectedIdsFromBackend = includedSystems
         .map((s) => s.system_key ?? s.systemKey)
         .filter((k) => k && !k.startsWith("custom-"));
       const customNamesFromBackend = Object.keys(
@@ -610,20 +610,21 @@ function PropertyFormContainer() {
 
         const systemsArray = formSystemsToArray(
           mergeFormDataFromTabs(state.formData) ?? {},
-          res.id
+          res.id,
+          state.systems ?? []
         );
-        const newSystems = await updateSystemsForProperty(res.id, systemsArray);
-        console.log("New Systems: ", newSystems);
+        await updateSystemsForProperty(res.id, systemsArray);
         const refreshed = await getPropertyById(uid);
+        const systemsFromBackend = await getSystemsByPropertyId(res.id);
         dispatch({
           type: "SET_PROPERTY",
           payload: buildPropertyPayloadFromRefresh(
             refreshed,
-            newSystems ?? [],
+            systemsFromBackend ?? [],
             res
           ),
         });
-        dispatch({type: "SET_SYSTEMS", payload: newSystems ?? []});
+        dispatch({type: "SET_SYSTEMS", payload: systemsFromBackend ?? []});
         dispatch({type: "SET_FORM_CHANGED", payload: false});
         dispatch({
           type: "SET_BANNER",
@@ -696,15 +697,17 @@ function PropertyFormContainer() {
     ? mergeFormDataFromTabs(state.property)
     : mergedFormData;
 
-  // Systems to show in Systems tab: selected from modal, or defaults if none selected
+  // Systems to show in Systems tab: only those with included=true (from modal selection)
   const visibleSystemIds =
-    (state.formData.systems?.selectedSystemIds?.length ?? 0) > 0
-      ? state.formData.systems.selectedSystemIds
-      : DEFAULT_SYSTEM_IDS;
+    state.formData.systems?.selectedSystemIds ?? [];
 
   // Array of systems for use when updating systems on the backend (camelCase, backend-ready)
   const propertyId = state.property?.identity?.id ?? state.property?.id;
-  const systemsArray = formSystemsToArray(mergedFormData ?? {}, propertyId ?? 0);
+  const systemsArray = formSystemsToArray(
+    mergedFormData ?? {},
+    propertyId ?? 0,
+    state.systems ?? []
+  );
   console.log("systemsArray: ", systemsArray);
 
   return (
@@ -777,6 +780,7 @@ function PropertyFormContainer() {
               customSystemsData: nextData,
             },
           });
+          dispatch({type: "SET_FORM_CHANGED", payload: true});
         }}
       />
       <div className="fixed top-18 right-0 w-auto sm:w-full z-50">

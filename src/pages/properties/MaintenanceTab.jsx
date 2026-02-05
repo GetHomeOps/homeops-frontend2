@@ -1,10 +1,7 @@
 import React, {useState, useCallback, useEffect} from "react";
 import {Settings, PanelLeftClose, ChevronRight, Menu} from "lucide-react";
 import {useParams} from "react-router-dom";
-import {
-  PROPERTY_SYSTEMS,
-  DEFAULT_SYSTEM_IDS,
-} from "./constants/propertySystems";
+import {PROPERTY_SYSTEMS} from "./constants/propertySystems";
 import {
   MaintenanceTreeView,
   MaintenanceFormPanel,
@@ -39,11 +36,8 @@ function MaintenanceTab({propertyData, handleInputChange, contacts = []}) {
     return () => document.removeEventListener("keydown", handleKeydown);
   }, [sidebarOpen]);
 
-  // Determine visible systems
-  const visibleSystemIds =
-    (propertyData.selectedSystemIds?.length ?? 0) > 0
-      ? propertyData.selectedSystemIds
-      : DEFAULT_SYSTEM_IDS;
+  // Determine visible systems: only those with included=true (from modal selection)
+  const visibleSystemIds = propertyData.selectedSystemIds ?? [];
   const customSystemNames = propertyData.customSystemNames ?? [];
 
   const systemsToShow = [

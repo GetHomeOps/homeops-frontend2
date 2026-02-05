@@ -4,7 +4,6 @@ import ModalBlank from "../../../components/ModalBlank";
 import {
   PROPERTY_SYSTEMS,
   STANDARD_CUSTOM_SYSTEM_FIELDS,
-  DEFAULT_SYSTEM_IDS,
 } from "../constants/propertySystems";
 import {usStates} from "../../../data/states";
 
@@ -20,8 +19,7 @@ function SystemsSetupModal({
   onIdentityFieldsChange,
   onSave,
 }) {
-  const initialIds =
-    selectedSystemIds?.length > 0 ? selectedSystemIds : DEFAULT_SYSTEM_IDS;
+  const initialIds = selectedSystemIds ?? [];
   const [selected, setSelected] = useState(new Set(initialIds));
   const [custom, setCustom] = useState(
     customSystems.length
@@ -57,11 +55,7 @@ function SystemsSetupModal({
       zip: formData?.zip ?? "",
       county: formData?.county ?? "",
     });
-    setSelected(
-      new Set(
-        selectedSystemIds?.length > 0 ? selectedSystemIds : DEFAULT_SYSTEM_IDS
-      )
-    );
+    setSelected(new Set(selectedSystemIds ?? []));
     setCustom(
       customSystems.length
         ? customSystems.map((n) => ({id: `custom-${n}`, name: n}))

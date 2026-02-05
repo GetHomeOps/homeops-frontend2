@@ -133,6 +133,7 @@ export function prepareSystemsForApi(formData, propertyId) {
     systems.push({
       property_id: propertyId,
       system_key: systemId,
+      included: true,
       data: Object.keys(data).length > 0 ? data : {},
       ...(nextServiceDate && { next_service_date: nextServiceDate }),
     });
@@ -146,6 +147,7 @@ export function prepareSystemsForApi(formData, propertyId) {
     systems.push({
       property_id: propertyId,
       system_key: systemKey,
+      included: true,
       data: Object.keys(data).length > 0 ? data : {},
       ...(nextServiceDate && { next_service_date: nextServiceDate }),
     });

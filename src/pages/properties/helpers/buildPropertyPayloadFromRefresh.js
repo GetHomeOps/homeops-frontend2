@@ -15,8 +15,11 @@ export function buildPropertyPayloadFromRefresh(refreshed, systemsArr, res) {
   const flat =
     mapPropertyFromBackend(refreshed ?? res) ?? refreshed ?? res;
   const tabbed = splitFormDataByTabs(flat);
-  const fromSystems = mapSystemsFromBackend(systemsArr ?? []);
-  const selectedIdsFromBackend = (systemsArr ?? [])
+  const includedSystems = (systemsArr ?? []).filter(
+    (s) => s.included !== false
+  );
+  const fromSystems = mapSystemsFromBackend(includedSystems);
+  const selectedIdsFromBackend = includedSystems
     .map((s) => s.system_key ?? s.systemKey)
     .filter((k) => k && !k.startsWith("custom-"));
   const customNamesFromBackend = Object.keys(
