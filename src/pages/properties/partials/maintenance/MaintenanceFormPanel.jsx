@@ -17,6 +17,7 @@ import {
   ExternalLink,
   Trash2,
   Save,
+  Plus,
 } from "lucide-react";
 import DatePickerInput from "../../../../components/DatePickerInput";
 import InstallerSelect from "../InstallerSelect";
@@ -167,13 +168,13 @@ function MaintenanceFormPanel({
       (!formData.contractorEmail && !formData.contractorPhone)
     ) {
       alert(
-        "Please provide contractor name and at least one contact method (email or phone) before submitting a request."
+        "Please provide contractor name and at least one contact method (email or phone) before submitting a request.",
       );
       return;
     }
     setRequestStatus("pending");
     alert(
-      "Request submitted to contractor. They will be notified to fill out the maintenance report."
+      "Request submitted to contractor. They will be notified to fill out the maintenance report.",
     );
   };
 
@@ -215,7 +216,7 @@ function MaintenanceFormPanel({
           </p>
         </div>
         <div className="flex items-center gap-2">
-          {onOpenInNewTab && systemId && (
+          {onOpenInNewTab && systemId && record && (
             <button
               type="button"
               onClick={handleOpenInNewTab}
@@ -296,7 +297,38 @@ function MaintenanceFormPanel({
         )}
 
         <form onSubmit={handleSubmit} className="p-6 space-y-6">
-          {/* Contractor Information - moved to top */}
+          {/* Work Order & Date - at top */}
+          <div className="pb-6 border-b border-gray-200 dark:border-gray-700">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div>
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                  <FileCheck className="w-4 h-4 inline mr-2" />
+                  Work Order #
+                </label>
+                <input
+                  type="text"
+                  name="workOrderNumber"
+                  value={formData.workOrderNumber}
+                  onChange={handleInputChange}
+                  placeholder="Optional work order reference"
+                  className="form-input w-full"
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                  <Calendar className="w-4 h-4 inline mr-2" />
+                  Date <span className="text-red-500">*</span>
+                </label>
+                <DatePickerInput
+                  name="date"
+                  value={formData.date}
+                  onChange={handleInputChange}
+                />
+              </div>
+            </div>
+          </div>
+
+          {/* Contractor Information */}
           <div className="pb-6 border-b border-gray-200 dark:border-gray-700">
             <h3 className="text-base font-semibold text-gray-900 dark:text-white mb-4">
               Contractor Information
@@ -348,22 +380,8 @@ function MaintenanceFormPanel({
             </div>
           </div>
 
-          {/* Work Order & Priority */}
+          {/* Priority & Status */}
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <div>
-              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                <FileCheck className="w-4 h-4 inline mr-2" />
-                Work Order #
-              </label>
-              <input
-                type="text"
-                name="workOrderNumber"
-                value={formData.workOrderNumber}
-                onChange={handleInputChange}
-                placeholder="Optional work order reference"
-                className="form-input w-full"
-              />
-            </div>
             <div>
               <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
                 <AlertCircle className="w-4 h-4 inline mr-2" />
@@ -380,21 +398,6 @@ function MaintenanceFormPanel({
                 <option value="High">High</option>
                 <option value="Emergency">Emergency</option>
               </select>
-            </div>
-          </div>
-
-          {/* Date & Status */}
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <div>
-              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                <Calendar className="w-4 h-4 inline mr-2" />
-                Date <span className="text-red-500">*</span>
-              </label>
-              <DatePickerInput
-                name="date"
-                value={formData.date}
-                onChange={handleInputChange}
-              />
             </div>
             <div>
               <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
@@ -437,13 +440,12 @@ function MaintenanceFormPanel({
           <div>
             <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
               <FileText className="w-4 h-4 inline mr-2" />
-              Work Description <span className="text-red-500">*</span>
+              Work Description
             </label>
             <textarea
               name="description"
               value={formData.description}
               onChange={handleInputChange}
-              required
               rows={4}
               placeholder="Describe the maintenance work performed, issues found, and actions taken..."
               className="form-input w-full"
@@ -583,16 +585,16 @@ function MaintenanceFormPanel({
           onClick={handleSubmit}
           disabled={!formData.date?.trim()}
           className="btn text-white flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
-          style={{backgroundColor: "#456654"}}
+          style={{backgroundColor: "#6b9a7a"}}
           onMouseEnter={(e) => {
-            if (!e.target.disabled) e.target.style.backgroundColor = "#3a5548";
+            if (!e.target.disabled) e.target.style.backgroundColor = "#5a8a6a";
           }}
           onMouseLeave={(e) => {
-            e.target.style.backgroundColor = "#456654";
+            e.target.style.backgroundColor = "#6b9a7a";
           }}
         >
-          <Save className="w-4 h-4" />
-          {record ? "Update" : "Save"} Record
+          {record ? <Save className="w-4 h-4" /> : <Plus className="w-4 h-4" />}
+          {record ? "Update" : "Add"}
         </button>
       </div>
     </div>

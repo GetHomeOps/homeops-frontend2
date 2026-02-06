@@ -281,6 +281,25 @@ class AppApi {
     return res.systems;
   }
 
+  /* --------- Maintenance Records --------- */
+  /* Create a new maintenance record */
+  static async createMaintenanceRecord(data) {
+    let res = await this.request(`maintenance`, data, 'POST');
+    return res.maintenance;
+  }
+
+  /* Update a maintenance record */
+  static async updateMaintenanceRecord(id, data) {
+    let res = await this.request(`maintenance/${id}`, data, 'PATCH');
+    return res.maintenance;
+  }
+
+  /* Get all maintenance records by property ID */
+  static async getMaintenanceRecordsByPropertyId(propertyId) {
+    console.log("Getting maintenance records by property ID: ", propertyId);
+    let res = await this.request(`maintenance/property/${propertyId}`);
+    return res.maintenance;
+  }
 }
 
 export default AppApi;

@@ -43,7 +43,10 @@ function ScoreCard({propertyData}) {
   const customSystemNames = propertyData.customSystemNames ?? [];
   const systemItems = [
     ...PROPERTY_SYSTEMS.filter((s) => visibleSystemIds.includes(s.id)),
-    ...customSystemNames.map((name) => ({id: `custom-${name}`, name})),
+    ...customSystemNames.map((name, index) => ({
+      id: `custom-${name}-${index}`,
+      name,
+    })),
   ];
   const currentSystems = useMemo(
     () =>

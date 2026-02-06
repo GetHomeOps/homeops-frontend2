@@ -1,5 +1,10 @@
 import { SYSTEM_SECTIONS } from "../constants/systemSections";
 import { STANDARD_CUSTOM_SYSTEM_FIELDS } from "../constants/propertySystems";
+import {
+  slugifyCustomSystemName,
+  ensureUniqueSystemKey,
+  MAX_SYSTEM_KEY_LENGTH,
+} from "./systemKeyUtils";
 
 /** Fields that map to next_service_date per system */
 const NEXT_SERVICE_FIELD_BY_SYSTEM = {
@@ -103,14 +108,6 @@ function getCustomNextServiceDate(customSystemsData, systemName) {
 }
 
 /**
- * Create a URL-safe slug from a custom system name.
- */
-function slugifyCustomSystemName(name) {
-  if (!name || typeof name !== "string") return "custom-unknown";
-  return "custom-" + name.toLowerCase().replace(/\s+/g, "-").replace(/[^a-z0-9-]/g, "");
-}
-
-/**
  * Build array of system payloads for the property_systems API.
  * Each payload: { property_id, system_key, data, next_service_date? }
  *
@@ -123,16 +120,21 @@ export function prepareSystemsForApi(formData, propertyId) {
   const selectedIds = formData.selectedSystemIds ?? [];
   const customNames = formData.customSystemNames ?? [];
   const customData = formData.customSystemsData ?? {};
+  const usedKeys = new Set();
 
   const visibleIds = selectedIds.length > 0 ? selectedIds : ["roof", "gutters", "heating", "ac", "electrical", "plumbing"];
 
   for (const systemId of visibleIds) {
     const data = buildPredefinedSystemData(formData, systemId);
     const nextServiceDate = getNextServiceDate(formData, systemId);
+    const systemKey = ensureUniqueSystemKey(
+      systemId.slice(0, MAX_SYSTEM_KEY_LENGTH),
+      usedKeys
+    );
 
     systems.push({
       property_id: propertyId,
-      system_key: systemId,
+      system_key: systemKey,
       included: true,
       data: Object.keys(data).length > 0 ? data : {},
       ...(nextServiceDate && { next_service_date: nextServiceDate }),
@@ -142,7 +144,10 @@ export function prepareSystemsForApi(formData, propertyId) {
   for (const systemName of customNames) {
     const data = buildCustomSystemData(customData, systemName);
     const nextServiceDate = getCustomNextServiceDate(customData, systemName);
-    const systemKey = slugifyCustomSystemName(systemName);
+    const systemKey = ensureUniqueSystemKey(
+      slugifyCustomSystemName(systemName),
+      usedKeys
+    );
 
     systems.push({
       property_id: propertyId,

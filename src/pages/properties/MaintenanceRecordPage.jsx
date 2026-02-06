@@ -50,7 +50,7 @@ function MaintenanceRecordPage() {
           propertyData?.maintenanceHistory
         ) {
           const existingRecord = propertyData.maintenanceHistory.find(
-            (r) => r.id === recordId
+            (r) => r.id === recordId,
           );
           setRecord(existingRecord || null);
         } else {
@@ -85,7 +85,7 @@ function MaintenanceRecordPage() {
       // Update the property's maintenance history
       const updatedHistory = [...(property?.maintenanceHistory || [])];
       const existingIndex = updatedHistory.findIndex(
-        (r) => r.id === recordData.id
+        (r) => r.id === recordData.id,
       );
 
       if (existingIndex >= 0) {
@@ -119,7 +119,7 @@ function MaintenanceRecordPage() {
   const handleDelete = async (deleteRecordId) => {
     if (
       !window.confirm(
-        "Are you sure you want to delete this maintenance record?"
+        "Are you sure you want to delete this maintenance record?",
       )
     ) {
       return;
@@ -127,7 +127,7 @@ function MaintenanceRecordPage() {
 
     try {
       const updatedHistory = (property?.maintenanceHistory || []).filter(
-        (r) => r.id !== deleteRecordId
+        (r) => r.id !== deleteRecordId,
       );
 
       if (updateProperty) {
@@ -176,7 +176,7 @@ function MaintenanceRecordPage() {
         <Header sidebarOpen={sidebarOpen} setSidebarOpen={setSidebarOpen} />
 
         <main className="grow">
-          <div className="px-4 sm:px-6 lg:px-8 py-8 w-full max-w-4xl mx-auto">
+          <div className="px-4 sm:px-6 lg:px-6 py-8 w-full max-w-6xl mx-auto">
             {/* Breadcrumb / Navigation */}
             <div className="mb-6">
               <div className="flex items-center gap-4 mb-4">

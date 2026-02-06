@@ -9,10 +9,11 @@ const PropertyContext = createContext();
 /* Context for Properties */
 export function PropertyProvider({children}) {
   const [properties, setProperties] = useState([]);
+  const [maintenanceRecords, setMaintenanceRecords] = useState([]);
   const [selectedItems, setSelectedItems] = useState([]);
   const [viewMode, setViewMode] = useLocalStorage(
     "properties-view-mode",
-    "list"
+    "list",
   );
   const {currentUser, isLoading} = useAuth();
   const {currentDb} = useCurrentDb();
@@ -27,7 +28,7 @@ export function PropertyProvider({children}) {
       } else {
         if (currentDb?.id) {
           fetchedProperties = await AppApi.getPropertiesByUserId(
-            currentUser.id
+            currentUser.id,
           );
         }
       }
@@ -118,8 +119,8 @@ export function PropertyProvider({children}) {
       const res = await AppApi.updateProperty(propertyId, propertyData);
       setProperties((prevProperties) =>
         prevProperties.map((property) =>
-          property.id === propertyId ? res : property
-        )
+          property.id === propertyId ? res : property,
+        ),
       );
       return res;
     } catch (err) {
@@ -138,12 +139,13 @@ export function PropertyProvider({children}) {
       throw err;
     }
   }
+  /* --------- Systems --------- */
 
   /* Create systems for a property (used after createProperty) */
   async function createSystemsForProperty(propertyId, systemsPayloads) {
     if (!systemsPayloads?.length) return;
     await Promise.all(
-      systemsPayloads.map((payload) => AppApi.createSystem(payload))
+      systemsPayloads.map((payload) => AppApi.createSystem(payload)),
     );
   }
   /* Update systems for a property */
@@ -151,7 +153,7 @@ export function PropertyProvider({children}) {
     if (!systems?.length) return;
     try {
       const res = await Promise.all(
-        systems.map((system) => AppApi.updateSystem(propertyId, system))
+        systems.map((system) => AppApi.updateSystem(propertyId, system)),
       );
       return res;
     } catch (err) {
@@ -162,10 +164,8 @@ export function PropertyProvider({children}) {
 
   /* Get all systems by property ID */
   async function getSystemsByPropertyId(propertyId) {
-    console.log("Getting systems by property ID: ", propertyId);
     try {
       const res = await AppApi.getSystemsByPropertyId(propertyId);
-      console.log("Systems by property ID: ", res);
       return res;
     } catch (err) {
       console.error("There was an error getting systems by property ID:", err);
@@ -178,7 +178,7 @@ export function PropertyProvider({children}) {
     try {
       const res = await AppApi.deleteProperty(propertyId);
       setProperties((prevProperties) =>
-        prevProperties.filter((property) => property.id !== propertyId)
+        prevProperties.filter((property) => property.id !== propertyId),
       );
       return res;
     } catch (err) {
@@ -194,6 +194,44 @@ export function PropertyProvider({children}) {
       return res;
     } catch (err) {
       console.error("There was an error getting property team:", err);
+      throw err;
+    }
+  }
+
+  /* --------- Maintenance Records --------- */
+
+  /* Create a new maintenance record */
+  async function createMaintenanceRecord(data) {
+    try {
+      const res = await AppApi.createMaintenanceRecord(data);
+      return res;
+    } catch (err) {
+      console.error("There was an error creating maintenance record:", err);
+      throw err;
+    }
+  }
+
+  /* Update a maintenance record */
+  async function updateMaintenanceRecord(id, data) {
+    try {
+      const res = await AppApi.updateMaintenanceRecord(id, data);
+      return res;
+    } catch (err) {
+      console.error("There was an error updating maintenance record:", err);
+      throw err;
+    }
+  }
+
+  /*  Get all maintenance records by property ID */
+  async function getMaintenanceRecordsByPropertyId(propertyId) {
+    try {
+      const res = await AppApi.getMaintenanceRecordsByPropertyId(propertyId);
+      return res;
+    } catch (err) {
+      console.error(
+        "There was an error getting maintenance records by property ID:",
+        err,
+      );
       throw err;
     }
   }
@@ -218,8 +256,13 @@ export function PropertyProvider({children}) {
       updateTeam,
       getSystemsByPropertyId,
       updateSystemsForProperty,
+      createMaintenanceRecord,
+      updateMaintenanceRecord,
+      getMaintenanceRecordsByPropertyId,
+      maintenanceRecords,
+      setMaintenanceRecords,
     }),
-    [properties, currentDb]
+    [properties, currentDb],
   );
 
   return (

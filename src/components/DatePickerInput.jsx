@@ -1,8 +1,9 @@
 import * as React from "react";
-import { format, parse, isValid, isSameDay } from "date-fns";
-import { Popover, PopoverContent, PopoverTrigger } from "./ui/popover";
-import { Calendar } from "./ui/calendar";
-import { cn } from "../lib/utils";
+import {format, parse, isValid, isSameDay} from "date-fns";
+import {X} from "lucide-react";
+import {Popover, PopoverContent, PopoverTrigger} from "./ui/popover";
+import {Calendar} from "./ui/calendar";
+import {cn} from "../lib/utils";
 
 /**
  * Parse a date string (YYYY-MM-DD or ISO 8601) into a Date, or undefined if invalid.
@@ -44,11 +45,17 @@ export default function DatePickerInput({
     if (!date) return;
     // Click selected date again = clear
     if (dateValue && isSameDay(date, dateValue)) {
-      onChange?.({ target: { name, value: "" } });
+      onChange?.({target: {name, value: ""}});
     } else {
-      onChange?.({ target: { name, value: format(date, "yyyy-MM-dd") } });
+      onChange?.({target: {name, value: format(date, "yyyy-MM-dd")}});
     }
     setOpen(false);
+  };
+
+  const handleClear = (e) => {
+    e.stopPropagation();
+    e.preventDefault();
+    onChange?.({target: {name, value: ""}});
   };
 
   return (
@@ -62,7 +69,7 @@ export default function DatePickerInput({
             "relative",
             disabled
               ? "cursor-not-allowed opacity-60 pointer-events-none"
-              : "cursor-pointer"
+              : "cursor-pointer",
           )}
         >
           <input
@@ -75,20 +82,31 @@ export default function DatePickerInput({
             className={cn(
               "form-input w-full pr-9",
               disabled && "cursor-not-allowed",
-              className
+              className,
             )}
             style={props.style}
             aria-expanded={open}
           />
-          <svg
-            className="pointer-events-none absolute right-3 top-1/2 h-4 w-4 -translate-y-1/2 fill-current text-gray-400 dark:text-gray-500"
-            width="16"
-            height="16"
-            viewBox="0 0 16 16"
-          >
-            <path d="M5 4a1 1 0 0 0 0 2h6a1 1 0 1 0 0-2H5Z" />
-            <path d="M4 0a4 4 0 0 0-4 4v8a4 4 0 0 0 4 4h8a4 4 0 0 0 4-4V4a4 4 0 0 0-4-4H4ZM2 4a2 2 0 0 1 2-2h8a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V4Z" />
-          </svg>
+          {dateValue && !disabled ? (
+            <button
+              type="button"
+              onClick={handleClear}
+              className="absolute right-3 top-1/2 -translate-y-1/2 p-0.5 rounded text-gray-400 hover:text-gray-600 hover:bg-gray-100 dark:text-gray-500 dark:hover:text-gray-300 dark:hover:bg-gray-700 transition-colors"
+              aria-label="Clear date"
+            >
+              <X className="h-4 w-4" />
+            </button>
+          ) : (
+            <svg
+              className="pointer-events-none absolute right-3 top-1/2 h-4 w-4 -translate-y-1/2 fill-current text-gray-400 dark:text-gray-500"
+              width="16"
+              height="16"
+              viewBox="0 0 16 16"
+            >
+              <path d="M5 4a1 1 0 0 0 0 2h6a1 1 0 1 0 0-2H5Z" />
+              <path d="M4 0a4 4 0 0 0-4 4v8a4 4 0 0 0 4 4h8a4 4 0 0 0 4-4V4a4 4 0 0 0-4-4H4ZM2 4a2 2 0 0 1 2-2h8a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V4Z" />
+            </svg>
+          )}
         </div>
       </PopoverTrigger>
       <PopoverContent

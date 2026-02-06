@@ -1,4 +1,4 @@
-import React, {useState, useCallback, useEffect} from "react";
+import React, {useState, useCallback, useEffect, useMemo} from "react";
 import {Settings, PanelLeftClose, ChevronRight, Menu} from "lucide-react";
 import {useParams} from "react-router-dom";
 import {PROPERTY_SYSTEMS} from "./constants/propertySystems";
@@ -16,7 +16,13 @@ import {
  * - Filtering and search by status, date, text
  * - "Open in New Tab" functionality for working with external references
  */
-function MaintenanceTab({propertyData, handleInputChange, contacts = []}) {
+function MaintenanceTab({
+  propertyData,
+  maintenanceRecords: maintenanceRecordsArray = [],
+  onMaintenanceRecordsChange,
+  onMaintenanceRecordAdded,
+  contacts = [],
+}) {
   const {uid: propertyId, dbUrl} = useParams();
 
   const [selectedRecord, setSelectedRecord] = useState(null);
@@ -42,25 +48,27 @@ function MaintenanceTab({propertyData, handleInputChange, contacts = []}) {
 
   const systemsToShow = [
     ...PROPERTY_SYSTEMS.filter((s) => visibleSystemIds.includes(s.id)),
-    ...customSystemNames.map((name) => ({
-      id: `custom-${name}`,
+    ...customSystemNames.map((name, index) => ({
+      id: `custom-${name}-${index}`,
       name,
       icon: Settings,
     })),
   ];
 
-  // Initialize maintenance records from property data
-  const [maintenanceRecords, setMaintenanceRecords] = useState(() => {
+  // Convert array (from parent state) to object keyed by systemId for tree view
+  const maintenanceRecords = useMemo(() => {
     const records = {};
-    if (propertyData.maintenanceHistory) {
-      propertyData.maintenanceHistory.forEach((item) => {
-        const systemId = item.systemId || "roof";
-        if (!records[systemId]) records[systemId] = [];
-        records[systemId].push({...item, systemId});
-      });
-    }
+    (maintenanceRecordsArray || []).forEach((item) => {
+      const systemId = item.systemId || "roof";
+      if (!records[systemId]) records[systemId] = [];
+      records[systemId].push({...item, systemId});
+    });
     return records;
-  });
+  }, [maintenanceRecordsArray]);
+
+  const recordsToArray = useCallback((recordsObj) => {
+    return Object.values(recordsObj || {}).flat();
+  }, []);
 
   // Handle selecting a record from the tree
   const handleSelectRecord = useCallback((record) => {
@@ -86,41 +94,45 @@ function MaintenanceTab({propertyData, handleInputChange, contacts = []}) {
   // Handle saving a record
   const handleSaveRecord = useCallback(
     (recordData) => {
-      setMaintenanceRecords((prev) => {
-        const systemRecords = [...(prev[recordData.systemId] || [])];
-        const existingIndex = systemRecords.findIndex(
-          (r) => r.id === recordData.id
-        );
+      const systemRecords = [
+        ...(maintenanceRecords[recordData.systemId] || []),
+      ];
+      const existingIndex = systemRecords.findIndex(
+        (r) => r.id === recordData.id,
+      );
 
-        if (existingIndex >= 0) {
-          systemRecords[existingIndex] = recordData;
-        } else {
-          systemRecords.push(recordData);
-        }
+      if (existingIndex >= 0) {
+        systemRecords[existingIndex] = recordData;
+      } else {
+        systemRecords.push(recordData);
+      }
 
-        // Sort by date descending
-        systemRecords.sort((a, b) => {
-          const dateA = new Date(a.date);
-          const dateB = new Date(b.date);
-          return dateB - dateA;
-        });
-
-        return {
-          ...prev,
-          [recordData.systemId]: systemRecords,
-        };
+      // Sort by date descending
+      systemRecords.sort((a, b) => {
+        const dateA = new Date(a.date);
+        const dateB = new Date(b.date);
+        return dateB - dateA;
       });
+
+      const updated = {
+        ...maintenanceRecords,
+        [recordData.systemId]: systemRecords,
+      };
+      onMaintenanceRecordsChange?.(recordsToArray(updated));
 
       // Update the selected record to the saved version
       setSelectedRecord(recordData);
       setIsNewRecord(false);
 
-      // Notify parent component if needed
-      if (handleInputChange) {
-        // Could update propertyData.maintenanceHistory here
-      }
+      // Trigger save bar visibility and scroll to it
+      onMaintenanceRecordAdded?.();
     },
-    [handleInputChange]
+    [
+      maintenanceRecords,
+      onMaintenanceRecordsChange,
+      onMaintenanceRecordAdded,
+      recordsToArray,
+    ],
   );
 
   // Handle deleting a record
@@ -128,18 +140,16 @@ function MaintenanceTab({propertyData, handleInputChange, contacts = []}) {
     (recordId) => {
       if (
         window.confirm(
-          "Are you sure you want to delete this maintenance record?"
+          "Are you sure you want to delete this maintenance record?",
         )
       ) {
-        setMaintenanceRecords((prev) => {
-          const updated = {...prev};
-          Object.keys(updated).forEach((systemId) => {
-            updated[systemId] = updated[systemId].filter(
-              (r) => r.id !== recordId
-            );
-          });
-          return updated;
+        const updated = {...maintenanceRecords};
+        Object.keys(updated).forEach((systemId) => {
+          updated[systemId] = updated[systemId].filter(
+            (r) => r.id !== recordId,
+          );
         });
+        onMaintenanceRecordsChange?.(recordsToArray(updated));
 
         // Clear selection if deleted record was selected
         if (selectedRecord?.id === recordId) {
@@ -148,17 +158,40 @@ function MaintenanceTab({propertyData, handleInputChange, contacts = []}) {
         }
       }
     },
-    [selectedRecord]
+    [
+      maintenanceRecords,
+      onMaintenanceRecordsChange,
+      recordsToArray,
+      selectedRecord,
+    ],
   );
 
-  // Handle "Open in New Tab" - opens property page at /:dbUrl/properties/:uid
-  const handleOpenInNewTab = useCallback(() => {
-    const dbUrlPath = dbUrl || propertyData.dbUrl || "";
-    const path = `/${dbUrlPath}/properties/${propertyId}`;
-    // HashRouter: route lives in the hash. Use origin + / only (never pathname) to avoid doubling.
-    const url = `${window.location.origin}/#${path}`;
-    window.open(url, "_blank");
-  }, [dbUrl, propertyData.dbUrl, propertyId]);
+  // Handle "Open in New Tab" - opens maintenance record at /:dbUrl/properties/:uid/maintenance/:systemId/:recordId
+  const handleOpenInNewTab = useCallback(
+    (data) => {
+      const dbUrlPath = dbUrl || propertyData.dbUrl || "";
+      const uid = data?.propertyId ?? propertyId;
+      const sysId = data?.systemId ?? selectedSystemId;
+      const recId =
+        data?.record?.id ?? data?.record?.recordId ?? selectedRecord?.id;
+      if (sysId && recId) {
+        const path = `/${dbUrlPath}/properties/${uid}/maintenance/${encodeURIComponent(sysId)}/${encodeURIComponent(recId)}`;
+        const url = `${window.location.origin}/#${path}`;
+        window.open(url, "_blank");
+      } else {
+        const path = `/${dbUrlPath}/properties/${uid}`;
+        const url = `${window.location.origin}/#${path}`;
+        window.open(url, "_blank");
+      }
+    },
+    [
+      dbUrl,
+      propertyData.dbUrl,
+      propertyId,
+      selectedSystemId,
+      selectedRecord?.id,
+    ],
+  );
 
   // Get the system name for the selected system
   const getSystemName = (sysId) => {
@@ -171,7 +204,7 @@ function MaintenanceTab({propertyData, handleInputChange, contacts = []}) {
       handleSelectRecord(record);
       setSidebarOpen(false);
     },
-    [handleSelectRecord]
+    [handleSelectRecord],
   );
 
   const handleSystemSelect = useCallback(
@@ -179,7 +212,7 @@ function MaintenanceTab({propertyData, handleInputChange, contacts = []}) {
       handleSelectSystem(systemId);
       setSidebarOpen(false);
     },
-    [handleSelectSystem]
+    [handleSelectSystem],
   );
 
   const handleAddRecordMobile = useCallback(
@@ -187,7 +220,7 @@ function MaintenanceTab({propertyData, handleInputChange, contacts = []}) {
       handleAddRecord(systemId);
       setSidebarOpen(false);
     },
-    [handleAddRecord]
+    [handleAddRecord],
   );
 
   return (

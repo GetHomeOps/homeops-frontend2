@@ -16,6 +16,7 @@ import {
   getAgeFromInstallDate,
   formatAgeFromInstallDate,
 } from "./constants/systemSections";
+import {getDisplayNamesWithCounters} from "./helpers/systemKeyUtils";
 import DatePickerInput from "../../components/DatePickerInput";
 import ContactContext from "../../context/ContactContext";
 import CollapsibleSection from "./partials/CollapsibleSection";
@@ -75,14 +76,18 @@ function SystemsTab({
     }));
   };
 
-  const handleNewInstallChange = (systemType, isNew) => {
+  const handleNewInstallChange = (systemType, isNew, customDataKey) => {
     setNewInstallStates((prev) => ({
       ...prev,
       [systemType]: isNew,
     }));
+    const isNewInstallField =
+      customDataKey != null
+        ? `customSystem_${customDataKey}::isNewInstall`
+        : `${systemType}IsNewInstall`;
     handleInputChange({
       target: {
-        name: `${systemType}IsNewInstall`,
+        name: isNewInstallField,
         value: isNew,
       },
     });
@@ -92,6 +97,7 @@ function SystemsTab({
         roof: "roofLastInspection",
         gutters: "gutterLastInspection",
         foundation: "foundationLastInspection",
+        exterior: "sidingLastInspection",
         windows: "windowLastInspection",
         heating: "heatingLastInspection",
         ac: "acLastInspection",
@@ -100,7 +106,7 @@ function SystemsTab({
         plumbing: "plumbingLastInspection",
       };
       const fieldName = systemType.startsWith("custom-")
-        ? `customSystem_${systemType.replace("custom-", "")}::lastInspection`
+        ? `customSystem_${customDataKey ?? systemType.replace("custom-", "")}::lastInspection`
         : lastInspectionFields[systemType];
       if (fieldName) {
         handleInputChange({
@@ -132,7 +138,7 @@ function SystemsTab({
   // Count completed systems and report to parent
   const completedCount = useMemo(
     () => countCompletedSystems(propertyData, systemIdsToShow),
-    [propertyData, systemIdsToShow]
+    [propertyData, systemIdsToShow],
   );
 
   // Report completion changes to parent
@@ -158,7 +164,7 @@ function SystemsTab({
           onNewInstallChange={(isNew) => handleNewInstallChange("roof", isNew)}
           onScheduleInspection={handleScheduleInspection(
             "roof",
-            "roofNextInspection"
+            "roofNextInspection",
           )}
           progress={systemsProgress.roof}
         >
@@ -208,7 +214,7 @@ function SystemsTab({
               </label>
               <div className="form-input w-full bg-gray-50 dark:bg-gray-800 text-gray-600 dark:text-gray-400">
                 {formatAgeFromInstallDate(
-                  getAgeFromInstallDate(propertyData.roofInstallDate)
+                  getAgeFromInstallDate(propertyData.roofInstallDate),
                 )}
               </div>
             </div>
@@ -278,8 +284,8 @@ function SystemsTab({
                 Known Issues
               </label>
               <textarea
-                name="roofKnownIssues"
-                value={propertyData.roofKnownIssues || ""}
+                name="roofIssues"
+                value={propertyData.roofIssues || ""}
                 onChange={handleInputChange}
                 className="form-input w-full min-h-[80px]"
               />
@@ -308,7 +314,7 @@ function SystemsTab({
           }
           onScheduleInspection={handleScheduleInspection(
             "gutters",
-            "gutterNextInspection"
+            "gutterNextInspection",
           )}
           progress={systemsProgress.gutters}
         >
@@ -358,7 +364,7 @@ function SystemsTab({
               </label>
               <div className="form-input w-full bg-gray-50 dark:bg-gray-800 text-gray-600 dark:text-gray-400">
                 {formatAgeFromInstallDate(
-                  getAgeFromInstallDate(propertyData.gutterInstallDate)
+                  getAgeFromInstallDate(propertyData.gutterInstallDate),
                 )}
               </div>
             </div>
@@ -428,8 +434,8 @@ function SystemsTab({
                 Known Issues
               </label>
               <textarea
-                name="gutterKnownIssues"
-                value={propertyData.gutterKnownIssues || ""}
+                name="gutterIssues"
+                value={propertyData.gutterIssues || ""}
                 onChange={handleInputChange}
                 className="form-input w-full min-h-[80px]"
               />
@@ -457,7 +463,7 @@ function SystemsTab({
           }
           onScheduleInspection={handleScheduleInspection(
             "foundation",
-            "foundationNextInspection"
+            "foundationNextInspection",
           )}
           progress={systemsProgress.foundation}
         >
@@ -526,8 +532,8 @@ function SystemsTab({
                 Known Issues
               </label>
               <textarea
-                name="foundationKnownIssues"
-                value={propertyData.foundationKnownIssues || ""}
+                name="foundationIssues"
+                value={propertyData.foundationIssues || ""}
                 onChange={handleInputChange}
                 className="form-input w-full min-h-[80px]"
               />
@@ -556,7 +562,7 @@ function SystemsTab({
           }
           onScheduleInspection={handleScheduleInspection(
             "exterior",
-            "sidingNextInspection"
+            "sidingNextInspection",
           )}
           progress={systemsProgress.exterior}
         >
@@ -606,7 +612,7 @@ function SystemsTab({
               </label>
               <div className="form-input w-full bg-gray-50 dark:bg-gray-800 text-gray-600 dark:text-gray-400">
                 {formatAgeFromInstallDate(
-                  getAgeFromInstallDate(propertyData.sidingInstallDate)
+                  getAgeFromInstallDate(propertyData.sidingInstallDate),
                 )}
               </div>
             </div>
@@ -626,6 +632,17 @@ function SystemsTab({
                 <option value="Fair">Fair</option>
                 <option value="Poor">Poor</option>
               </select>
+            </div>
+            <div className="md:col-span-2">
+              <label className="block text-sm font-medium text-gray-500 dark:text-gray-400 mb-1">
+                Known Issues
+              </label>
+              <textarea
+                name="sidingIssues"
+                value={propertyData.sidingIssues || ""}
+                onChange={handleInputChange}
+                className="form-input w-full min-h-[80px]"
+              />
             </div>
           </div>
         </CollapsibleSection>
@@ -651,7 +668,7 @@ function SystemsTab({
           }
           onScheduleInspection={handleScheduleInspection(
             "windows",
-            "windowNextInspection"
+            "windowNextInspection",
           )}
           progress={systemsProgress.windows}
         >
@@ -701,7 +718,7 @@ function SystemsTab({
               </label>
               <div className="form-input w-full bg-gray-50 dark:bg-gray-800 text-gray-600 dark:text-gray-400">
                 {formatAgeFromInstallDate(
-                  getAgeFromInstallDate(propertyData.windowInstallDate)
+                  getAgeFromInstallDate(propertyData.windowInstallDate),
                 )}
               </div>
             </div>
@@ -771,8 +788,8 @@ function SystemsTab({
                 Known Issues
               </label>
               <textarea
-                name="windowKnownIssues"
-                value={propertyData.windowKnownIssues || ""}
+                name="windowIssues"
+                value={propertyData.windowIssues || ""}
                 onChange={handleInputChange}
                 className="form-input w-full min-h-[80px]"
               />
@@ -801,7 +818,7 @@ function SystemsTab({
           }
           onScheduleInspection={handleScheduleInspection(
             "heating",
-            "heatingNextInspection"
+            "heatingNextInspection",
           )}
           progress={systemsProgress.heating}
         >
@@ -851,7 +868,7 @@ function SystemsTab({
               </label>
               <div className="form-input w-full bg-gray-50 dark:bg-gray-800 text-gray-600 dark:text-gray-400">
                 {formatAgeFromInstallDate(
-                  getAgeFromInstallDate(propertyData.heatingInstallDate)
+                  getAgeFromInstallDate(propertyData.heatingInstallDate),
                 )}
               </div>
             </div>
@@ -933,8 +950,8 @@ function SystemsTab({
                 Known Issues
               </label>
               <textarea
-                name="heatingKnownIssues"
-                value={propertyData.heatingKnownIssues || ""}
+                name="heatingIssues"
+                value={propertyData.heatingIssues || ""}
                 onChange={handleInputChange}
                 className="form-input w-full min-h-[80px]"
               />
@@ -959,7 +976,7 @@ function SystemsTab({
           onNewInstallChange={(isNew) => handleNewInstallChange("ac", isNew)}
           onScheduleInspection={handleScheduleInspection(
             "ac",
-            "acNextInspection"
+            "acNextInspection",
           )}
           progress={systemsProgress.ac}
         >
@@ -1009,7 +1026,7 @@ function SystemsTab({
               </label>
               <div className="form-input w-full bg-gray-50 dark:bg-gray-800 text-gray-600 dark:text-gray-400">
                 {formatAgeFromInstallDate(
-                  getAgeFromInstallDate(propertyData.acInstallDate)
+                  getAgeFromInstallDate(propertyData.acInstallDate),
                 )}
               </div>
             </div>
@@ -1089,8 +1106,8 @@ function SystemsTab({
                 Known Issues
               </label>
               <textarea
-                name="acKnownIssues"
-                value={propertyData.acKnownIssues || ""}
+                name="acIssues"
+                value={propertyData.acIssues || ""}
                 onChange={handleInputChange}
                 className="form-input w-full min-h-[80px]"
               />
@@ -1120,7 +1137,7 @@ function SystemsTab({
           }
           onScheduleInspection={handleScheduleInspection(
             "waterHeating",
-            "waterHeatingNextInspection"
+            "waterHeatingNextInspection",
           )}
           progress={systemsProgress.waterHeating}
         >
@@ -1170,7 +1187,7 @@ function SystemsTab({
               </label>
               <div className="form-input w-full bg-gray-50 dark:bg-gray-800 text-gray-600 dark:text-gray-400">
                 {formatAgeFromInstallDate(
-                  getAgeFromInstallDate(propertyData.waterHeatingInstallDate)
+                  getAgeFromInstallDate(propertyData.waterHeatingInstallDate),
                 )}
               </div>
             </div>
@@ -1253,8 +1270,8 @@ function SystemsTab({
                 Known Issues
               </label>
               <textarea
-                name="waterHeatingKnownIssues"
-                value={propertyData.waterHeatingKnownIssues || ""}
+                name="waterHeatingIssues"
+                value={propertyData.waterHeatingIssues || ""}
                 onChange={handleInputChange}
                 className="form-input w-full min-h-[80px]"
               />
@@ -1283,7 +1300,7 @@ function SystemsTab({
           }
           onScheduleInspection={handleScheduleInspection(
             "electrical",
-            "electricalNextInspection"
+            "electricalNextInspection",
           )}
           progress={systemsProgress.electrical}
         >
@@ -1333,7 +1350,7 @@ function SystemsTab({
               </label>
               <div className="form-input w-full bg-gray-50 dark:bg-gray-800 text-gray-600 dark:text-gray-400">
                 {formatAgeFromInstallDate(
-                  getAgeFromInstallDate(propertyData.electricalInstallDate)
+                  getAgeFromInstallDate(propertyData.electricalInstallDate),
                 )}
               </div>
             </div>
@@ -1416,8 +1433,8 @@ function SystemsTab({
                 Known Issues
               </label>
               <textarea
-                name="electricalKnownIssues"
-                value={propertyData.electricalKnownIssues || ""}
+                name="electricalIssues"
+                value={propertyData.electricalIssues || ""}
                 onChange={handleInputChange}
                 className="form-input w-full min-h-[80px]"
               />
@@ -1446,7 +1463,7 @@ function SystemsTab({
           }
           onScheduleInspection={handleScheduleInspection(
             "plumbing",
-            "plumbingNextInspection"
+            "plumbingNextInspection",
           )}
           progress={systemsProgress.plumbing}
         >
@@ -1483,8 +1500,8 @@ function SystemsTab({
                 Known Leaks or Backups
               </label>
               <textarea
-                name="plumbingKnownIssues"
-                value={propertyData.plumbingKnownIssues || ""}
+                name="plumbingIssues"
+                value={propertyData.plumbingIssues || ""}
                 onChange={handleInputChange}
                 className="form-input w-full min-h-[60px]"
               />
@@ -1522,7 +1539,7 @@ function SystemsTab({
               </label>
               <div className="form-input w-full bg-gray-50 dark:bg-gray-800 text-gray-600 dark:text-gray-400">
                 {formatAgeFromInstallDate(
-                  getAgeFromInstallDate(propertyData.plumbingInstallDate)
+                  getAgeFromInstallDate(propertyData.plumbingInstallDate),
                 )}
               </div>
             </div>
@@ -1915,142 +1932,155 @@ function SystemsTab({
       )}
 
       {/* Custom systems - standard section with STANDARD_CUSTOM_SYSTEM_FIELDS */}
-      {(propertyData.customSystemNames ?? []).map((systemName) => {
-        const sectionId = `custom-${systemName}`;
-        const systemData = customSystemsData[systemName] ?? {};
-        // Calculate progress for custom system
-        const customProgress = (() => {
-          const trackableFields = STANDARD_CUSTOM_SYSTEM_FIELDS.filter(
-            (f) => f.type !== "computed-age"
-          );
-          const total = trackableFields.length;
-          const filled = trackableFields.filter((f) => {
-            const val = systemData[f.key];
-            return val != null && String(val).trim() !== "";
-          }).length;
-          return {
-            filled,
-            total,
-            percent: total > 0 ? (filled / total) * 100 : 0,
-          };
-        })();
+      {(() => {
+        const customNames = propertyData.customSystemNames ?? [];
+        const displayNames = getDisplayNamesWithCounters(customNames);
+        return customNames.map((systemName, index) => {
+          const displayName = displayNames[index] ?? systemName;
+          const sectionId = `custom-${systemName}-${index}`;
+          const systemData = customSystemsData[systemName] ?? {};
+          // Calculate progress for custom system
+          const customProgress = (() => {
+            const trackableFields = STANDARD_CUSTOM_SYSTEM_FIELDS.filter(
+              (f) => f.type !== "computed-age",
+            );
+            const total = trackableFields.length;
+            const filled = trackableFields.filter((f) => {
+              const val = systemData[f.key];
+              return val != null && String(val).trim() !== "";
+            }).length;
+            return {
+              filled,
+              total,
+              percent: total > 0 ? (filled / total) * 100 : 0,
+            };
+          })();
 
-        return (
-          <CollapsibleSection
-            key={sectionId}
-            title={systemName}
-            icon={Settings}
-            isOpen={expandedSections[sectionId] ?? false}
-            onToggle={() => toggleSection(sectionId)}
-            showActionButtons={true}
-            installerId={systemData.installer}
-            installerName={systemData.installer}
-            systemType={sectionId}
-            systemLabel={systemName}
-            contacts={contacts}
-            isNewInstall={
-              newInstallStates[sectionId] || systemData.isNewInstall
-            }
-            onNewInstallChange={(isNew) =>
-              handleNewInstallChange(sectionId, isNew)
-            }
-            onScheduleInspection={handleScheduleInspection(
-              sectionId,
-              `customSystem_${systemName}::nextInspection`
-            )}
-            progress={customProgress}
-          >
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-              {STANDARD_CUSTOM_SYSTEM_FIELDS.map((field) => (
-                <div key={field.key}>
-                  <label className="block text-sm font-medium text-gray-500 dark:text-gray-400 mb-1">
-                    {field.label}
-                    {field.key === "age" && (
-                      <>
-                        {" "}
-                        <Tooltip
-                          content="Calculated from install date"
-                          position="right"
-                        >
-                          <Info className="w-3.5 h-3.5 inline-block ml-0.5 align-middle text-gray-400 cursor-help" />
-                        </Tooltip>
-                      </>
-                    )}
-                    {field.key === "lastInspection" && (
-                      <>
-                        {" "}
-                        <Tooltip
-                          content="Disabled when marked as new installation"
-                          position="right"
-                        >
-                          <Info className="w-3.5 h-3.5 inline-block ml-0.5 align-middle text-gray-400 cursor-help" />
-                        </Tooltip>
-                      </>
-                    )}
-                  </label>
-                  {field.type === "select" ? (
-                    <select
-                      name={`customSystem_${systemName}::${field.key}`}
-                      value={systemData[field.key] ?? ""}
-                      onChange={handleInputChange}
-                      className="form-select w-full"
-                    >
-                      <option value="">Select…</option>
-                      {(field.options ?? []).map((opt) => (
-                        <option key={opt} value={opt}>
-                          {opt}
-                        </option>
-                      ))}
-                    </select>
-                  ) : field.type === "warranty-select" ? (
-                    <select
-                      name={`customSystem_${systemName}::${field.key}`}
-                      value={systemData[field.key] ?? ""}
-                      onChange={handleInputChange}
-                      className="form-select w-full"
-                    >
-                      <option value="">Select</option>
-                      <option value="yes">Yes</option>
-                      <option value="no">No</option>
-                    </select>
-                  ) : field.type === "date" ? (
-                    <DatePickerInput
-                      name={`customSystem_${systemName}::${field.key}`}
-                      value={systemData[field.key] ?? ""}
-                      onChange={handleInputChange}
-                      disabled={
-                        field.key === "lastInspection" &&
-                        (newInstallStates[sectionId] || systemData.isNewInstall)
-                      }
-                    />
-                  ) : field.type === "installer" ? (
-                    <InstallerSelect
-                      name={`customSystem_${systemName}::${field.key}`}
-                      value={systemData[field.key] ?? ""}
-                      onChange={handleInputChange}
-                      contacts={contacts}
-                    />
-                  ) : field.type === "computed-age" ? (
-                    <div className="form-input w-full bg-gray-50 dark:bg-gray-800 text-gray-600 dark:text-gray-400">
-                      {formatAgeFromInstallDate(
-                        getAgeFromInstallDate(systemData.installDate)
+          return (
+            <CollapsibleSection
+              key={sectionId}
+              title={displayName}
+              icon={Settings}
+              isOpen={expandedSections[sectionId] ?? false}
+              onToggle={() => toggleSection(sectionId)}
+              showActionButtons={true}
+              installerId={systemData.installer}
+              installerName={systemData.installer}
+              systemType={sectionId}
+              systemLabel={displayName}
+              contacts={contacts}
+              isNewInstall={
+                newInstallStates[sectionId] || systemData.isNewInstall
+              }
+              onNewInstallChange={(isNew) =>
+                handleNewInstallChange(sectionId, isNew, systemName)
+              }
+              onScheduleInspection={handleScheduleInspection(
+                sectionId,
+                `customSystem_${systemName}::nextInspection`,
+              )}
+              progress={customProgress}
+            >
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                {STANDARD_CUSTOM_SYSTEM_FIELDS.map((field) => (
+                  <div key={field.key}>
+                    <label className="block text-sm font-medium text-gray-500 dark:text-gray-400 mb-1">
+                      {field.label}
+                      {field.key === "age" && (
+                        <>
+                          {" "}
+                          <Tooltip
+                            content="Calculated from install date"
+                            position="right"
+                          >
+                            <Info className="w-3.5 h-3.5 inline-block ml-0.5 align-middle text-gray-400 cursor-help" />
+                          </Tooltip>
+                        </>
                       )}
-                    </div>
-                  ) : (
-                    <input
-                      type="text"
-                      name={`customSystem_${systemName}::${field.key}`}
-                      value={systemData[field.key] ?? ""}
-                      onChange={handleInputChange}
-                      className="form-input w-full"
-                    />
-                  )}
-                </div>
-              ))}
-            </div>
-          </CollapsibleSection>
-        );
-      })}
+                      {field.key === "lastInspection" && (
+                        <>
+                          {" "}
+                          <Tooltip
+                            content="Disabled when marked as new installation"
+                            position="right"
+                          >
+                            <Info className="w-3.5 h-3.5 inline-block ml-0.5 align-middle text-gray-400 cursor-help" />
+                          </Tooltip>
+                        </>
+                      )}
+                    </label>
+                    {field.type === "select" ? (
+                      <select
+                        name={`customSystem_${systemName}::${field.key}`}
+                        value={systemData[field.key] ?? ""}
+                        onChange={handleInputChange}
+                        className="form-select w-full"
+                      >
+                        <option value="">Select…</option>
+                        {(field.options ?? []).map((opt) => (
+                          <option key={opt} value={opt}>
+                            {opt}
+                          </option>
+                        ))}
+                      </select>
+                    ) : field.type === "warranty-select" ? (
+                      <select
+                        name={`customSystem_${systemName}::${field.key}`}
+                        value={systemData[field.key] ?? ""}
+                        onChange={handleInputChange}
+                        className="form-select w-full"
+                      >
+                        <option value="">Select</option>
+                        <option value="yes">Yes</option>
+                        <option value="no">No</option>
+                      </select>
+                    ) : field.type === "date" ? (
+                      <DatePickerInput
+                        name={`customSystem_${systemName}::${field.key}`}
+                        value={systemData[field.key] ?? ""}
+                        onChange={handleInputChange}
+                        disabled={
+                          field.key === "lastInspection" &&
+                          (newInstallStates[sectionId] ||
+                            systemData.isNewInstall)
+                        }
+                      />
+                    ) : field.type === "installer" ? (
+                      <InstallerSelect
+                        name={`customSystem_${systemName}::${field.key}`}
+                        value={systemData[field.key] ?? ""}
+                        onChange={handleInputChange}
+                        contacts={contacts}
+                      />
+                    ) : field.type === "computed-age" ? (
+                      <div className="form-input w-full bg-gray-50 dark:bg-gray-800 text-gray-600 dark:text-gray-400">
+                        {formatAgeFromInstallDate(
+                          getAgeFromInstallDate(systemData.installDate),
+                        )}
+                      </div>
+                    ) : field.type === "textarea" ? (
+                      <textarea
+                        name={`customSystem_${systemName}::${field.key}`}
+                        value={systemData[field.key] ?? ""}
+                        onChange={handleInputChange}
+                        className="form-input w-full min-h-[80px]"
+                      />
+                    ) : (
+                      <input
+                        type="text"
+                        name={`customSystem_${systemName}::${field.key}`}
+                        value={systemData[field.key] ?? ""}
+                        onChange={handleInputChange}
+                        className="form-input w-full"
+                      />
+                    )}
+                  </div>
+                ))}
+              </div>
+            </CollapsibleSection>
+          );
+        });
+      })()}
     </div>
   );
 }

@@ -12,11 +12,11 @@ export const SYSTEM_SECTIONS = {
       "roofMaterial",
       "roofInstallDate",
       "roofInstaller",
-      "roofAge",
       "roofCondition",
       "roofWarranty",
       "roofLastInspection",
       "roofNextInspection",
+      "roofIssues",
     ],
   },
   gutters: {
@@ -26,11 +26,11 @@ export const SYSTEM_SECTIONS = {
       "gutterMaterial",
       "gutterInstallDate",
       "gutterInstaller",
-      "gutterAge",
       "gutterCondition",
       "gutterWarranty",
       "gutterLastInspection",
       "gutterNextInspection",
+      "gutterIssues",
     ],
   },
   foundation: {
@@ -41,6 +41,7 @@ export const SYSTEM_SECTIONS = {
       "foundationCondition",
       "foundationLastInspection",
       "foundationNextInspection",
+      "foundationIssues",
     ],
   },
   exterior: {
@@ -50,10 +51,10 @@ export const SYSTEM_SECTIONS = {
       "sidingType",
       "sidingInstallDate",
       "sidingInstaller",
-      "sidingAge",
       "sidingCondition",
       "sidingLastInspection",
       "sidingNextInspection",
+      "sidingIssues",
     ],
   },
   windows: {
@@ -63,11 +64,11 @@ export const SYSTEM_SECTIONS = {
       "windowType",
       "windowInstallDate",
       "windowInstaller",
-      "windowAge",
       "windowCondition",
       "windowWarranty",
       "windowLastInspection",
       "windowNextInspection",
+      "windowIssues",
     ],
   },
   heating: {
@@ -77,11 +78,11 @@ export const SYSTEM_SECTIONS = {
       "heatingSystemType",
       "heatingInstallDate",
       "heatingInstaller",
-      "heatingAge",
       "heatingCondition",
       "heatingWarranty",
       "heatingLastInspection",
       "heatingNextInspection",
+      "heatingIssues",
     ],
   },
   ac: {
@@ -91,11 +92,11 @@ export const SYSTEM_SECTIONS = {
       "acSystemType",
       "acInstallDate",
       "acInstaller",
-      "acAge",
       "acCondition",
       "acWarranty",
       "acLastInspection",
       "acNextInspection",
+      "acIssues",
     ],
   },
   waterHeating: {
@@ -105,11 +106,11 @@ export const SYSTEM_SECTIONS = {
       "waterHeatingSystemType",
       "waterHeatingInstallDate",
       "waterHeatingInstaller",
-      "waterHeatingAge",
       "waterHeatingCondition",
       "waterHeatingWarranty",
       "waterHeatingLastInspection",
       "waterHeatingNextInspection",
+      "waterHeatingIssues",
     ],
   },
   electrical: {
@@ -119,11 +120,11 @@ export const SYSTEM_SECTIONS = {
       "electricalServiceAmperage",
       "electricalInstallDate",
       "electricalInstaller",
-      "electricalAge",
       "electricalCondition",
       "electricalWarranty",
       "electricalLastInspection",
       "electricalNextInspection",
+      "electricalIssues",
     ],
   },
   plumbing: {
@@ -133,11 +134,11 @@ export const SYSTEM_SECTIONS = {
       "plumbingSupplyMaterials",
       "plumbingInstallDate",
       "plumbingInstaller",
-      "plumbingAge",
       "plumbingCondition",
       "plumbingWarranty",
       "plumbingLastInspection",
       "plumbingNextInspection",
+      "plumbingIssues",
     ],
   },
   safety: {
@@ -157,6 +158,34 @@ export const SYSTEM_SECTIONS = {
       "termiteInspection",
     ],
   },
+};
+
+/** systemId -> form field name for isNewInstall */
+export const IS_NEW_INSTALL_FIELD_BY_SYSTEM = {
+  roof: "roofIsNewInstall",
+  gutters: "gutterIsNewInstall",
+  foundation: "foundationIsNewInstall",
+  exterior: "exteriorIsNewInstall",
+  windows: "windowIsNewInstall",
+  heating: "heatingIsNewInstall",
+  ac: "acIsNewInstall",
+  waterHeating: "waterHeatingIsNewInstall",
+  electrical: "electricalIsNewInstall",
+  plumbing: "plumbingIsNewInstall",
+};
+
+/** systemId -> lastInspection field name (excluded from score when isNewInstall) */
+export const LAST_INSPECTION_FIELD_BY_SYSTEM = {
+  roof: "roofLastInspection",
+  gutters: "gutterLastInspection",
+  foundation: "foundationLastInspection",
+  exterior: "sidingLastInspection",
+  windows: "windowLastInspection",
+  heating: "heatingLastInspection",
+  ac: "acLastInspection",
+  waterHeating: "waterHeatingLastInspection",
+  electrical: "electricalLastInspection",
+  plumbing: "plumbingLastInspection",
 };
 
 /** Age fields derived from their corresponding install date field */
@@ -231,6 +260,9 @@ function isFieldFilled(propertyData, field) {
 
 /**
  * Get progress for a system section.
+ * Age is computed from install date (not included in score).
+ * Last inspection is excluded from score when "New Install" is selected.
+ *
  * @param {Object} propertyData - Property form data
  * @param {string} systemId - System ID (e.g., "roof", "gutters")
  * @returns {{ filled: number, total: number, percent: number }}
@@ -239,8 +271,21 @@ export function getSystemProgress(propertyData, systemId) {
   const section = SYSTEM_SECTIONS[systemId];
   if (!section) return { filled: 0, total: 0, percent: 0 };
 
-  const total = section.fields.length;
-  const filled = section.fields.filter((field) =>
+  let fields = section.fields;
+
+  // Exclude last inspection from score when "New Install" is selected
+  const isNewInstallField = IS_NEW_INSTALL_FIELD_BY_SYSTEM[systemId];
+  const lastInspectionField = LAST_INSPECTION_FIELD_BY_SYSTEM[systemId];
+  if (
+    lastInspectionField &&
+    isNewInstallField &&
+    isFilled(propertyData[isNewInstallField])
+  ) {
+    fields = fields.filter((f) => f !== lastInspectionField);
+  }
+
+  const total = fields.length;
+  const filled = fields.filter((field) =>
     isFieldFilled(propertyData, field),
   ).length;
   const percent = total > 0 ? (filled / total) * 100 : 0;
@@ -273,6 +318,9 @@ export function countCompletedSystems(propertyData, visibleSystemIds) {
 
 /**
  * Check if a custom system is complete (all trackable fields filled).
+ * Age is computed from install date (not included in score).
+ * Last inspection is excluded when "New Install" is selected.
+ *
  * @param {Object} customSystemsData - Custom system data keyed by system name
  * @param {string} systemName - Custom system name
  * @returns {boolean}
@@ -280,7 +328,10 @@ export function countCompletedSystems(propertyData, visibleSystemIds) {
 export function isCustomSystemComplete(customSystemsData, systemName) {
   const systemData = customSystemsData?.[systemName] ?? {};
   const trackableFields = STANDARD_CUSTOM_SYSTEM_FIELDS.filter(
-    (f) => f.type !== "computed-age",
+    (f) =>
+      f.type !== "computed-age" &&
+      f.key !== "issues" &&
+      f.key !== "lastInspection",
   );
   return trackableFields.every((field) => {
     const val = systemData[field.key];

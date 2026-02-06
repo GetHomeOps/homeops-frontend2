@@ -85,9 +85,18 @@ function SystemsSetupModal({
   };
 
   const addCustomSystem = () => {
-    const name = newCustomName.trim();
-    if (!name) return;
-    setCustom((prev) => [...prev, {id: `custom-${Date.now()}`, name}]);
+    const baseName = newCustomName.trim();
+    if (!baseName) return;
+    setCustom((prev) => {
+      const existingNames = new Set(prev.map((s) => s.name));
+      let name = baseName;
+      let counter = 2;
+      while (existingNames.has(name)) {
+        name = `${baseName} ${counter}`;
+        counter++;
+      }
+      return [...prev, {id: `custom-${Date.now()}`, name}];
+    });
     setNewCustomName("");
   };
 

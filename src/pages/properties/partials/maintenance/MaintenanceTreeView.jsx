@@ -121,7 +121,7 @@ function MaintenanceTreeView({
   const getTotalRecordCount = () => {
     return Object.values(filteredRecordsBySystem).reduce(
       (sum, records) => sum + records.length,
-      0
+      0,
     );
   };
 
@@ -282,18 +282,22 @@ function MaintenanceTreeView({
                             >
                               {formatDate(record.date)}
                             </div>
-                            {record.contractor != null && record.contractor !== "" && (
-                              <div
-                                className={`text-xs truncate ${
-                                  isSelected
-                                    ? "text-white/80"
-                                    : "text-gray-500 dark:text-gray-400"
-                                }`}
-                              >
-                                {contacts.find((c) => String(c.id) === String(record.contractor))?.name ||
-                                  record.contractor}
-                              </div>
-                            )}
+                            {record.contractor != null &&
+                              record.contractor !== "" && (
+                                <div
+                                  className={`text-xs truncate ${
+                                    isSelected
+                                      ? "text-white/80"
+                                      : "text-gray-500 dark:text-gray-400"
+                                  }`}
+                                >
+                                  {contacts.find(
+                                    (c) =>
+                                      String(c.id) ===
+                                      String(record.contractor),
+                                  )?.name || record.contractor}
+                                </div>
+                              )}
                           </div>
                         </div>
                       );

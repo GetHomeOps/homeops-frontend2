@@ -1,5 +1,10 @@
 import {SYSTEM_SECTIONS} from "../constants/systemSections";
 import {STANDARD_CUSTOM_SYSTEM_FIELDS} from "../constants/propertySystems";
+import {
+  slugifyCustomSystemName,
+  ensureUniqueSystemKey,
+  MAX_SYSTEM_KEY_LENGTH,
+} from "./systemKeyUtils";
 
 /** Fields that map to next_service_date per system */
 const NEXT_SERVICE_FIELD_BY_SYSTEM = {
@@ -39,20 +44,6 @@ function coerceInt(value) {
   const n = Number(value);
   if (!Number.isFinite(n)) return null;
   return Math.trunc(n);
-}
-
-/**
- * Create a URL-safe slug from a custom system name.
- */
-function slugifyCustomSystemName(name) {
-  if (!name || typeof name !== "string") return "custom-unknown";
-  return (
-    "custom-" +
-    name
-      .toLowerCase()
-      .replace(/\s+/g, "-")
-      .replace(/[^a-z0-9-]/g, "")
-  );
 }
 
 /**
@@ -154,20 +145,22 @@ export function formSystemsToArray(formData, propertyId, existingSystems = []) {
   const selectedIds = formData.selectedSystemIds ?? [];
   const customNames = formData.customSystemNames ?? [];
   const customData = formData.customSystemsData ?? {};
-
-  const selectedCustomKeys = new Set(
-    customNames.map((n) => slugifyCustomSystemName(n))
-  );
+  const usedKeys = new Set();
+  const selectedCustomKeys = new Set();
 
   const result = [];
 
   for (const systemId of selectedIds) {
     const data = getPredefinedSystemData(formData, systemId);
     const nextServiceDate = getNextServiceDate(formData, systemId);
+    const systemKey = ensureUniqueSystemKey(
+      systemId.slice(0, MAX_SYSTEM_KEY_LENGTH),
+      usedKeys
+    );
 
     result.push({
       property_id: propertyId,
-      system_key: systemId,
+      system_key: systemKey,
       included: true,
       data: Object.keys(data).length > 0 ? data : {},
       ...(nextServiceDate && {next_service_date: nextServiceDate}),
@@ -177,7 +170,11 @@ export function formSystemsToArray(formData, propertyId, existingSystems = []) {
   for (const systemName of customNames) {
     const data = getCustomSystemData(customData, systemName);
     const nextServiceDate = getCustomNextServiceDate(customData, systemName);
-    const systemKey = slugifyCustomSystemName(systemName);
+    const systemKey = ensureUniqueSystemKey(
+      slugifyCustomSystemName(systemName),
+      usedKeys
+    );
+    selectedCustomKeys.add(systemKey);
 
     result.push({
       property_id: propertyId,
@@ -198,7 +195,7 @@ export function formSystemsToArray(formData, propertyId, existingSystems = []) {
     if (!isSelected) {
       result.push({
         property_id: propertyId,
-        system_key: key,
+        system_key: key.slice(0, MAX_SYSTEM_KEY_LENGTH),
         included: false,
         data: {},
       });

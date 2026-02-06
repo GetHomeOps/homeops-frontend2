@@ -8,6 +8,7 @@ export const STANDARD_SYSTEM_FIELDS = [
   "warranty",
   "lastInspection",
   "nextInspection",
+  "issues",
   "notes",
   "type",
   "systemType",
@@ -98,7 +99,9 @@ function mapSystemData(systemKey, data, nextServiceDate) {
   const out = {};
   for (const [snakeKey, value] of Object.entries(data)) {
     if (value == null || value === "") continue;
-    const formKey = toFormKey(snakeKey, prefix);
+    // Map known_issues -> issues for backward compatibility
+    const keyToUse = snakeKey === "known_issues" ? "issues" : snakeKey;
+    const formKey = toFormKey(keyToUse, prefix);
     const isDateField = snakeKey === "last_inspection" || snakeKey.includes("_date");
     if (isDateField && typeof value === "string") {
       const dateOnly = toDateOnly(value);
@@ -121,7 +124,12 @@ function mapCustomSystemData(data, nextServiceDate) {
   const out = {};
   for (const [snakeKey, value] of Object.entries(data)) {
     if (value == null || value === "") continue;
-    const key = snakeKey === "installer_id" ? "installer" : toCamelCase(snakeKey);
+    const key =
+      snakeKey === "installer_id"
+        ? "installer"
+        : snakeKey === "known_issues"
+          ? "issues"
+          : toCamelCase(snakeKey);
     out[key] = typeof value === "string" ? value.trim() : value;
   }
   if (nextServiceDate && typeof nextServiceDate === "string") {

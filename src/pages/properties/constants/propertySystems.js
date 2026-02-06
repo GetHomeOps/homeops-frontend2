@@ -54,5 +54,5 @@ export const STANDARD_CUSTOM_SYSTEM_FIELDS = [
   { key: "lastInspection", label: "Last Inspection", type: "date" },
   { key: "warranty", label: "Warranty", type: "warranty-select" },
   { key: "nextInspection", label: "Next Inspection", type: "date" },
-  { key: "notes", label: "Notes", type: "text" },
+  { key: "issues", label: "Known Issues", type: "textarea" },
 ];

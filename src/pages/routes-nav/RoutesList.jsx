@@ -20,6 +20,7 @@ import PropertiesList from "../properties/PropertiesList";
 import Property from "../properties/Property";
 import UserConfirmationEmail from "../users/UserConfirmationEmail";
 import HealthMetrics from "../configuration/HealthMetrics";
+import MaintenanceRecordPage from "../properties/MaintenanceRecordPage";
 
 function RoutesList() {
   const {currentUser, isLoading} = useAuth();
@@ -53,6 +54,10 @@ function RoutesList() {
       <Route path="/:dbUrl/users/:id" element={<User />} />
       <Route path="/:dbUrl/properties" element={<PropertiesList />} />
       <Route path="/:dbUrl/properties/:uid" element={<Property />} />
+      <Route
+        path="/:dbUrl/properties/:uid/maintenance/:systemId/:recordId"
+        element={<MaintenanceRecordPage />}
+      />
 
       <Route
         path="/:dbUrl/invite/:invitation"

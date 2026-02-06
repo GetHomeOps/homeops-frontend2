@@ -116,7 +116,7 @@ function reducer(state, action) {
           maintenanceRecords:
             split.maintenanceRecords.length > 0
               ? split.maintenanceRecords
-              : state.formData.maintenanceRecords ?? [],
+              : (state.formData.maintenanceRecords ?? []),
         },
         formDataChanged: !state.isInitialLoad,
       };
@@ -146,7 +146,8 @@ function reducer(state, action) {
           ...state.formData,
           maintenanceRecords: action.payload ?? [],
         },
-        formDataChanged: !state.isInitialLoad,
+        formDataChanged: true,
+        isInitialLoad: false,
       };
     case "SET_ERRORS":
       return {...state, errors: action.payload};
@@ -226,6 +227,8 @@ function PropertyFormContainer() {
     createProperty,
     createSystemsForProperty,
     properties,
+    maintenanceRecords,
+    setMaintenanceRecords,
     getPropertyById,
     addUsersToProperty,
     getPropertyTeam,
@@ -233,6 +236,7 @@ function PropertyFormContainer() {
     updateTeam,
     getSystemsByPropertyId,
     updateSystemsForProperty,
+    getMaintenanceRecordsByPropertyId,
   } = useContext(PropertyContext);
   const {users} = useContext(UserContext);
   const {contacts} = useContext(ContactContext);
@@ -244,6 +248,7 @@ function PropertyFormContainer() {
   const [shareModalOpen, setShareModalOpen] = useState(false);
   const actionsTriggerRef = useRef(null);
   const actionsDropdownRef = useRef(null);
+  const saveBarRef = useRef(null);
 
   // Report: stored PDF report (TODO: integrate with backend)
   const hasReport = Boolean(state.property?.reportUrl);
@@ -284,8 +289,12 @@ function PropertyFormContainer() {
       if (uid === "new") return;
       const property = await getPropertyById(uid);
       const systemsArr = await getSystemsByPropertyId(property.id);
+      /* const maintenanceRecords = await getMaintenanceRecordsByPropertyId(
+        property.id,
+      );
+      setMaintenanceRecords(maintenanceRecords); */
       const includedSystems = (systemsArr ?? []).filter(
-        (s) => s.included !== false
+        (s) => s.included !== false,
       );
       const flat = mapPropertyFromBackend(property) ?? property;
       const tabbed = splitFormDataByTabs(flat);
@@ -294,7 +303,7 @@ function PropertyFormContainer() {
         .map((s) => s.system_key ?? s.systemKey)
         .filter((k) => k && !k.startsWith("custom-"));
       const customNamesFromBackend = Object.keys(
-        fromSystems.customSystemsData ?? {}
+        fromSystems.customSystemsData ?? {},
       );
       dispatch({
         type: "SET_PROPERTY",
@@ -306,11 +315,11 @@ function PropertyFormContainer() {
             selectedSystemIds:
               selectedIdsFromBackend.length > 0
                 ? selectedIdsFromBackend
-                : tabbed.systems.selectedSystemIds ?? [],
+                : (tabbed.systems.selectedSystemIds ?? []),
             customSystemNames:
               customNamesFromBackend.length > 0
                 ? customNamesFromBackend
-                : tabbed.systems.customSystemNames ?? [],
+                : (tabbed.systems.customSystemNames ?? []),
             customSystemsData:
               fromSystems.customSystemsData ??
               tabbed.systems.customSystemsData ??
@@ -451,7 +460,7 @@ function PropertyFormContainer() {
         });
       }
     },
-    []
+    [],
   );
 
   /* Required identity fields for create (backend expects strings). */
@@ -499,12 +508,12 @@ function PropertyFormContainer() {
         if (homeopsTeam.length > 0) {
           await addUsersToProperty(
             propertyId,
-            prepareTeamForProperty(homeopsTeam)
+            prepareTeamForProperty(homeopsTeam),
           );
         }
         const systemsPayloads = prepareSystemsForApi(
           state.formData.systems ?? {},
-          propertyId
+          propertyId,
         );
         await createSystemsForProperty(propertyId, systemsPayloads);
         const newUid = res.property_uid ?? res.id;
@@ -603,7 +612,7 @@ function PropertyFormContainer() {
       const propertyId = state.property?.identity?.id ?? state.property?.id;
       const res = await updateProperty(
         propertyId,
-        prepareIdentityForUpdate(state.formData.identity ?? {})
+        prepareIdentityForUpdate(state.formData.identity ?? {}),
       );
       if (res) {
         await updateTeam(res.id, prepareTeamForProperty(homeopsTeam));
@@ -611,7 +620,7 @@ function PropertyFormContainer() {
         const systemsArray = formSystemsToArray(
           mergeFormDataFromTabs(state.formData) ?? {},
           res.id,
-          state.systems ?? []
+          state.systems ?? [],
         );
         await updateSystemsForProperty(res.id, systemsArray);
         const refreshed = await getPropertyById(uid);
@@ -621,7 +630,7 @@ function PropertyFormContainer() {
           payload: buildPropertyPayloadFromRefresh(
             refreshed,
             systemsFromBackend ?? [],
-            res
+            res,
           ),
         });
         dispatch({type: "SET_SYSTEMS", payload: systemsFromBackend ?? []});
@@ -670,16 +679,16 @@ function PropertyFormContainer() {
         type: state.bannerType,
         message: state.bannerMessage,
       },
-    })
+    }),
   );
 
   const buildNavigationState = (propertyUid) => {
     // Sort by passport_id ascending to match PropertiesList default order
     const sortedProperties = [...properties].sort((a, b) =>
-      (a.passport_id || "").localeCompare(b.passport_id || "")
+      (a.passport_id || "").localeCompare(b.passport_id || ""),
     );
     const propertyIndex = sortedProperties.findIndex(
-      (p) => (p.property_uid ?? p.id) === propertyUid
+      (p) => (p.property_uid ?? p.id) === propertyUid,
     );
     if (propertyIndex === -1) return null;
     return {
@@ -698,18 +707,18 @@ function PropertyFormContainer() {
     : mergedFormData;
 
   // Systems to show in Systems tab: only those with included=true (from modal selection)
-  const visibleSystemIds =
-    state.formData.systems?.selectedSystemIds ?? [];
+  const visibleSystemIds = state.formData.systems?.selectedSystemIds ?? [];
 
   // Array of systems for use when updating systems on the backend (camelCase, backend-ready)
   const propertyId = state.property?.identity?.id ?? state.property?.id;
   const systemsArray = formSystemsToArray(
     mergedFormData ?? {},
     propertyId ?? 0,
-    state.systems ?? []
+    state.systems ?? [],
   );
-  console.log("systemsArray: ", systemsArray);
-
+  /* console.log("systemsArray: ", systemsArray);
+  console.log("state.formData: ", state.formData); */
+  console.log("maintenanceRecords: ", maintenanceRecords);
   return (
     <div className="px-4 sm:px-6 lg:px-1 pt-1">
       <SharePropertyModal
@@ -766,11 +775,11 @@ function PropertyFormContainer() {
             nextData[name] =
               prevData[name] ??
               Object.fromEntries(
-                STANDARD_CUSTOM_SYSTEM_FIELDS.map((f) => [f.key, ""])
+                STANDARD_CUSTOM_SYSTEM_FIELDS.map((f) => [f.key, ""]),
               );
           });
           const predefinedOnly = (selectedIds ?? []).filter(
-            (id) => !String(id).startsWith("custom-")
+            (id) => !String(id).startsWith("custom-"),
           );
           dispatch({
             type: "SET_SYSTEMS_FORM_DATA",
@@ -1201,7 +1210,7 @@ function PropertyFormContainer() {
                       <span className="text-base font-semibold text-gray-900 dark:text-white">
                         {(cardData.squareFeet ?? cardData.sqFtTotal) != null
                           ? Number(
-                              cardData.squareFeet ?? cardData.sqFtTotal
+                              cardData.squareFeet ?? cardData.sqFtTotal,
                             ).toLocaleString()
                           : "—"}
                       </span>
@@ -1252,7 +1261,7 @@ function PropertyFormContainer() {
         <div className="space-y-8">
           {/* Property Health & Completeness */}
           <section className="bg-white dark:bg-gray-800 rounded-2xl shadow-sm border border-gray-200 dark:border-gray-700 p-5 md:p-6">
-            <ScoreCard propertyData={cardData} />
+            <ScoreCard propertyData={mergedFormData} />
           </section>
 
           {/* Navigation Tabs */}
@@ -1325,6 +1334,21 @@ function PropertyFormContainer() {
               {state.activeTab === "maintenance" && (
                 <MaintenanceTab
                   propertyData={mergedFormData}
+                  maintenanceRecords={state.formData.maintenanceRecords ?? []}
+                  onMaintenanceRecordsChange={(records) =>
+                    dispatch({
+                      type: "SET_MAINTENANCE_FORM_DATA",
+                      payload: records,
+                    })
+                  }
+                  onMaintenanceRecordAdded={() => {
+                    setTimeout(() => {
+                      saveBarRef.current?.scrollIntoView?.({
+                        behavior: "smooth",
+                        block: "nearest",
+                      });
+                    }, 100);
+                  }}
                   contacts={contacts ?? []}
                 />
               )}
@@ -1348,7 +1372,7 @@ function PropertyFormContainer() {
                               className="w-full h-full object-cover"
                             />
                           </div>
-                        )
+                        ),
                       )}
                     </div>
                   </div>
@@ -1369,7 +1393,7 @@ function PropertyFormContainer() {
                           className="w-full h-full object-cover"
                         />
                       </div>
-                    )
+                    ),
                   )}
                 </div>
               )}
@@ -1382,6 +1406,7 @@ function PropertyFormContainer() {
 
           {/* Save/Cancel bar - attached to tabs section (negative margin removes gap), sticky at bottom */}
           <div
+            ref={saveBarRef}
             className={`${
               state.formDataChanged || state.isNew ? "sticky" : "hidden"
             } bottom-0 -mt-8 bg-white dark:bg-gray-800 border-t border-x border-b border-gray-200 dark:border-gray-700 px-6 py-4 rounded-b-2xl transition-all duration-200`}
@@ -1404,8 +1429,8 @@ function PropertyFormContainer() {
                     ? "Saving..."
                     : "Updating..."
                   : state.isNew
-                  ? "Save"
-                  : "Update"}
+                    ? "Save"
+                    : "Update"}
               </button>
             </div>
           </div>
