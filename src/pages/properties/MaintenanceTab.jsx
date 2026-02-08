@@ -1,4 +1,11 @@
-import React, {useState, useCallback, useEffect, useMemo} from "react";
+import React, {
+  useState,
+  useCallback,
+  useEffect,
+  useMemo,
+  useContext,
+} from "react";
+import {createPortal} from "react-dom";
 import {Settings, PanelLeftClose, ChevronRight, Menu} from "lucide-react";
 import {useParams} from "react-router-dom";
 import {PROPERTY_SYSTEMS} from "./constants/propertySystems";
@@ -6,6 +13,8 @@ import {
   MaintenanceTreeView,
   MaintenanceFormPanel,
 } from "./partials/maintenance";
+import PropertyContext from "../../context/PropertyContext";
+import ModalBlank from "../../components/ModalBlank";
 
 /**
  * MaintenanceTab - Split-view layout for maintenance record management.
@@ -30,7 +39,9 @@ function MaintenanceTab({
   const [isNewRecord, setIsNewRecord] = useState(false);
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
   const [sidebarOpen, setSidebarOpen] = useState(false); // For mobile overlay
-
+  const [deleteConfirmOpen, setDeleteConfirmOpen] = useState(false);
+  const [recordToDeleteId, setRecordToDeleteId] = useState(null);
+  const {setMaintenanceRecords} = useContext(PropertyContext);
   // Close mobile sidebar on escape key
   useEffect(() => {
     const handleKeydown = (e) => {
@@ -56,12 +67,20 @@ function MaintenanceTab({
   ];
 
   // Convert array (from parent state) to object keyed by systemId for tree view
+  // Sort records by date descending (most recent on top)
   const maintenanceRecords = useMemo(() => {
     const records = {};
     (maintenanceRecordsArray || []).forEach((item) => {
       const systemId = item.systemId || "roof";
       if (!records[systemId]) records[systemId] = [];
       records[systemId].push({...item, systemId});
+    });
+    Object.keys(records).forEach((sysId) => {
+      records[sysId].sort((a, b) => {
+        const dateA = a.date ? new Date(a.date).getTime() : 0;
+        const dateB = b.date ? new Date(b.date).getTime() : 0;
+        return dateB - dateA; // descending: most recent first
+      });
     });
     return records;
   }, [maintenanceRecordsArray]);
@@ -91,80 +110,87 @@ function MaintenanceTab({
     setIsNewRecord(true);
   }, []);
 
-  // Handle saving a record
-  const handleSaveRecord = useCallback(
+  const handleRecordChange = useCallback(
     (recordData) => {
-      const systemRecords = [
-        ...(maintenanceRecords[recordData.systemId] || []),
-      ];
-      const existingIndex = systemRecords.findIndex(
-        (r) => r.id === recordData.id,
-      );
+      if (!recordData) return;
+      const sysId = recordData.systemId || "roof";
+      const recordId = recordData.id;
+      const updated = {...maintenanceRecords};
 
-      if (existingIndex >= 0) {
-        systemRecords[existingIndex] = recordData;
-      } else {
-        systemRecords.push(recordData);
-      }
-
-      // Sort by date descending
-      systemRecords.sort((a, b) => {
-        const dateA = new Date(a.date);
-        const dateB = new Date(b.date);
-        return dateB - dateA;
+      // Remove from any system where it previously existed (handles system change)
+      Object.keys(updated).forEach((key) => {
+        updated[key] = (updated[key] || []).filter(
+          (r) => String(r.id) !== String(recordId),
+        );
       });
 
-      const updated = {
-        ...maintenanceRecords,
-        [recordData.systemId]: systemRecords,
-      };
-      onMaintenanceRecordsChange?.(recordsToArray(updated));
-
-      // Update the selected record to the saved version
+      // Add or ensure it exists in the target system
+      const targetRecords = updated[sysId] || [];
+      const idx = targetRecords.findIndex(
+        (r) => String(r.id) === String(recordId),
+      );
+      const isNew = idx < 0;
+      if (idx >= 0) {
+        updated[sysId] = targetRecords.map((r, i) =>
+          i === idx ? recordData : r,
+        );
+      } else {
+        updated[sysId] = [...targetRecords, recordData];
+      }
+      const recordsArray = recordsToArray(updated);
+      onMaintenanceRecordsChange?.(recordsArray);
+      setMaintenanceRecords(recordsArray);
       setSelectedRecord(recordData);
       setIsNewRecord(false);
-
-      // Trigger save bar visibility and scroll to it
-      onMaintenanceRecordAdded?.();
+      if (isNew) {
+        onMaintenanceRecordAdded?.();
+      }
     },
     [
       maintenanceRecords,
       onMaintenanceRecordsChange,
       onMaintenanceRecordAdded,
       recordsToArray,
+      setMaintenanceRecords,
     ],
   );
 
-  // Handle deleting a record
-  const handleDeleteRecord = useCallback(
-    (recordId) => {
-      if (
-        window.confirm(
-          "Are you sure you want to delete this maintenance record?",
-        )
-      ) {
-        const updated = {...maintenanceRecords};
-        Object.keys(updated).forEach((systemId) => {
-          updated[systemId] = updated[systemId].filter(
-            (r) => r.id !== recordId,
-          );
-        });
-        onMaintenanceRecordsChange?.(recordsToArray(updated));
+  // Open delete confirmation modal (defer to avoid click-outside handler firing)
+  const handleDeleteRecord = useCallback((recordId) => {
+    setRecordToDeleteId(recordId);
+    setTimeout(() => setDeleteConfirmOpen(true), 0);
+  }, []);
 
-        // Clear selection if deleted record was selected
-        if (selectedRecord?.id === recordId) {
-          setSelectedRecord(null);
-          setIsNewRecord(false);
-        }
-      }
-    },
-    [
-      maintenanceRecords,
-      onMaintenanceRecordsChange,
-      recordsToArray,
-      selectedRecord,
-    ],
-  );
+  // Confirm delete and close modal
+  const handleConfirmDelete = useCallback(() => {
+    if (!recordToDeleteId) return;
+    const recordId = recordToDeleteId;
+    setDeleteConfirmOpen(false);
+    setRecordToDeleteId(null);
+
+    const updated = {...maintenanceRecords};
+    Object.keys(updated).forEach((systemId) => {
+      updated[systemId] = (updated[systemId] || []).filter(
+        (r) => String(r.id) !== String(recordId),
+      );
+    });
+    const recordsArray = recordsToArray(updated);
+    onMaintenanceRecordsChange?.(recordsArray);
+    setMaintenanceRecords(recordsArray);
+
+    // Clear selection if deleted record was selected
+    if (selectedRecord?.id === recordId) {
+      setSelectedRecord(null);
+      setIsNewRecord(false);
+    }
+  }, [
+    recordToDeleteId,
+    maintenanceRecords,
+    onMaintenanceRecordsChange,
+    recordsToArray,
+    selectedRecord,
+    setMaintenanceRecords,
+  ]);
 
   // Handle "Open in New Tab" - opens maintenance record at /:dbUrl/properties/:uid/maintenance/:systemId/:recordId
   const handleOpenInNewTab = useCallback(
@@ -207,6 +233,7 @@ function MaintenanceTab({
     [handleSelectRecord],
   );
 
+  /* Handle selecting a system on mobile */
   const handleSystemSelect = useCallback(
     (systemId) => {
       handleSelectSystem(systemId);
@@ -215,6 +242,7 @@ function MaintenanceTab({
     [handleSelectSystem],
   );
 
+  /* Handle adding a record on mobile */
   const handleAddRecordMobile = useCallback(
     (systemId) => {
       handleAddRecord(systemId);
@@ -224,7 +252,58 @@ function MaintenanceTab({
   );
 
   return (
-    <div className="relative flex h-[calc(100vh-300px)] min-h-[500px] bg-gray-100 dark:bg-gray-900 rounded-lg overflow-hidden border border-gray-200 dark:border-gray-700">
+    <div className="relative flex h-[calc(100vh-200px)] min-h-[600px] bg-gray-100 dark:bg-gray-900 rounded-lg overflow-hidden border border-gray-200 dark:border-gray-700">
+      {/* Delete confirmation modal - rendered via portal to escape overflow:hidden */}
+      {createPortal(
+        <ModalBlank
+          id="maintenance-delete-modal"
+          modalOpen={deleteConfirmOpen}
+          setModalOpen={setDeleteConfirmOpen}
+        >
+          <div className="p-5 flex space-x-4">
+            <div className="w-10 h-10 rounded-full flex items-center justify-center shrink-0 bg-gray-100 dark:bg-gray-700">
+              <svg
+                className="shrink-0 fill-current text-red-500"
+                width="16"
+                height="16"
+                viewBox="0 0 16 16"
+              >
+                <path d="M8 0C3.6 0 0 3.6 0 8s3.6 8 8 8 8-3.6 8-8-3.6-8-8-8zm0 12c-.6 0-1-.4-1-1s.4-1 1-1 1 .4 1 1-.4 1-1 1zm1-3H7V4h2v5z" />
+              </svg>
+            </div>
+            <div className="flex-1">
+              <div className="mb-2">
+                <div className="text-lg font-semibold text-gray-800 dark:text-gray-100">
+                  Delete maintenance record?
+                </div>
+              </div>
+              <p className="text-sm text-gray-600 dark:text-gray-300 mb-6">
+                Are you sure you want to delete this maintenance record? You
+                will need to click the Save/Update button below to apply
+                changes.
+              </p>
+              <div className="flex flex-wrap justify-end gap-2">
+                <button
+                  type="button"
+                  className="btn-sm border-gray-200 dark:border-gray-700/60 hover:border-gray-300 dark:hover:border-gray-600 text-gray-800 dark:text-gray-300"
+                  onClick={() => setDeleteConfirmOpen(false)}
+                >
+                  Cancel
+                </button>
+                <button
+                  type="button"
+                  className="btn-sm bg-red-500 hover:bg-red-600 text-white"
+                  onClick={handleConfirmDelete}
+                >
+                  Delete
+                </button>
+              </div>
+            </div>
+          </div>
+        </ModalBlank>,
+        document.body,
+      )}
+
       {/* Mobile sidebar backdrop - scoped to tab */}
       {sidebarOpen && (
         <div
@@ -301,7 +380,7 @@ function MaintenanceTab({
             systemId={selectedSystemId}
             systemName={getSystemName(selectedSystemId)}
             propertyId={propertyId}
-            onSave={handleSaveRecord}
+            onRecordChange={handleRecordChange}
             onDelete={handleDeleteRecord}
             onOpenInNewTab={handleOpenInNewTab}
             contacts={contacts}
