@@ -1,5 +1,5 @@
-/* const BASE_URL = import.meta.env.VITE_BASE_URL || "http://localhost:3000"; */
-const BASE_URL = "http://localhost:3000";
+const BASE_URL = import.meta.env.VITE_BASE_URL;
+/* const BASE_URL = "http://localhost:3000"; */
 
 /** API Class.
  *
@@ -343,7 +343,7 @@ class AppApi {
     if (!key) {
       throw ["Document key is required"];
     }
-    let res = await this.request("documents/presigned-preview", {key}, "GET");
+    let res = await this.request("documents/presigned-preview", { key }, "GET");
     return res.url;
   }
 
