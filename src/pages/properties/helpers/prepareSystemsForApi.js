@@ -122,9 +122,7 @@ export function prepareSystemsForApi(formData, propertyId) {
   const customData = formData.customSystemsData ?? {};
   const usedKeys = new Set();
 
-  const visibleIds = selectedIds.length > 0 ? selectedIds : ["roof", "gutters", "heating", "ac", "electrical", "plumbing"];
-
-  for (const systemId of visibleIds) {
+  for (const systemId of selectedIds) {
     const data = buildPredefinedSystemData(formData, systemId);
     const nextServiceDate = getNextServiceDate(formData, systemId);
     const systemKey = ensureUniqueSystemKey(

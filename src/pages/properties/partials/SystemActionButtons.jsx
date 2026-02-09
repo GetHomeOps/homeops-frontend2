@@ -13,6 +13,8 @@ function SystemActionButtons({
   isNewInstall,
   onNewInstallChange,
   onScheduleInspection,
+  propertyId,
+  systemsToShow = [],
 }) {
   const [showInstallerCard, setShowInstallerCard] = useState(false);
   const [showUploadModal, setShowUploadModal] = useState(false);
@@ -125,6 +127,8 @@ function SystemActionButtons({
         onClose={setShowUploadModal}
         systemType={systemType}
         systemLabel={systemLabel}
+        propertyId={propertyId}
+        systemsToShow={systemsToShow}
       />
     </div>
   );

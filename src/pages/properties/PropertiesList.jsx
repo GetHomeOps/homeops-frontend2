@@ -492,13 +492,13 @@ function PropertiesList() {
                 </h1>
               </div>
               <div className="grid grid-flow-col sm:auto-cols-max gap-2">
-                {selectedProperties.length > 0 && (
-                  <ListDropdown
-                    align="right"
-                    onDelete={handleDeleteClick}
-                    onDuplicate={handleDuplicate}
-                  />
-                )}
+                <ListDropdown
+                  align="right"
+                  hasSelection={selectedProperties.length > 0}
+                  onImport={() => navigate(`/${dbUrl}/properties/import`)}
+                  onDelete={handleDeleteClick}
+                  onDuplicate={handleDuplicate}
+                />
                 <button
                   className="btn bg-gray-900 text-gray-100 hover:bg-gray-800 dark:bg-gray-100 dark:text-gray-800 dark:hover:bg-white"
                   onClick={handleNewProperty}

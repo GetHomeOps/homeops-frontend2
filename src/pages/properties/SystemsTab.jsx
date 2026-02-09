@@ -9,7 +9,11 @@ import {
   Settings,
   Info,
 } from "lucide-react";
-import {STANDARD_CUSTOM_SYSTEM_FIELDS} from "./constants/propertySystems";
+import {
+  STANDARD_CUSTOM_SYSTEM_FIELDS,
+  PROPERTY_SYSTEMS,
+  DEFAULT_SYSTEM_IDS,
+} from "./constants/propertySystems";
 import {
   getSystemProgress,
   countCompletedSystems,
@@ -146,6 +150,26 @@ function SystemsTab({
     onSystemsCompletionChange?.(completedCount, systemIdsToShow.length);
   }, [completedCount, systemIdsToShow.length, onSystemsCompletionChange]);
 
+  // Build systems list for upload modal (matches DocumentsTab: selected + custom, general first)
+  const visibleSystemIdsForUpload =
+    (propertyData?.selectedSystemIds?.length ?? 0) > 0
+      ? propertyData.selectedSystemIds
+      : DEFAULT_SYSTEM_IDS;
+  const customSystemNames = propertyData?.customSystemNames ?? [];
+  const systemsToShow = useMemo(() => {
+    const general = {id: "general", label: "General"};
+    const selected = PROPERTY_SYSTEMS.filter((s) =>
+      visibleSystemIdsForUpload.includes(s.id),
+    ).map((s) => ({id: s.id, label: s.name}));
+    const custom = customSystemNames.map((name, i) => ({
+      id: `custom-${name}-${i}`,
+      label: name,
+    }));
+    return [general, ...selected, ...custom].filter(Boolean);
+  }, [visibleSystemIdsForUpload, customSystemNames]);
+
+  const propertyId = propertyData?.id ?? propertyData?.identity?.id;
+
   return (
     <div className="space-y-4">
       {/* Systems Section - Roof */}
@@ -167,6 +191,8 @@ function SystemsTab({
             "roofNextInspection",
           )}
           progress={systemsProgress.roof}
+          propertyId={propertyId}
+          systemsToShow={systemsToShow}
         >
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
             <div>
@@ -317,6 +343,8 @@ function SystemsTab({
             "gutterNextInspection",
           )}
           progress={systemsProgress.gutters}
+          propertyId={propertyId}
+          systemsToShow={systemsToShow}
         >
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
             <div>
@@ -466,6 +494,8 @@ function SystemsTab({
             "foundationNextInspection",
           )}
           progress={systemsProgress.foundation}
+          propertyId={propertyId}
+          systemsToShow={systemsToShow}
         >
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
             <div>
@@ -565,6 +595,8 @@ function SystemsTab({
             "sidingNextInspection",
           )}
           progress={systemsProgress.exterior}
+          propertyId={propertyId}
+          systemsToShow={systemsToShow}
         >
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
             <div>
@@ -671,6 +703,8 @@ function SystemsTab({
             "windowNextInspection",
           )}
           progress={systemsProgress.windows}
+          propertyId={propertyId}
+          systemsToShow={systemsToShow}
         >
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
             <div>
@@ -821,6 +855,8 @@ function SystemsTab({
             "heatingNextInspection",
           )}
           progress={systemsProgress.heating}
+          propertyId={propertyId}
+          systemsToShow={systemsToShow}
         >
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
             <div>
@@ -979,6 +1015,8 @@ function SystemsTab({
             "acNextInspection",
           )}
           progress={systemsProgress.ac}
+          propertyId={propertyId}
+          systemsToShow={systemsToShow}
         >
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
             <div>
@@ -1140,6 +1178,8 @@ function SystemsTab({
             "waterHeatingNextInspection",
           )}
           progress={systemsProgress.waterHeating}
+          propertyId={propertyId}
+          systemsToShow={systemsToShow}
         >
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
             <div>
@@ -1303,6 +1343,8 @@ function SystemsTab({
             "electricalNextInspection",
           )}
           progress={systemsProgress.electrical}
+          propertyId={propertyId}
+          systemsToShow={systemsToShow}
         >
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
             <div>
@@ -1466,6 +1508,8 @@ function SystemsTab({
             "plumbingNextInspection",
           )}
           progress={systemsProgress.plumbing}
+          propertyId={propertyId}
+          systemsToShow={systemsToShow}
         >
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
             <div>
@@ -1650,6 +1694,8 @@ function SystemsTab({
             handleNewInstallChange("safety", isNew)
           }
           progress={systemsProgress.safety}
+          propertyId={propertyId}
+          systemsToShow={systemsToShow}
         >
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
             <div>
@@ -1709,6 +1755,8 @@ function SystemsTab({
             handleNewInstallChange("inspections", isNew)
           }
           progress={systemsProgress.inspections}
+          propertyId={propertyId}
+          systemsToShow={systemsToShow}
         >
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
             <div>
@@ -1980,6 +2028,8 @@ function SystemsTab({
                 `customSystem_${systemName}::nextInspection`,
               )}
               progress={customProgress}
+              propertyId={propertyId}
+              systemsToShow={systemsToShow}
             >
               <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                 {STANDARD_CUSTOM_SYSTEM_FIELDS.map((field) => (

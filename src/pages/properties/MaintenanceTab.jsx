@@ -28,6 +28,7 @@ import ModalBlank from "../../components/ModalBlank";
 function MaintenanceTab({
   propertyData,
   maintenanceRecords: maintenanceRecordsArray = [],
+  savedMaintenanceRecords: savedMaintenanceRecordsArray = [],
   onMaintenanceRecordsChange,
   onMaintenanceRecordAdded,
   contacts = [],
@@ -66,8 +67,7 @@ function MaintenanceTab({
     })),
   ];
 
-  // Convert array (from parent state) to object keyed by systemId for tree view
-  // Sort records by date descending (most recent on top)
+  // Convert array (from parent state) to object keyed by systemId
   const maintenanceRecords = useMemo(() => {
     const records = {};
     (maintenanceRecordsArray || []).forEach((item) => {
@@ -84,6 +84,24 @@ function MaintenanceTab({
     });
     return records;
   }, [maintenanceRecordsArray]);
+
+  // Tree only shows saved records; unsaved records are hidden until Save
+  const maintenanceRecordsForTree = useMemo(() => {
+    const records = {};
+    (savedMaintenanceRecordsArray || []).forEach((item) => {
+      const systemId = item.systemId || "roof";
+      if (!records[systemId]) records[systemId] = [];
+      records[systemId].push({...item, systemId});
+    });
+    Object.keys(records).forEach((sysId) => {
+      records[sysId].sort((a, b) => {
+        const dateA = a.date ? new Date(a.date).getTime() : 0;
+        const dateB = b.date ? new Date(b.date).getTime() : 0;
+        return dateB - dateA; // descending: most recent first
+      });
+    });
+    return records;
+  }, [savedMaintenanceRecordsArray]);
 
   const recordsToArray = useCallback((recordsObj) => {
     return Object.values(recordsObj || {}).flat();
@@ -113,6 +131,7 @@ function MaintenanceTab({
   const handleRecordChange = useCallback(
     (recordData) => {
       if (!recordData) return;
+      if (!(recordData.date != null && String(recordData.date).trim())) return;
       const sysId = recordData.systemId || "roof";
       const recordId = recordData.id;
       const updated = {...maintenanceRecords};
@@ -252,7 +271,9 @@ function MaintenanceTab({
   );
 
   return (
-    <div className="relative flex h-[calc(100vh-200px)] min-h-[600px] bg-gray-100 dark:bg-gray-900 rounded-lg overflow-hidden border border-gray-200 dark:border-gray-700">
+    <div
+      className={`relative flex h-[calc(100vh-200px)] min-h-[600px] bg-gray-100 dark:bg-gray-900 rounded-lg overflow-hidden border border-gray-200 dark:border-gray-700 ${sidebarCollapsed ? "" : "gap-4"}`}
+    >
       {/* Delete confirmation modal - rendered via portal to escape overflow:hidden */}
       {createPortal(
         <ModalBlank
@@ -328,7 +349,7 @@ function MaintenanceTab({
         <div className="w-72 h-full rounded-l-lg overflow-hidden">
           <MaintenanceTreeView
             systems={systemsToShow}
-            maintenanceRecords={maintenanceRecords}
+            maintenanceRecords={maintenanceRecordsForTree}
             selectedRecordId={selectedRecord?.id}
             selectedSystemId={isNewRecord ? selectedSystemId : null}
             onSelectRecord={handleRecordSelect}

@@ -35,11 +35,15 @@ function ModalBlank({
     return () => document.removeEventListener("keydown", keyHandler);
   }, [modalOpen, setModalOpen]);
 
+  const handleBackdropClick = (e) => {
+    if (e.target === e.currentTarget) setModalOpen(false);
+  };
+
   return (
     <>
-      {/* Modal backdrop - z-[200] ensures modals appear above floating elements like ImageUploadField (z-[100]) */}
+      {/* Modal backdrop - click to close, z-[200] ensures modals appear above floating elements like ImageUploadField (z-[100]) */}
       <Transition
-        className="fixed inset-0 bg-gray-900/30 z-[200] transition-opacity"
+        className="fixed inset-0 bg-gray-900/30 z-[200] transition-opacity cursor-default"
         show={modalOpen}
         enter="transition ease-out duration-200"
         enterStart="opacity-0"
@@ -48,6 +52,7 @@ function ModalBlank({
         leaveStart="opacity-100"
         leaveEnd="opacity-0"
         aria-hidden="true"
+        onClick={handleBackdropClick}
       />
       {/* Modal dialog */}
       <Transition
@@ -62,9 +67,13 @@ function ModalBlank({
         leave="transition ease-in-out duration-200"
         leaveStart="opacity-100 translate-y-0"
         leaveEnd="opacity-0 translate-y-4"
+        onClick={(e) => {
+          if (e.target === e.currentTarget) setModalOpen(false);
+        }}
       >
         <div
           ref={modalContent}
+          onClick={(e) => e.stopPropagation()}
           className={`bg-white dark:bg-gray-800 rounded-lg shadow-lg overflow-auto w-full max-h-full ${contentClassName ?? "max-w-2xl"}`}
         >
           {children}

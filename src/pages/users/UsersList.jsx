@@ -18,8 +18,6 @@ import Banner from "../../partials/containers/Banner";
 import ViewModeDropdown from "../../components/ViewModeDropdown";
 import UsersTable from "./UsersTable";
 import ListDropdown from "../../partials/buttons/ListDropdown";
-import {list} from "postcss";
-// import CollapsibleContactsTable from "./CollapsibleContactsTable";
 
 const PAGE_STORAGE_KEY = "users_list_page";
 
@@ -432,14 +430,13 @@ function UsersList() {
 
               {/* Right: Actions */}
               <div className="grid grid-flow-col sm:auto-cols-max justify-start sm:justify-end gap-2">
-                {/* Filter button */}
-                {selectedItems.length > 0 && (
-                  <ListDropdown
-                    align="right"
-                    onDelete={handleDeleteClick}
-                    onDuplicate={handleDuplicate}
-                  />
-                )}
+                <ListDropdown
+                  align="right"
+                  hasSelection={selectedItems.length > 0}
+                  onImport={() => navigate(`/${dbUrl}/users/import`)}
+                  onDelete={handleDeleteClick}
+                  onDuplicate={handleDuplicate}
+                />
 
                 {/* Add User button */}
                 <button

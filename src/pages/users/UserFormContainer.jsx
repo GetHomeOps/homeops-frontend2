@@ -19,6 +19,9 @@ import {useAutoCloseBanner} from "../../hooks/useAutoCloseBanner";
 import {useAuth} from "../../context/AuthContext";
 import AppApi from "../../api/api";
 import SelectDropdown from "../contacts/SelectDropdown";
+import useImageUpload from "../../hooks/useImageUpload";
+import usePresignedPreview from "../../hooks/usePresignedPreview";
+import ImageUploadField from "../../components/ImageUploadField";
 
 const initialFormData = {
   name: "",
@@ -26,6 +29,7 @@ const initialFormData = {
   phone: "",
   role: "",
   contact: "",
+  image: "",
 };
 
 const initialState = {
@@ -69,8 +73,9 @@ function reducer(state, action) {
                 action.payload.role === "super_admin"
                   ? "Super Admin"
                   : action.payload.role || "",
-            contact: action.payload.contact || "",
-            isActive: action.payload.isActive || false,
+              contact: action.payload.contact || "",
+              isActive: action.payload.isActive || false,
+              image: action.payload.image ?? "",
             }
           : initialFormData,
         formDataChanged: false,
@@ -108,7 +113,54 @@ function UsersFormContainer() {
   const {currentUser} = useAuth();
   const {currentDb} = useCurrentDb();
   const dbUrl = currentDb?.url || currentDb?.name || "";
+  const userPhotoInputRef = useRef(null);
 
+  const {
+    uploadImage: uploadUserPhoto,
+    imagePreviewUrl: userPhotoPreviewUrl,
+    uploadedImageUrl: userPhotoUploadedUrl,
+    imageUploading: userPhotoUploading,
+    imageUploadError: userPhotoUploadError,
+    setImageUploadError: setUserPhotoUploadError,
+    clearPreview: clearUserPhotoPreview,
+    clearUploadedUrl: clearUserPhotoUploadedUrl,
+  } = useImageUpload({
+    onSuccess: (key) => {
+      dispatch({type: "SET_FORM_DATA", payload: {image: key}});
+      if (state.isInitialLoad) {
+        dispatch({type: "SET_FORM_CHANGED", payload: true});
+      }
+    },
+  });
+
+  const userImageKey =
+    state.user?.image ?? state.formData?.image ?? "";
+  const userImageKeyNeedsPresigned =
+    userImageKey &&
+    !userImageKey.startsWith("blob:") &&
+    !userImageKey.startsWith("http");
+  const {
+    url: userPhotoPresignedUrl,
+    fetchPreview: fetchUserPhotoPresigned,
+    clearUrl: clearUserPhotoPresignedUrl,
+    currentKey: userPhotoPresignedKey,
+  } = usePresignedPreview();
+
+  useEffect(() => {
+    if (userImageKeyNeedsPresigned && userImageKey) {
+      fetchUserPhotoPresigned(userImageKey);
+    }
+  }, [userImageKeyNeedsPresigned, userImageKey, fetchUserPhotoPresigned]);
+
+  function handleRemoveUserPhoto() {
+    clearUserPhotoPreview();
+    clearUserPhotoUploadedUrl();
+    clearUserPhotoPresignedUrl();
+    dispatch({type: "SET_FORM_DATA", payload: {image: ""}});
+    if (state.isInitialLoad) {
+      dispatch({type: "SET_FORM_CHANGED", payload: true});
+    }
+  }
 
   // Fetch user based on URL's user id
   useEffect(() => {
@@ -149,6 +201,15 @@ function UsersFormContainer() {
     }
     fetchUser();
   }, [id, users]);
+
+  // Clear user photo preview/presigned when switching to a different user
+  useEffect(() => {
+    return () => {
+      clearUserPhotoPreview();
+      clearUserPhotoUploadedUrl();
+      clearUserPhotoPresignedUrl();
+    };
+  }, [state.user?.id, clearUserPhotoPreview, clearUserPhotoUploadedUrl, clearUserPhotoPresignedUrl]);
 
   // Banner timeout useEffect with the custom hook
   useAutoCloseBanner(state.bannerOpen, state.bannerMessage, () =>
@@ -260,6 +321,7 @@ function UsersFormContainer() {
       contact: state.formData.contact || 0,
       password: randomPassword,
       is_active: false,
+      image: state.formData.image || undefined,
     };
 
     dispatch({type: "SET_SUBMITTING", payload: true});
@@ -317,6 +379,7 @@ function UsersFormContainer() {
       ...state.formData,
       contact: Number(state.formData.contact),
       isActive: state.formData.isActive,
+      image: state.formData.image || null,
     };
 
     dispatch({type: "SET_SUBMITTING", payload: true});
@@ -412,12 +475,15 @@ function UsersFormContainer() {
     state.user?.name || getPageTitle();
   const displayEmail = state.user?.email || "";
 
-  const userImage =
-    state.user?.image ||
-    state.user?.avatar ||
-    state.user?.avatarUrl ||
-    state.user?.profileImage ||
-    "";
+  const userPhotoDisplayUrl =
+    userPhotoPreviewUrl ||
+    state.user?.image_url ||
+    userPhotoUploadedUrl ||
+    (state.formData.image?.startsWith?.("blob:") || state.formData.image?.startsWith?.("http")
+      ? state.formData.image
+      : null) ||
+    (userPhotoPresignedKey === userImageKey ? userPhotoPresignedUrl : null) ||
+    null;
 
   const userInitial = displayName?.trim()?.charAt(0)?.toUpperCase() || "U";
 
@@ -924,26 +990,23 @@ function UsersFormContainer() {
             <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
               {/* User Name and Info */}
               <div className="flex items-start gap-4">
-                <div className="relative w-24 h-24 shrink-0">
-                  <div className="w-full h-full rounded-lg overflow-hidden bg-gray-100 dark:bg-gray-700 ring-1 ring-gray-200 dark:ring-gray-700 flex items-center justify-center">
-                    {userImage ? (
-                      <img
-                        src={userImage}
-                        alt={displayName}
-                        className="w-full h-full object-cover"
-                        onError={(e) => {
-                          e.target.onerror = null;
-                          e.target.src =
-                            "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 24 24' stroke='%23E5E7EB'%3E%3Cpath stroke-linecap='round' stroke-linejoin='round' stroke-width='2' d='M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z'%3E%3C/path%3E%3C/svg%3E";
-                        }}
-                      />
-                    ) : (
-                      <span className="text-3xl font-semibold text-[#456564]">
-                        {userInitial}
-                      </span>
-                    )}
-                  </div>
-                </div>
+                <ImageUploadField
+                  imageSrc={userPhotoDisplayUrl}
+                  hasImage={!!(state.formData.image || state.user?.image)}
+                  imageUploading={userPhotoUploading}
+                  onUpload={uploadUserPhoto}
+                  onRemove={handleRemoveUserPhoto}
+                  onPasteUrl={null}
+                  showRemove={!!(state.formData.image || state.user?.image)}
+                  imageUploadError={userPhotoUploadError}
+                  onDismissError={() => setUserPhotoUploadError(null)}
+                  size="md"
+                  placeholder="avatar"
+                  alt={displayName}
+                  uploadLabel={t("uploadImage") || "Upload photo"}
+                  removeLabel={t("removePhoto") || "Remove photo"}
+                  fileInputRef={userPhotoInputRef}
+                />
                 <div className="flex-1 min-w-0">
                   <div className="flex items-center gap-2 mb-2">
                     <h1 className="text-2xl font-bold text-gray-800 dark:text-gray-100">

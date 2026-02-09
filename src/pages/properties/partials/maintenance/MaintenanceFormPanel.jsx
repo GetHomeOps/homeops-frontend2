@@ -21,6 +21,7 @@ import {
 } from "lucide-react";
 import DatePickerInput from "../../../../components/DatePickerInput";
 import InstallerSelect from "../InstallerSelect";
+import {RECORD_STATUS} from "../../helpers/maintenanceRecordMapping";
 
 /**
  * Inline form panel for viewing/editing maintenance records.
@@ -60,7 +61,21 @@ function MaintenanceFormPanel({
   });
 
   const [uploadedFiles, setUploadedFiles] = useState([]);
-  const [requestStatus, setRequestStatus] = useState(null);
+  const [recordStatus, setRecordStatus] = useState(null);
+  const [submitRequestBannerVisible, setSubmitRequestBannerVisible] =
+    useState(true);
+
+  const isContractorPending = recordStatus === RECORD_STATUS.CONTRACTOR_PENDING;
+  const isDraft =
+    recordStatus === RECORD_STATUS.DRAFT || recordStatus == null;
+
+  // Show banner when entering new record mode; hide when selecting a different record
+  useEffect(() => {
+    if (isNewRecord) setSubmitRequestBannerVisible(true);
+    else if (record && newRecordIdRef.current != null && record.id !== newRecordIdRef.current) {
+      setSubmitRequestBannerVisible(false);
+    }
+  }, [isNewRecord, record?.id]);
 
   // Reset temp ID when entering "new record" mode
   useEffect(() => {
@@ -80,15 +95,16 @@ function MaintenanceFormPanel({
         files,
         systemId: systemId || "roof",
         id,
-        requestStatus,
+        record_status: recordStatus,
         ...overrides,
       };
     },
-    [record?.id, formData, uploadedFiles, systemId, requestStatus],
+    [record?.id, formData, uploadedFiles, systemId, recordStatus],
   );
 
   const notifyRecordChange = useCallback(
     (formFields = formData, files = uploadedFiles, overrides = {}) => {
+      if (!formFields.date?.trim()) return;
       const data = buildRecordData(formFields, files, overrides);
       if (persistOnChange) {
         onRecordChange?.(data);
@@ -128,7 +144,12 @@ function MaintenanceFormPanel({
         files: record.files || [],
       });
       setUploadedFiles(record.files || []);
-      setRequestStatus(record.requestStatus || null);
+      setRecordStatus(
+        record.record_status ??
+          (record.requestStatus === "pending"
+            ? RECORD_STATUS.CONTRACTOR_PENDING
+            : null),
+      );
     } else {
       // New record
       setFormData({
@@ -147,11 +168,12 @@ function MaintenanceFormPanel({
         files: [],
       });
       setUploadedFiles([]);
-      setRequestStatus(null);
+      setRecordStatus(null);
     }
   }, [record]);
 
   const handleInputChange = (e) => {
+    if (isContractorPending) return;
     const {name, value} = e.target;
     const next = {...formData, [name]: value};
     if (name === "contractor" && contacts?.length) {
@@ -170,6 +192,7 @@ function MaintenanceFormPanel({
   };
 
   const handleFileUpload = (e) => {
+    if (isContractorPending) return;
     const files = Array.from(e.target.files);
     const newFiles = [
       ...uploadedFiles,
@@ -187,6 +210,7 @@ function MaintenanceFormPanel({
   };
 
   const handleRemoveFile = (index) => {
+    if (isContractorPending) return;
     const newFiles = uploadedFiles.filter((_, i) => i !== index);
     setUploadedFiles(newFiles);
     if (persistOnChange) {
@@ -203,6 +227,11 @@ function MaintenanceFormPanel({
   };
 
   const handleSubmitRequest = () => {
+    if (isContractorPending) return;
+    if (!formData.date?.trim()) {
+      alert("Please provide a date before submitting a request.");
+      return;
+    }
     if (
       !formData.contractor ||
       (!formData.contractorEmail && !formData.contractorPhone)
@@ -212,15 +241,33 @@ function MaintenanceFormPanel({
       );
       return;
     }
-    setRequestStatus("pending");
+    setRecordStatus(RECORD_STATUS.CONTRACTOR_PENDING);
     if (persistOnChange) {
       queueMicrotask(() =>
-        notifyRecordChange(formData, uploadedFiles, {requestStatus: "pending"}),
+        notifyRecordChange(formData, uploadedFiles, {
+          record_status: RECORD_STATUS.CONTRACTOR_PENDING,
+        }),
       );
     }
     alert(
       "Request submitted to contractor. They will be notified to fill out the maintenance report.",
     );
+  };
+
+  const handleCancelSubmitRequest = () => {
+    if (!formData.date?.trim()) {
+      alert("Please provide a date before completing this record.");
+      return;
+    }
+    setSubmitRequestBannerVisible(false);
+    setRecordStatus(RECORD_STATUS.USER_COMPLETED);
+    if (persistOnChange) {
+      queueMicrotask(() =>
+        notifyRecordChange(formData, uploadedFiles, {
+          record_status: RECORD_STATUS.USER_COMPLETED,
+        }),
+      );
+    }
   };
 
   const handleOpenInNewTab = () => {
@@ -272,7 +319,7 @@ function MaintenanceFormPanel({
               <span className="hidden sm:inline">Open in Tab</span>
             </button>
           )}
-          {record && onDelete && (
+          {record && onDelete && !isContractorPending && (
             <button
               type="button"
               onClick={(e) => {
@@ -290,18 +337,18 @@ function MaintenanceFormPanel({
         </div>
       </div>
 
-      {/* Pending banner */}
-      {requestStatus === "pending" && (
-        <div className="px-6 py-4 bg-emerald-50 dark:bg-emerald-900/20 border-b border-emerald-200 dark:border-emerald-800">
+      {/* Contractor pending - read-only, blocks edits */}
+      {isContractorPending && (
+        <div className="px-6 py-4 bg-amber-50 dark:bg-amber-900/20 border-b border-amber-200 dark:border-amber-800">
           <div className="flex items-center gap-3">
-            <AlertCircle className="w-5 h-5 text-emerald-600 dark:text-emerald-400 flex-shrink-0" />
+            <AlertCircle className="w-5 h-5 text-amber-600 dark:text-amber-400 flex-shrink-0" />
             <div>
-              <h3 className="text-sm font-semibold text-emerald-900 dark:text-emerald-200">
-                Maintenance Record Pending
+              <h3 className="text-sm font-semibold text-amber-900 dark:text-amber-200">
+                Awaiting contractor completion
               </h3>
-              <p className="text-xs text-emerald-700 dark:text-emerald-300">
-                A request has been sent to the contractor to fill out this
-                maintenance form.
+              <p className="text-xs text-amber-700 dark:text-amber-300">
+                This record has been sent to the contractor. Editing is disabled
+                until the contractor completes their response.
               </p>
             </div>
           </div>
@@ -310,47 +357,60 @@ function MaintenanceFormPanel({
 
       {/* Form content - scrollable */}
       <div className="flex-1 overflow-y-auto">
-        {/* Submit request banner for new records */}
-        {isNewRecord && requestStatus === null && (
-          <div className="mx-6 mt-6 p-4 bg-emerald-50 dark:bg-emerald-900/20 border border-emerald-200 dark:border-emerald-800 rounded-lg">
-            <div className="flex items-start justify-between gap-4">
-              <div className="flex items-start gap-3 flex-1">
-                <Send className="w-5 h-5 text-emerald-600 dark:text-emerald-400 flex-shrink-0 mt-0.5" />
-                <div className="flex-1">
-                  <h3 className="text-sm font-semibold text-emerald-900 dark:text-emerald-200 mb-1">
-                    Submit Request for Filling
-                  </h3>
-                  <p className="text-xs text-emerald-700 dark:text-emerald-300 mb-3">
-                    Need the contractor to fill out this form? Fill in the
-                    contractor details below and click "Submit Request".
-                  </p>
-                  <button
-                    type="button"
-                    onClick={handleSubmitRequest}
-                    className="inline-flex items-center gap-2 px-4 py-2 text-white text-sm font-medium rounded-lg transition-colors"
-                    style={{backgroundColor: "#456654"}}
-                    onMouseEnter={(e) => {
-                      e.target.style.backgroundColor = "#3a5548";
-                    }}
-                    onMouseLeave={(e) => {
-                      e.target.style.backgroundColor = "#456654";
-                    }}
-                  >
-                    <Send className="w-4 h-4" />
-                    Submit Request
-                  </button>
+        {/* Submit request banner - shown when draft, until Submit or Cancel */}
+        {submitRequestBannerVisible &&
+          isDraft &&
+          !isContractorPending &&
+          (isNewRecord || (record?.id && record.id === newRecordIdRef.current)) && (
+            <div className="mx-6 mt-6 p-4 bg-emerald-50 dark:bg-emerald-900/20 border border-emerald-200 dark:border-emerald-800 rounded-lg">
+              <div className="flex items-start justify-between gap-4">
+                <div className="flex items-start gap-3 flex-1">
+                  <Send className="w-5 h-5 text-emerald-600 dark:text-emerald-400 flex-shrink-0 mt-0.5" />
+                  <div className="flex-1">
+                    <h3 className="text-sm font-semibold text-emerald-900 dark:text-emerald-200 mb-1">
+                      Submit Request for Filling
+                    </h3>
+                    <p className="text-xs text-emerald-700 dark:text-emerald-300 mb-3">
+                      Need the contractor to fill out this form? Fill in the
+                      contractor details below and click "Submit Request".
+                    </p>
+                    <div className="flex flex-wrap gap-2">
+                      <button
+                        type="button"
+                        onClick={handleSubmitRequest}
+                        className="inline-flex items-center gap-2 px-4 py-2 text-white text-sm font-medium rounded-lg transition-colors"
+                        style={{backgroundColor: "#456654"}}
+                        onMouseEnter={(e) => {
+                          e.target.style.backgroundColor = "#3a5548";
+                        }}
+                        onMouseLeave={(e) => {
+                          e.target.style.backgroundColor = "#456654";
+                        }}
+                      >
+                        <Send className="w-4 h-4" />
+                        Submit Request
+                      </button>
+                      <button
+                        type="button"
+                        onClick={handleCancelSubmitRequest}
+                        className="inline-flex items-center gap-2 px-4 py-2 text-sm font-medium rounded-lg border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors"
+                      >
+                        <X className="w-4 h-4" />
+                        Cancel
+                      </button>
+                    </div>
+                  </div>
                 </div>
               </div>
             </div>
-          </div>
-        )}
+          )}
 
         <form
           onSubmit={(e) => {
             e.preventDefault();
             if (persistOnSave) handleSubmit(e);
           }}
-          className="p-6 space-y-6"
+          className={`p-6 space-y-6 ${isContractorPending ? "pointer-events-none opacity-75" : ""}`}
         >
           {/* Work Order & Date - at top */}
           <div className="pb-6 border-b border-gray-200 dark:border-gray-700">
@@ -378,6 +438,7 @@ function MaintenanceFormPanel({
                   name="date"
                   value={formData.date}
                   onChange={handleInputChange}
+                  required
                 />
               </div>
             </div>
@@ -635,7 +696,7 @@ function MaintenanceFormPanel({
             </span>
           )}
         </p>
-        {persistOnSave && (
+        {persistOnSave && !isContractorPending && (
           <button
             type="button"
             onClick={handleSubmit}

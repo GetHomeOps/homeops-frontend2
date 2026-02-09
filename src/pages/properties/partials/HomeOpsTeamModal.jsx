@@ -9,12 +9,12 @@ const MEMBER_ROLES = [
   {id: "Insurer", name: "Insurer"},
 ];
 
-/* Converts a user to a member */
+/* Converts a user to a member (use image_url for display when available) */
 const toMember = (u, roleOverride) => ({
   id: u.id,
   name: u.name ?? "User",
   role: roleOverride ?? u.role ?? "Member",
-  image: u.image ?? u.avatar,
+  image: u.image_url ?? u.image ?? u.avatar,
 });
 
 /* HomeOps Team Modal Component */
@@ -24,12 +24,41 @@ function HomeOpsTeamModal({
   teamMembers = [],
   users = [],
   onSave,
+  creatorId,
+  canEditAgent = true,
 }) {
   const [selectedAgentId, setSelectedAgentId] = useState("");
   const [homeownerSlots, setHomeownerSlots] = useState([""]);
   const [additionalMembers, setAdditionalMembers] = useState([]);
 
   const {t} = useTranslation();
+
+  /* Current agent from team (for read-only display when homeowner has no user list access) */
+  const currentAgentMember = useMemo(
+    () =>
+      teamMembers.find(
+        (m) =>
+          (m.role ?? "").toLowerCase() === "agent" ||
+          (m.role ?? "").toLowerCase() === "admin",
+      ),
+    [teamMembers],
+  );
+
+  /* Creator (e.g. current user on new property) cannot be removed from team */
+  const creatorMember = creatorId
+    ? teamMembers.find((m) => String(m.id) === String(creatorId))
+    : null;
+  const creatorRoleLower = (creatorMember?.role ?? "").toLowerCase();
+  /* Property admin (role on this property) or only member cannot be removed */
+  const propertyAdminId = teamMembers.find(
+    (m) => (m.property_role ?? m.role ?? "").toLowerCase() === "admin",
+  )?.id;
+  const isOnlyMember = teamMembers.length === 1;
+  const isAgentSlotLocked =
+    (Boolean(creatorId && creatorMember) &&
+      (creatorRoleLower === "agent" || creatorRoleLower === "admin")) ||
+    (selectedAgentId &&
+      (String(selectedAgentId) === String(propertyAdminId) || isOnlyMember));
 
   /* Filters the users to only include agents */
   const agents = useMemo(
@@ -54,6 +83,20 @@ function HomeOpsTeamModal({
     () => agents.map((u) => ({id: u.id, name: u.name})),
     [agents],
   );
+
+  /* Agent options excluding users already in the team (homeowner or additional member) so the same user cannot be added twice. Include current agent so dropdown can display selection. */
+  const agentOptionsFiltered = useMemo(() => {
+    const alreadyInTeam = new Set([
+      ...homeownerSlots.filter(Boolean).map(String),
+      ...additionalMembers.map((m) => m.userId).filter(Boolean).map(String),
+    ]);
+    const filtered = agentOptions.filter((o) => !alreadyInTeam.has(String(o.id)));
+    if (selectedAgentId && !filtered.some((o) => String(o.id) === String(selectedAgentId))) {
+      const current = agentOptions.find((o) => String(o.id) === String(selectedAgentId));
+      if (current) filtered.push(current);
+    }
+    return filtered;
+  }, [agentOptions, homeownerSlots, additionalMembers, selectedAgentId]);
 
   /* Maps the homeowners to options for the select dropdown */
   const homeownerOptionsBase = useMemo(
@@ -162,7 +205,12 @@ function HomeOpsTeamModal({
   const handleSave = () => {
     const team = [];
     const agent = agents.find((a) => String(a.id) === String(selectedAgentId));
-    if (agent) team.push(toMember(agent));
+    if (agent) {
+      team.push(toMember(agent));
+    } else if (currentAgentMember && !canEditAgent) {
+      /* Homeowner cannot edit agent; preserve existing agent from team */
+      team.push(currentAgentMember);
+    }
     homeownerSlots.forEach((id) => {
       if (!id) return;
       const u = homeowners.find((h) => String(h.id) === String(id));
@@ -174,6 +222,11 @@ function HomeOpsTeamModal({
       const u = users.find((x) => String(x.id) === String(userId));
       if (u) team.push(toMember(u, role));
     });
+
+    /* Ensure creator is never dropped (e.g. when creatorId is set on new property) */
+    if (creatorId && creatorMember && !team.some((m) => String(m.id) === String(creatorId))) {
+      team.unshift(creatorMember);
+    }
 
     onSave?.(team);
     setModalOpen(false);
@@ -208,15 +261,21 @@ function HomeOpsTeamModal({
               <UserCog className="w-4 h-4 text-[#456654]" />
               Agent
             </label>
-            <SelectDropdown
-              options={agentOptions}
-              value={selectedAgentId}
-              onChange={(v) => setSelectedAgentId(v ?? "")}
-              placeholder="Select an agent"
-              name="agent"
-              id="team-agent"
-              clearable={true}
-            />
+            {canEditAgent ? (
+              <SelectDropdown
+                options={agentOptionsFiltered}
+                value={selectedAgentId}
+                onChange={(v) => setSelectedAgentId(v ?? "")}
+                placeholder="Select an agent"
+                name="agent"
+                id="team-agent"
+                clearable={!isAgentSlotLocked}
+              />
+            ) : (
+              <div className="form-select w-full py-2 px-3 pr-10 text-sm text-gray-800 dark:text-gray-100 leading-5 truncate cursor-default">
+                {currentAgentMember?.name ?? "—"}
+              </div>
+            )}
           </div>
 
           {/* Homeowners */}
@@ -233,9 +292,19 @@ function HomeOpsTeamModal({
                   value={val}
                   onChange={(v) => setHomeownerSlot(idx, v)}
                   onRemove={() => removeHomeownerSlot(idx)}
-                  canRemove={homeownerSlots.length > 1}
+                  canRemove={
+                    homeownerSlots.length > 1 &&
+                    val !== String(creatorId) &&
+                    val !== String(propertyAdminId) &&
+                    !isOnlyMember
+                  }
                   homeownerOptionsBase={homeownerOptionsBase}
                   excluded={excludedForHomeownerSlot(idx)}
+                  clearable={
+                    val !== String(creatorId) &&
+                    val !== String(propertyAdminId) &&
+                    !isOnlyMember
+                  }
                 />
               ))}
               <button
@@ -267,6 +336,9 @@ function HomeOpsTeamModal({
                     setMemberRow(idx, {role: v ?? "Mortgage Partner"})
                   }
                   onRemove={() => removeMemberRow(idx)}
+                  canRemove={
+                    row.userId !== String(propertyAdminId) && !isOnlyMember
+                  }
                   users={users}
                   excluded={excludedForMemberRow(idx)}
                 />
@@ -312,6 +384,7 @@ function HomeownerRow({
   canRemove,
   homeownerOptionsBase,
   excluded,
+  clearable = true,
 }) {
   const options = useMemo(
     () => homeownerOptionsBase.filter((o) => !excluded.has(String(o.id))),
@@ -327,7 +400,7 @@ function HomeownerRow({
           placeholder="Select a homeowner"
           name={`homeowner-${idx}`}
           id={`team-homeowner-${idx}`}
-          clearable={true}
+          clearable={clearable}
         />
       </div>
       {canRemove && (
@@ -352,6 +425,7 @@ function MemberRow({
   onUserIdChange,
   onRoleChange,
   onRemove,
+  canRemove = true,
   users,
   excluded,
 }) {
@@ -386,14 +460,16 @@ function MemberRow({
           clearable={false}
         />
       </div>
-      <button
-        type="button"
-        onClick={onRemove}
-        className="p-2 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700 text-gray-500 dark:text-gray-400"
-        aria-label="Remove member"
-      >
-        <X className="w-4 h-4" />
-      </button>
+      {canRemove && (
+        <button
+          type="button"
+          onClick={onRemove}
+          className="p-2 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700 text-gray-500 dark:text-gray-400"
+          aria-label="Remove member"
+        >
+          <X className="w-4 h-4" />
+        </button>
+      )}
     </div>
   );
 }

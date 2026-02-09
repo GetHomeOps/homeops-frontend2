@@ -62,27 +62,30 @@ export function ContactProvider({children}) {
     customComparators: customListComparators,
   });
 
-  // Get all contacts from Backend
-  useEffect(() => {
-    async function fetchContacts() {
-      if (isLoading || !currentUser) return;
+  const fetchContacts = useCallback(async () => {
+    if (isLoading || !currentUser) return;
 
-      try {
-        let fetchedContacts = [];
+    try {
+      let fetchedContacts = [];
 
-        // Get contacts for the current database
-        if (currentDb?.id) {
-          fetchedContacts = await AppApi.getContactsByDbId(currentDb.id);
-        }
-
-        setContacts(fetchedContacts || []);
-      } catch (err) {
-        console.error("There was an error retrieving contacts:", err);
-        setContacts([]);
+      if (currentDb?.id) {
+        fetchedContacts = await AppApi.getContactsByDbId(currentDb.id);
       }
+
+      setContacts(fetchedContacts || []);
+    } catch (err) {
+      console.error("There was an error retrieving contacts:", err);
+      setContacts([]);
     }
+  }, [isLoading, currentUser, currentDb?.id]);
+
+  useEffect(() => {
     fetchContacts();
-  }, [isLoading, currentUser, currentDb]);
+  }, [fetchContacts]);
+
+  const refreshContacts = useCallback(() => {
+    fetchContacts();
+  }, [fetchContacts]);
 
   // Function to get the current view's contacts
   const getCurrentViewContacts = useCallback(() => {
@@ -271,6 +274,7 @@ export function ContactProvider({children}) {
       deleteContact,
       duplicateContact,
       bulkDuplicateContacts,
+      refreshContacts,
       getCurrentViewContacts,
       getListViewContacts,
       getGroupViewContacts,
@@ -288,6 +292,7 @@ export function ContactProvider({children}) {
       viewMode,
       currentDb,
       handleListSort,
+      refreshContacts,
       testVariable,
       handleTestVariableChange,
     ],

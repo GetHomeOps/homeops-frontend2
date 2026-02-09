@@ -15,13 +15,15 @@ import useCurrentDb from "../../hooks/useCurrentDb";
 import ContactList from "../contacts/ContactsList";
 import UsersList from "../users/UsersList";
 import User from "../users/User";
+import UsersImport from "../users/usersImport";
 import Contact from "../contacts/Contact";
 import PropertiesList from "../properties/PropertiesList";
 import Property from "../properties/Property";
+import PropertiesImport from "../properties/propertiesImport";
 import UserConfirmationEmail from "../users/UserConfirmationEmail";
-import HealthMetrics from "../configuration/HealthMetrics";
 import MaintenanceRecordPage from "../properties/MaintenanceRecordPage";
 import PdfFileExample from "../pdfFileExample";
+import ContactsImport from "../contacts/contactsImport";
 
 function RoutesList() {
   const {currentUser, isLoading} = useAuth();
@@ -49,11 +51,14 @@ function RoutesList() {
       <Route path="/settings/account" element={<Account />} />
       <Route path="/:dbUrl/home" element={<Main />} />
       <Route path="/:dbUrl/contacts" element={<ContactList />} />
+      <Route path="/:dbUrl/contacts/import" element={<ContactsImport />} />
       <Route path="/:dbUrl/contacts/new" element={<Contact />} />
       <Route path="/:dbUrl/contacts/:id" element={<Contact />} />
       <Route path="/:dbUrl/users" element={<UsersList />} />
+      <Route path="/:dbUrl/users/import" element={<UsersImport />} />
       <Route path="/:dbUrl/users/:id" element={<User />} />
       <Route path="/:dbUrl/properties" element={<PropertiesList />} />
+      <Route path="/:dbUrl/properties/import" element={<PropertiesImport />} />
       <Route path="/:dbUrl/properties/:uid" element={<Property />} />
       <Route
         path="/:dbUrl/properties/:uid/maintenance/:systemId/:recordId"
@@ -63,10 +68,6 @@ function RoutesList() {
       <Route
         path="/:dbUrl/invite/:invitation"
         element={<UserConfirmationEmail />}
-      />
-      <Route
-        path="/:dbUrl/configuration/healthmetrics"
-        element={<HealthMetrics />}
       />
       <Route path="/:dbUrl/pdfexample" element={<PdfFileExample />} />
     </>

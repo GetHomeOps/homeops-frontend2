@@ -90,6 +90,8 @@ const initialState = {
   property: null,
   /** Systems from backend - kept separate from identity/formData */
   systems: [],
+  /** Maintenance records as last saved to backend; used for tree date display only */
+  savedMaintenanceRecords: [],
   activeTab: "identity",
   isNew: true,
   formDataChanged: false,
@@ -98,6 +100,20 @@ const initialState = {
   bannerType: "success",
   bannerMessage: "",
 };
+
+/** Build default team member for the current user (creator) so new property always has at least one. */
+function getCreatorAsTeamMember(currentUser) {
+  if (!currentUser?.id) return null;
+  const r = (currentUser.role ?? "").toLowerCase();
+  const displayRole =
+    r === "super_admin" ? "Admin" : r === "agent" ? "Agent" : r === "homeowner" ? "Homeowner" : "Agent";
+  return {
+    id: currentUser.id,
+    name: currentUser.name ?? "User",
+    role: displayRole,
+    image: currentUser.image ?? currentUser.avatar,
+  };
+}
 
 function reducer(state, action) {
   switch (action.type) {
@@ -176,11 +192,15 @@ function reducer(state, action) {
           ? {...payload}
           : splitFormDataByTabs(payload)
         : {...initialFormData};
+      const savedRecords = payload
+        ? payload.maintenanceRecords ?? []
+        : [];
       return {
         ...state,
         property: payload,
         isNew: !payload,
         formData: nextFormData,
+        savedMaintenanceRecords: Array.isArray(savedRecords) ? savedRecords : [],
         formDataChanged: false,
         isInitialLoad: true,
         errors: {},
@@ -410,6 +430,16 @@ function PropertyFormContainer() {
     prevUidRef.current = uid;
   }, [uid]);
 
+  /* New property: ensure at least the creator is on the team (cannot be removed in modal) */
+  useEffect(() => {
+    if (uid !== "new" || !currentUser?.id) return;
+    setHomeopsTeam((prev) => {
+      if (prev.length > 0) return prev;
+      const creator = getCreatorAsTeamMember(currentUser);
+      return creator ? [creator] : prev;
+    });
+  }, [uid, currentUser?.id, currentUser?.name, currentUser?.role]);
+
   /* Clear main photo preview and presigned URL when switching properties */
   const prevPropertyUidRef = useRef(null);
   useEffect(() => {
@@ -427,13 +457,22 @@ function PropertyFormContainer() {
     }
   }, [state.property, clearMainPhotoPreview, clearMainPhotoUploadedUrl, clearMainPhotoPresignedUrl]);
 
-  /* Sets default HomeOps Team (only for existing properties; new form keeps team [] from reset effect) */
+  /* Sets default HomeOps Team (only for existing properties; new form keeps team [] from reset effect). Enrich with property_role as role and user image from context so photos and roles display after save/refetch. */
   useEffect(() => {
     async function setDefaultHomeopsTeam() {
       if (uid === "new") return;
       const team = await getPropertyTeam(uid);
-      console.log("team: ", team);
-      setHomeopsTeam(team.property_users ?? []);
+      const raw = team?.property_users ?? [];
+      const enriched = raw.map((m) => {
+        const u = users?.find((us) => us && m?.id != null && Number(us.id) === Number(m.id));
+        return {
+          ...m,
+          role: m.property_role ?? m.role,
+          image_url: m.image_url ?? u?.image_url,
+          image: m.image ?? u?.image,
+        };
+      });
+      setHomeopsTeam(enriched);
     }
     setDefaultHomeopsTeam();
   }, [uid, currentUser?.id, state.property]);
@@ -592,6 +631,21 @@ function PropertyFormContainer() {
 
         /* Create maintenance records for property (batch endpoint) */
         const recordsToCreate = state.formData.maintenanceRecords ?? [];
+        const recordsWithoutDate = recordsToCreate.filter(
+          (r) => !(r.date != null && String(r.date).trim()),
+        );
+        if (recordsWithoutDate.length > 0) {
+          dispatch({
+            type: "SET_BANNER",
+            payload: {
+              open: true,
+              type: "error",
+              message: `Please add a date to all maintenance records before saving. ${recordsWithoutDate.length} record(s) are missing a date.`,
+            },
+          });
+          dispatch({type: "SET_SUBMITTING", payload: false});
+          return;
+        }
         const payloads = prepareMaintenanceRecordsForApi(
           recordsToCreate,
           propertyId,
@@ -708,6 +762,21 @@ function PropertyFormContainer() {
 
         /* Maintenance records sync */
         const currentRecords = state.formData.maintenanceRecords ?? [];
+        const recordsWithoutDate = currentRecords.filter(
+          (r) => !(r.date != null && String(r.date).trim()),
+        );
+        if (recordsWithoutDate.length > 0) {
+          dispatch({
+            type: "SET_BANNER",
+            payload: {
+              open: true,
+              type: "error",
+              message: `Please add a date to all maintenance records before saving. ${recordsWithoutDate.length} record(s) are missing a date.`,
+            },
+          });
+          dispatch({type: "SET_SUBMITTING", payload: false});
+          return;
+        }
         const syncPlan = computeMaintenanceSyncPlan(
           currentRecords,
           originalMaintenanceRecordIdsRef.current,
@@ -1411,6 +1480,8 @@ function PropertyFormContainer() {
           propertyId={state.formData.identity?.id ?? uid ?? "new"}
           dbUrl={dbUrl}
           onTeamChange={handleTeamChange}
+          creatorId={uid === "new" ? currentUser?.id : undefined}
+          canEditAgent={currentUser?.role?.toLowerCase() !== "homeowner"}
         />
 
         {/* Wrapper for sticky save bar - starts at Property Health so bar appears when scrolling there */}
@@ -1491,6 +1562,9 @@ function PropertyFormContainer() {
                 <MaintenanceTab
                   propertyData={mergedFormData}
                   maintenanceRecords={state.formData.maintenanceRecords ?? []}
+                  savedMaintenanceRecords={
+                    state.savedMaintenanceRecords ?? []
+                  }
                   onMaintenanceRecordsChange={(records) =>
                     dispatch({
                       type: "SET_MAINTENANCE_FORM_DATA",

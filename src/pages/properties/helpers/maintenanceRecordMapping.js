@@ -1,3 +1,15 @@
+/**
+ * record_status: lifecycle of the record
+ * - draft: user filling in, neither completed nor submitted; shows submit/cancel alert
+ * - user_completed: user completed it themselves (canceled submit); editable
+ * - contractor_pending: submitted to contractor; read-only, blocks edits
+ */
+export const RECORD_STATUS = {
+  DRAFT: "draft",
+  USER_COMPLETED: "user_completed",
+  CONTRACTOR_PENDING: "contractor_pending",
+};
+
 /** Fields stored in the `data` object; null/undefined become empty string or [] */
 const DATA_FIELDS = [
   "contractor",
@@ -63,6 +75,7 @@ export function toMaintenanceRecordPayload(recordData, propertyId) {
     next_service_date: formatDate(recordData.nextServiceDate),
     data,
     status: String(recordData.status ?? "Completed").slice(0, 50),
+    record_status: recordData.record_status ?? null,
   };
 }
 
@@ -113,6 +126,10 @@ export function fromMaintenanceRecordBackend(backend) {
     notes: d.notes ?? "",
     files: d.files ?? [],
     requestStatus: d.requestStatus ?? backend.requestStatus ?? null,
+    record_status:
+      backend.recordStatus ??
+      backend.record_status ??
+      (d.requestStatus === "pending" ? RECORD_STATUS.CONTRACTOR_PENDING : null),
   };
 }
 

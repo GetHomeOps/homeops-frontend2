@@ -79,6 +79,7 @@ export default function DatePickerInput({
             value={displayValue}
             placeholder={placeholder}
             disabled={disabled}
+            required={props.required}
             className={cn(
               "form-input w-full pr-9",
               disabled && "cursor-not-allowed",

@@ -1,17 +1,9 @@
-import React, {
-  useState,
-  useMemo,
-  useEffect,
-  useCallback,
-  useRef,
-} from "react";
+import React, {useState, useMemo, useEffect, useCallback, useRef} from "react";
+import {createPortal} from "react-dom";
 import {
   FileText,
   Upload,
-  Search,
-  Filter,
   Trash2,
-  Eye,
   File,
   FileCheck,
   Receipt,
@@ -22,19 +14,21 @@ import {
   Zap,
   Home,
   Folder,
-  Calendar,
   X,
-  ChevronDown,
   ChevronRight,
   ExternalLink,
   AlertCircle,
   CheckCircle2,
   Loader2,
+  Menu,
+  Settings,
 } from "lucide-react";
 import AppApi from "../../api/api";
 import DatePickerInput from "../../components/DatePickerInput";
 import useDocumentUpload from "../../hooks/useDocumentUpload";
 import usePresignedPreview from "../../hooks/usePresignedPreview";
+import {DocumentsTreeView, DocumentsPreviewPanel} from "./partials/documents";
+import {PROPERTY_SYSTEMS} from "./constants/propertySystems";
 
 // System categories with icons – matches API system_key values
 const systemCategories = [
@@ -122,7 +116,13 @@ function formatDate(dateString) {
   });
 }
 
-function InlineDocumentPreview({url, fileName, onClose}) {
+function InlineDocumentPreview({
+  url,
+  fileName,
+  onClose,
+  fillHeight,
+  narrowerPdf,
+}) {
   const [error, setError] = useState(false);
   const fileType = getPreviewType(url ?? fileName);
 
@@ -148,7 +148,7 @@ function InlineDocumentPreview({url, fileName, onClose}) {
           href={url}
           target="_blank"
           rel="noopener noreferrer"
-          className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-sm bg-indigo-600 hover:bg-indigo-700 text-white font-medium"
+          className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-sm bg-emerald-600 hover:bg-emerald-700 text-white font-medium"
         >
           <ExternalLink className="w-3.5 h-3.5" />
           Open in new tab
@@ -158,30 +158,38 @@ function InlineDocumentPreview({url, fileName, onClose}) {
   }
 
   return (
-    <div className="rounded-lg overflow-hidden border border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800 min-h-[200px]">
+    <div
+      className={`rounded-lg overflow-hidden border border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800 min-h-[200px] ${
+        fillHeight ? "h-full flex flex-col" : ""
+      }`}
+    >
       {fileType === "pdf" && (
-        <object
-          data={url}
-          type="application/pdf"
-          className="w-full h-[480px]"
-          title={fileName || "PDF preview"}
-          onError={() => setError(true)}
+        <div
+          className={`flex-1 min-h-0 ${narrowerPdf ? "max-w-lg mx-auto w-full" : "w-full"}`}
         >
-          <div className="flex flex-col items-center justify-center py-12 text-center px-4">
-            <p className="text-gray-600 dark:text-gray-400 mb-4">
-              Embedded preview unavailable. Use the button below.
-            </p>
-                    <a
-                      href={url}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-sm bg-indigo-600 hover:bg-indigo-700 text-white font-medium"
-                    >
-                      <ExternalLink className="w-3.5 h-3.5" />
-                      Open in new tab
-                    </a>
-          </div>
-        </object>
+          <object
+            data={url}
+            type="application/pdf"
+            className="w-full h-full min-h-[400px]"
+            title={fileName || "PDF preview"}
+            onError={() => setError(true)}
+          >
+            <div className="flex flex-col items-center justify-center py-12 text-center px-4">
+              <p className="text-gray-600 dark:text-gray-400 mb-4">
+                Embedded preview unavailable. Use the button below.
+              </p>
+              <a
+                href={url}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-sm bg-emerald-600 hover:bg-emerald-700 text-white font-medium"
+              >
+                <ExternalLink className="w-3.5 h-3.5" />
+                Open in new tab
+              </a>
+            </div>
+          </object>
+        </div>
       )}
       {fileType === "image" && (
         <img
@@ -205,9 +213,9 @@ function DocumentsTab({propertyData}) {
   const [searchQuery, setSearchQuery] = useState("");
   const [selectedYear, setSelectedYear] = useState("all");
   const [selectedMonth, setSelectedMonth] = useState("all");
-  const [viewMode, setViewMode] = useState("grid");
   const [showUploadModal, setShowUploadModal] = useState(false);
-  const [expandedCategories, setExpandedCategories] = useState({});
+  const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
+  const [sidebarOpen, setSidebarOpen] = useState(false);
   const [selectedDocument, setSelectedDocument] = useState(null);
   const [uploadDocumentName, setUploadDocumentName] = useState("");
   const [uploadDocumentDate, setUploadDocumentDate] = useState(
@@ -253,8 +261,9 @@ function DocumentsTab({propertyData}) {
       const docs = await AppApi.getPropertyDocuments(propertyId);
       setDocuments(docs ?? []);
     } catch (err) {
-      const msg =
-        Array.isArray(err) ? err.join(", ") : err?.message || "Failed to load documents";
+      const msg = Array.isArray(err)
+        ? err.join(", ")
+        : err?.message || "Failed to load documents";
       setFetchError(msg);
       setDocuments([]);
     } finally {
@@ -343,12 +352,44 @@ function DocumentsTab({propertyData}) {
     return grouped;
   }, [filteredDocuments]);
 
-  const toggleCategory = (categoryId) => {
-    setExpandedCategories((prev) => ({
-      ...prev,
-      [categoryId]: !prev[categoryId],
+  // Visible systems: only selected systems (or General only when none selected)
+  const visibleSystemIds =
+    (propertyData?.selectedSystemIds?.length ?? 0) > 0
+      ? propertyData.selectedSystemIds
+      : [];
+  const customSystemNames = propertyData?.customSystemNames ?? [];
+  const systemsToShow = useMemo(() => {
+    const general = systemCategories.find((c) => c.id === "general");
+    const selected = PROPERTY_SYSTEMS.filter((s) =>
+      visibleSystemIds.includes(s.id),
+    ).map((s) => {
+      const cat = systemCategories.find((c) => c.id === s.id);
+      return (
+        cat || {id: s.id, label: s.name, icon: s.icon, color: "text-gray-600"}
+      );
+    });
+    const custom = customSystemNames.map((name, i) => ({
+      id: `custom-${name}-${i}`,
+      label: name,
+      icon: Settings,
+      color: "text-gray-600",
     }));
-  };
+    return [general, ...selected, ...custom].filter(Boolean);
+  }, [visibleSystemIds, customSystemNames]);
+
+  const handleSelectDocument = useCallback(
+    (doc) => {
+      const docRow = documents.find((d) => d.id === doc.id);
+      const docKey = docRow?.document_key ?? doc.document_key;
+      const docUrl = docRow?.document_url ?? doc.document_url;
+      setSelectedDocument({
+        ...doc,
+        document_key: docKey,
+        document_url: docUrl,
+      });
+    },
+    [documents],
+  );
 
   const handleDelete = async (docId) => {
     if (!window.confirm("Are you sure you want to delete this document?"))
@@ -358,8 +399,9 @@ function DocumentsTab({propertyData}) {
       setDocuments((prev) => prev.filter((d) => d.id !== docId));
       if (selectedDocument?.id === docId) setSelectedDocument(null);
     } catch (err) {
-      const msg =
-        Array.isArray(err) ? err.join(", ") : err?.message || "Delete failed";
+      const msg = Array.isArray(err)
+        ? err.join(", ")
+        : err?.message || "Delete failed";
       alert(msg);
     }
   };
@@ -376,8 +418,9 @@ function DocumentsTab({propertyData}) {
         const presignedUrl = await AppApi.getPresignedPreviewUrl(key);
         window.open(presignedUrl, "_blank", "noopener,noreferrer");
       } catch (err) {
-        const msg =
-          Array.isArray(err) ? err.join(", ") : err?.message || "Failed to open";
+        const msg = Array.isArray(err)
+          ? err.join(", ")
+          : err?.message || "Failed to open";
         alert(msg);
       }
     }
@@ -416,7 +459,7 @@ function DocumentsTab({propertyData}) {
       const s3Key = result?.key;
       if (!s3Key) continue;
       try {
-        await AppApi.createPropertyDocument({
+        const created = await AppApi.createPropertyDocument({
           property_id: propertyId,
           document_name: name,
           document_date: uploadDocumentDate,
@@ -426,12 +469,15 @@ function DocumentsTab({propertyData}) {
         });
         successCount++;
         setUploadSuccessCount(successCount);
-        await fetchDocuments();
+        if (created) {
+          setDocuments((prev) => [...prev, created]);
+        } else {
+          await fetchDocuments();
+        }
       } catch (err) {
-        const msg =
-          Array.isArray(err)
-            ? err.join(", ")
-            : err?.message || "Failed to save document";
+        const msg = Array.isArray(err)
+          ? err.join(", ")
+          : err?.message || "Failed to save document";
         setUploadError(`File ${i + 1}: ${msg}`);
       }
     }
@@ -486,6 +532,23 @@ function DocumentsTab({propertyData}) {
     selectedYear !== "all" ||
     selectedMonth !== "all";
 
+  // Close mobile sidebar on escape (must run before early return to preserve hook order)
+  useEffect(() => {
+    const handleKeydown = (e) => {
+      if (e.key === "Escape" && sidebarOpen) setSidebarOpen(false);
+    };
+    document.addEventListener("keydown", handleKeydown);
+    return () => document.removeEventListener("keydown", handleKeydown);
+  }, [sidebarOpen]);
+
+  const handleDocumentSelect = useCallback(
+    (doc) => {
+      handleSelectDocument(doc);
+      setSidebarOpen(false);
+    },
+    [handleSelectDocument],
+  );
+
   if (!propertyId) {
     return (
       <div className="rounded-xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 p-8 text-center">
@@ -498,79 +561,134 @@ function DocumentsTab({propertyData}) {
   }
 
   return (
-    <div className="space-y-6">
-      {/* Header with Search and Actions */}
-      <div className="flex flex-col sm:flex-row gap-4 items-start sm:items-center justify-between">
-        <div className="flex-1 w-full sm:max-w-md">
-          <div className="relative">
-            <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 w-5 h-5 text-gray-400" />
-            <input
-              type="text"
-              placeholder="Search documents..."
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-              className="form-input w-full pl-9 pr-3 py-2 text-sm bg-white dark:bg-gray-800 border-gray-200 dark:border-gray-700"
+    <div className="relative flex h-[calc(100vh-200px)] min-h-[600px] bg-gray-100 dark:bg-gray-900 rounded-lg overflow-hidden border border-gray-200 dark:border-gray-700">
+      {/* Mobile sidebar backdrop */}
+      {sidebarOpen && (
+        <div
+          className="lg:hidden absolute inset-0 bg-gray-900/50 z-40 rounded-lg"
+          onClick={() => setSidebarOpen(false)}
+        />
+      )}
+
+      {/* Left Panel - Tree View */}
+      <div
+        className={`
+          flex-shrink-0 transition-all duration-200 ease-in-out
+          lg:relative lg:z-auto
+          ${sidebarCollapsed ? "lg:w-0 lg:overflow-hidden" : "lg:w-72"}
+          absolute inset-y-0 left-0 z-50 lg:static
+          ${sidebarOpen ? "translate-x-0" : "-translate-x-full lg:translate-x-0"}
+        `}
+      >
+        <div className="w-72 h-full rounded-l-lg overflow-hidden">
+          {loading ? (
+            <div className="flex flex-col items-center justify-center h-full bg-white dark:bg-gray-800 p-8">
+              <Loader2 className="w-8 h-8 text-indigo-500 animate-spin mb-2" />
+              <p className="text-sm text-gray-500 dark:text-gray-400">
+                Loading documents…
+              </p>
+            </div>
+          ) : fetchError ? (
+            <div className="flex flex-col items-center justify-center h-full bg-white dark:bg-gray-800 p-6 text-center">
+              <AlertCircle className="w-12 h-12 text-amber-500 dark:text-amber-400 mb-3" />
+              <p className="text-sm text-amber-800 dark:text-amber-200 mb-4">
+                {fetchError}
+              </p>
+              <button
+                onClick={fetchDocuments}
+                className="btn-sm bg-indigo-600 hover:bg-indigo-700 text-white"
+              >
+                Retry
+              </button>
+            </div>
+          ) : (
+            <DocumentsTreeView
+              systemsToShow={systemsToShow}
+              documentTypes={documentTypes}
+              documentsBySystem={documentsBySystem}
+              selectedDocumentId={selectedDocument?.id}
+              searchQuery={searchQuery}
+              setSearchQuery={setSearchQuery}
+              onSelectDocument={handleDocumentSelect}
+              onUpload={() => {
+                setShowUploadModal(true);
+                setSidebarOpen(false);
+              }}
+              onCollapse={() => {
+                setSidebarCollapsed(true);
+                setSidebarOpen(false);
+              }}
+              getDocumentIcon={getDocumentIcon}
+              getFileTypeColor={getFileTypeColor}
             />
-          </div>
-        </div>
-        <div className="flex items-center gap-3">
-          <button
-            onClick={() => setViewMode(viewMode === "grid" ? "list" : "grid")}
-            className="btn-sm border-gray-200 dark:border-gray-700 hover:border-gray-300 dark:hover:border-gray-600 text-gray-700 dark:text-gray-200 text-xs"
-          >
-            {viewMode === "grid" ? "List View" : "Grid View"}
-          </button>
-          <button
-            onClick={() => setShowUploadModal(true)}
-            className="btn-sm bg-indigo-600 hover:bg-indigo-700 text-white flex items-center gap-1.5 text-xs"
-          >
-            <Upload className="w-3.5 h-3.5" />
-            Upload
-          </button>
+          )}
         </div>
       </div>
 
-      {/* Filters – preserved from original */}
-      <div className="flex flex-wrap gap-3 items-center">
-        <div className="flex items-center gap-2">
-          <Filter className="w-4 h-4 text-gray-500 dark:text-gray-400" />
-          <span className="text-sm font-medium text-gray-700 dark:text-gray-300">
-            Filter:
+      {/* Expand button when collapsed (desktop only) */}
+      {sidebarCollapsed && (
+        <div className="hidden lg:flex flex-shrink-0 w-7 flex-col bg-white dark:bg-gray-800 border-r border-gray-200 dark:border-gray-700">
+          <button
+            type="button"
+            onClick={() => setSidebarCollapsed(false)}
+            className="p-1.5 mt-2 mx-auto text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700/50 rounded transition-colors"
+            title="Expand sidebar"
+          >
+            <ChevronRight className="w-4 h-4" />
+          </button>
+        </div>
+      )}
+
+      {/* Right Panel - Preview */}
+      <div className="flex-1 min-w-0 flex flex-col">
+        {/* Mobile menu button */}
+        <div className="lg:hidden flex items-center px-4 py-2 border-b border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800">
+          <button
+            type="button"
+            onClick={() => setSidebarOpen(true)}
+            className="p-2 -ml-2 text-gray-500 hover:text-gray-700 dark:hover:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg transition-colors"
+            title="Open documents menu"
+          >
+            <Menu className="w-5 h-5" />
+          </button>
+          <span className="ml-2 text-sm font-medium text-gray-700 dark:text-gray-300">
+            Documents
           </span>
         </div>
-        <select
-          value={selectedSystem}
-          onChange={(e) => setSelectedSystem(e.target.value)}
-          className="form-select text-sm bg-white dark:bg-gray-800 border-gray-200 dark:border-gray-700"
-        >
-          <option value="all">All Systems</option>
-          {systemCategories.map((cat) => (
-            <option key={cat.id} value={cat.id}>
-              {cat.label}
-            </option>
-          ))}
-        </select>
-        <select
-          value={selectedType}
-          onChange={(e) => setSelectedType(e.target.value)}
-          className="form-select text-sm bg-white dark:bg-gray-800 border-gray-200 dark:border-gray-700"
-        >
-          <option value="all">All Types</option>
-          {documentTypes.map((t) => (
-            <option key={t.id} value={t.id}>
-              {t.label}
-            </option>
-          ))}
-        </select>
-        <div className="flex items-center gap-2 border-l border-gray-200 dark:border-gray-700 pl-3">
-          <Calendar className="w-4 h-4 text-gray-500 dark:text-gray-400" />
+
+        {/* Filters bar - horizontal, over central panel */}
+        <div className="flex-shrink-0 px-4 py-2.5 border-b border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 flex flex-wrap items-center gap-2">
+          <select
+            value={selectedSystem}
+            onChange={(e) => setSelectedSystem(e.target.value)}
+            className="form-select text-sm bg-gray-50 dark:bg-gray-900 border-gray-200 dark:border-gray-700 rounded-lg pl-3 pr-8 py-1.5 min-w-[180px]"
+          >
+            <option value="all">All Systems</option>
+            {systemsToShow.map((cat) => (
+              <option key={cat.id} value={cat.id}>
+                {cat.label}
+              </option>
+            ))}
+          </select>
+          <select
+            value={selectedType}
+            onChange={(e) => setSelectedType(e.target.value)}
+            className="form-select text-sm bg-gray-50 dark:bg-gray-900 border-gray-200 dark:border-gray-700 rounded-lg pl-3 pr-8 py-1.5 min-w-[180px]"
+          >
+            <option value="all">All Types</option>
+            {documentTypes.map((t) => (
+              <option key={t.id} value={t.id}>
+                {t.label}
+              </option>
+            ))}
+          </select>
           <select
             value={selectedYear}
             onChange={(e) => {
               setSelectedYear(e.target.value);
               if (e.target.value === "all") setSelectedMonth("all");
             }}
-            className="form-select text-sm bg-white dark:bg-gray-800 border-gray-200 dark:border-gray-700"
+            className="form-select text-sm bg-gray-50 dark:bg-gray-900 border-gray-200 dark:border-gray-700 rounded-lg pl-3 pr-8 py-1.5 min-w-[120px]"
           >
             <option value="all">All Years</option>
             {availableYears.map((y) => (
@@ -583,7 +701,7 @@ function DocumentsTab({propertyData}) {
             value={selectedMonth}
             onChange={(e) => setSelectedMonth(e.target.value)}
             disabled={selectedYear === "all"}
-            className="form-select text-sm bg-white dark:bg-gray-800 border-gray-200 dark:border-gray-700 disabled:opacity-50 disabled:cursor-not-allowed"
+            className="form-select text-sm bg-gray-50 dark:bg-gray-900 border-gray-200 dark:border-gray-700 rounded-lg pl-3 pr-8 py-1.5 min-w-[140px] disabled:opacity-50"
           >
             <option value="all">All Months</option>
             {months.map((m) => (
@@ -592,645 +710,48 @@ function DocumentsTab({propertyData}) {
               </option>
             ))}
           </select>
-        </div>
-        {hasActiveFilters && (
-          <button
-            onClick={clearFilters}
-            className="text-xs text-indigo-600 dark:text-indigo-400 hover:underline flex items-center gap-1"
-          >
-            <X className="w-3.5 h-3.5" />
-            Clear filters
-          </button>
-        )}
-      </div>
-
-      {/* Results Count */}
-      <div className="text-sm text-gray-600 dark:text-gray-400">
-        {filteredDocuments.length} document
-        {filteredDocuments.length !== 1 ? "s" : ""} found
-      </div>
-
-      {/* Fetch Error */}
-      {fetchError && (
-        <div className="rounded-lg border border-amber-200 dark:border-amber-800 bg-amber-50 dark:bg-amber-900/20 px-4 py-3 flex items-center gap-2">
-          <AlertCircle className="w-5 h-5 text-amber-600 dark:text-amber-400 shrink-0" />
-          <span className="text-amber-800 dark:text-amber-200">{fetchError}</span>
-          <button
-            onClick={fetchDocuments}
-            className="ml-auto text-sm font-medium text-amber-700 dark:text-amber-300 hover:underline"
-          >
-            Retry
-          </button>
-        </div>
-      )}
-
-      {/* Loading */}
-      {loading && (
-        <div className="flex flex-col items-center justify-center py-12">
-          <Loader2 className="w-8 h-8 text-indigo-500 animate-spin mb-2" />
-          <p className="text-sm text-gray-500 dark:text-gray-400">Loading documents…</p>
-        </div>
-      )}
-
-      {/* Documents by System with Preview Panel */}
-      {!loading && (
-        <>
-          {viewMode === "grid" ? (
-            <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-              <div
-                className={`space-y-4 ${
-                  selectedDocument ? "lg:col-span-2" : "lg:col-span-3"
-                }`}
-              >
-                {systemCategories.map((category) => {
-                  const categoryDocs = documentsBySystem[category.id] || [];
-                  if (
-                    categoryDocs.length === 0 &&
-                    selectedSystem !== "all"
-                  )
-                    return null;
-
-                  const Icon = category.icon;
-                  const isExpanded =
-                    expandedCategories[category.id] ?? true;
-
-                  return (
-                    <div
-                      key={category.id}
-                      className="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 overflow-hidden shadow-sm"
-                    >
-                      <button
-                        onClick={() => toggleCategory(category.id)}
-                        className="w-full px-4 py-3 flex items-center justify-between hover:bg-gray-50 dark:hover:bg-gray-700/50 transition-colors"
-                      >
-                        <div className="flex items-center gap-2">
-                          <Icon className={`w-4 h-4 ${category.color}`} />
-                          <h3 className="text-sm font-semibold text-gray-900 dark:text-white">
-                            {category.label}
-                          </h3>
-                          <span className="text-sm text-gray-500 dark:text-gray-400 bg-gray-100 dark:bg-gray-700 px-2 py-0.5 rounded-full">
-                            {categoryDocs.length}
-                          </span>
-                        </div>
-                        {isExpanded ? (
-                          <ChevronDown className="w-5 h-5 text-gray-500 dark:text-gray-400" />
-                        ) : (
-                          <ChevronRight className="w-5 h-5 text-gray-500 dark:text-gray-400" />
-                        )}
-                      </button>
-
-                      {isExpanded && (
-                        <div className="px-6 pb-6">
-                          {categoryDocs.length > 0 ? (
-                            <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mt-4">
-                              {categoryDocs.map((doc) => {
-                                const DocIcon = getDocumentIcon(doc.type);
-                                const isSelected =
-                                  selectedDocument?.id === doc.id;
-                                const docRow = documents.find(
-                                  (d) => d.id === doc.id,
-                                );
-                                const docKey =
-                                  docRow?.document_key ?? doc.document_key;
-                                const docUrl =
-                                  docRow?.document_url ?? doc.document_url;
-                                return (
-                                  <div
-                                    key={doc.id}
-                                    onClick={() =>
-                                      setSelectedDocument({
-                                        ...doc,
-                                        document_key: docKey,
-                                        document_url: docUrl,
-                                      })
-                                    }
-                                    className={`group relative bg-gray-50 dark:bg-gray-900/50 rounded-lg border p-4 cursor-pointer transition-all duration-200 ${
-                                      isSelected
-                                        ? "border-indigo-500 dark:border-indigo-500 bg-indigo-50 dark:bg-indigo-900/20 shadow-md"
-                                        : "border-gray-200 dark:border-gray-700 hover:shadow-md hover:border-indigo-300 dark:hover:border-indigo-600"
-                                    }`}
-                                  >
-                                    <div className="flex items-start gap-3">
-                                      <div className="flex-shrink-0">
-                                        <div className="w-10 h-10 rounded-lg bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 flex items-center justify-center">
-                                          <DocIcon className="w-5 h-5 text-indigo-600 dark:text-indigo-400" />
-                                        </div>
-                                      </div>
-                                      <div className="flex-1 min-w-0">
-                                        <h4 className="text-sm font-semibold text-gray-900 dark:text-white mb-1 truncate">
-                                          {doc.name}
-                                        </h4>
-                                        <div className="flex items-center gap-2 mb-2">
-                                          <span
-                                            className={`text-xs px-2 py-0.5 rounded-full ${getFileTypeColor(
-                                              doc.type
-                                            )}`}
-                                          >
-                                            {
-                                              documentTypes.find(
-                                                (dt) => dt.id === doc.type
-                                              )?.label
-                                            }
-                                          </span>
-                                        </div>
-                                        <p className="text-xs text-gray-500 dark:text-gray-400">
-                                          {formatDate(
-                                            doc.document_date ||
-                                              doc.created_at
-                                          )}
-                                        </p>
-                                      </div>
-                                    </div>
-
-                                    <div className="absolute top-2 right-2 opacity-0 group-hover:opacity-100 transition-opacity flex gap-1">
-                                      <button
-                                        onClick={(e) => {
-                                          e.stopPropagation();
-                                          setSelectedDocument({
-                                            ...doc,
-                                            document_key: docKey,
-                                            document_url: docUrl,
-                                          });
-                                        }}
-                                        className="p-1.5 rounded-md bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-700 text-gray-600 dark:text-gray-400 hover:text-indigo-600 dark:hover:text-indigo-400"
-                                        title="Preview"
-                                      >
-                                        <Eye className="w-4 h-4" />
-                                      </button>
-                                      <button
-                                        onClick={(e) => {
-                                          e.stopPropagation();
-                                          handleOpenInNewTab({
-                                            ...doc,
-                                            document_key: docKey,
-                                            document_url: docUrl,
-                                          });
-                                        }}
-                                        className="p-1.5 rounded-md bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-700 text-gray-600 dark:text-gray-400 hover:text-indigo-600 dark:hover:text-indigo-400"
-                                        title="Open in new tab"
-                                      >
-                                        <ExternalLink className="w-4 h-4" />
-                                      </button>
-                                      <button
-                                        onClick={(e) => {
-                                          e.stopPropagation();
-                                          handleDelete(doc.id);
-                                        }}
-                                        className="p-1.5 rounded-md bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-700 text-gray-600 dark:text-gray-400 hover:text-red-600 dark:hover:text-red-400"
-                                        title="Delete"
-                                      >
-                                        <Trash2 className="w-4 h-4" />
-                                      </button>
-                                    </div>
-                                  </div>
-                                );
-                              })}
-                            </div>
-                          ) : (
-                            <div className="text-center py-8 text-gray-500 dark:text-gray-400">
-                              <File className="w-12 h-12 mx-auto mb-2 opacity-50" />
-                              <p className="text-sm">
-                                No documents in this category
-                              </p>
-                            </div>
-                          )}
-                        </div>
-                      )}
-                    </div>
-                  );
-                })}
-              </div>
-
-              {/* Preview Panel */}
-              {selectedDocument && (
-                <div className="lg:col-span-1">
-                  <div className="sticky top-6 bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 shadow-lg overflow-hidden">
-                    <div className="px-4 py-3 border-b border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-700/50 flex items-center justify-between">
-                      <h3 className="text-sm font-semibold text-gray-900 dark:text-white">
-                        Document Preview
-                      </h3>
-                      <button
-                        onClick={() => setSelectedDocument(null)}
-                        className="p-1 rounded-md hover:bg-gray-200 dark:hover:bg-gray-600 text-gray-500 dark:text-gray-400 transition-colors"
-                        title="Close"
-                      >
-                        <X className="w-4 h-4" />
-                      </button>
-                    </div>
-
-                    <div className="p-4 space-y-4">
-                      <div className="flex items-start gap-3">
-                        <div className="flex-shrink-0">
-                          <div className="w-12 h-12 rounded-lg bg-indigo-50 dark:bg-indigo-900/30 border border-indigo-200 dark:border-indigo-800 flex items-center justify-center">
-                            {(() => {
-                              const DocIcon = getDocumentIcon(
-                                selectedDocument.type
-                              );
-                              return (
-                                <DocIcon className="w-6 h-6 text-indigo-600 dark:text-indigo-400" />
-                              );
-                            })()}
-                          </div>
-                        </div>
-                        <div className="flex-1 min-w-0">
-                          <h4 className="text-sm font-semibold text-gray-900 dark:text-white mb-1 break-words">
-                            {selectedDocument.name}
-                          </h4>
-                          <span
-                            className={`text-xs px-2.5 py-1 rounded-full font-medium ${getFileTypeColor(
-                              selectedDocument.type
-                            )}`}
-                          >
-                            {
-                              documentTypes.find(
-                                (dt) => dt.id === selectedDocument.type
-                              )?.label
-                            }
-                          </span>
-                        </div>
-                      </div>
-
-                      <div className="space-y-4 pt-4 border-t border-gray-200 dark:border-gray-700">
-                        <div>
-                          <label className="text-xs font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400 mb-1 block">
-                            System
-                          </label>
-                          <div className="flex items-center gap-2">
-                            {(() => {
-                              const SystemIcon =
-                                systemCategories.find(
-                                  (sc) => sc.id === selectedDocument.system
-                                )?.icon || Folder;
-                              const systemColor =
-                                systemCategories.find(
-                                  (sc) => sc.id === selectedDocument.system
-                                )?.color || "text-gray-500";
-                              return (
-                                <>
-                                  <SystemIcon
-                                    className={`w-4 h-4 ${systemColor}`}
-                                  />
-                                  <span className="text-sm font-medium text-gray-900 dark:text-white">
-                                    {systemCategories.find(
-                                      (sc) =>
-                                        sc.id === selectedDocument.system
-                                    )?.label || "General"}
-                                  </span>
-                                </>
-                              );
-                            })()}
-                          </div>
-                        </div>
-
-                        <div>
-                          <label className="text-xs font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400 mb-1 block">
-                            Document Date
-                          </label>
-                          <p className="text-sm text-gray-900 dark:text-white">
-                            {formatDate(
-                              selectedDocument.document_date ||
-                                selectedDocument.created_at
-                            )}
-                          </p>
-                        </div>
-                      </div>
-
-                      <div className="pt-4 border-t border-gray-200 dark:border-gray-700 flex gap-2">
-                        <button
-                          onClick={() =>
-                            handleOpenInNewTab(selectedDocument)
-                          }
-                          className="flex-1 btn-sm bg-indigo-600 hover:bg-indigo-700 text-white flex items-center justify-center gap-1.5"
-                        >
-                          <ExternalLink className="w-3.5 h-3.5" />
-                          Open in new tab
-                        </button>
-                      </div>
-
-                      <div className="pt-4 border-t border-gray-200 dark:border-gray-700">
-                        {selectedDocument.document_key &&
-                        presignedLoading ? (
-                          <div className="flex flex-col items-center justify-center py-12">
-                            <Loader2 className="w-8 h-8 text-indigo-500 animate-spin mb-2" />
-                            <p className="text-xs text-gray-500 dark:text-gray-400">
-                              Loading preview…
-                            </p>
-                          </div>
-                        ) : presignedError ? (
-                          <div className="flex flex-col items-center justify-center py-12 text-center">
-                            <AlertCircle className="w-10 h-10 text-amber-500 mb-2" />
-                            <p className="text-xs text-gray-600 dark:text-gray-400 mb-2">
-                              {presignedError}
-                            </p>
-                            <button
-                              type="button"
-                              onClick={() =>
-                                fetchPresignedPreview(selectedDocument.document_key)
-                              }
-                              className="btn-sm bg-indigo-600 hover:bg-indigo-700 text-white"
-                            >
-                              Retry
-                            </button>
-                          </div>
-                        ) : (
-                          <InlineDocumentPreview
-                            url={
-                              selectedDocument.document_key
-                                ? presignedPreviewUrl
-                                : selectedDocument.document_url
-                            }
-                            fileName={selectedDocument.name}
-                          />
-                        )}
-                      </div>
-                    </div>
-                  </div>
-                </div>
-              )}
-            </div>
-          ) : (
-            /* List View */
-            <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-              <div
-                className={
-                  selectedDocument ? "lg:col-span-2" : "lg:col-span-3"
-                }
-              >
-                <div className="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 overflow-hidden">
-                  <div className="divide-y divide-gray-200 dark:divide-gray-700">
-                    {filteredDocuments.map((doc) => {
-                      const DocIcon = getDocumentIcon(doc.type);
-                      const SystemIcon =
-                        systemCategories.find(
-                          (sc) => sc.id === doc.system
-                        )?.icon || Folder;
-                      const isSelected =
-                        selectedDocument?.id === doc.id;
-                      const docRow = documents.find((d) => d.id === doc.id);
-                      const docKey =
-                        docRow?.document_key ?? doc.document_key;
-                      const docUrl = docRow?.document_url ?? doc.document_url;
-                      return (
-                        <div
-                          key={doc.id}
-                          onClick={() =>
-                            setSelectedDocument({
-                              ...doc,
-                              document_key: docKey,
-                              document_url: docUrl,
-                            })
-                          }
-                          className={`p-3 cursor-pointer transition-colors ${
-                            isSelected
-                              ? "bg-indigo-50 dark:bg-indigo-900/20 border-l-4 border-indigo-500"
-                              : "hover:bg-gray-50 dark:hover:bg-gray-700/50"
-                          }`}
-                        >
-                          <div className="flex items-center gap-4">
-                            <div className="flex-shrink-0">
-                              <div className="w-9 h-9 rounded-lg bg-indigo-50 dark:bg-indigo-900/30 flex items-center justify-center">
-                                <DocIcon className="w-4 h-4 text-indigo-600 dark:text-indigo-400" />
-                              </div>
-                            </div>
-                            <div className="flex-1 min-w-0">
-                              <div className="flex items-center gap-2 mb-1">
-                                <h4 className="text-sm font-semibold text-gray-900 dark:text-white truncate">
-                                  {doc.name}
-                                </h4>
-                                <SystemIcon
-                                  className={`w-4 h-4 flex-shrink-0 ${
-                                    systemCategories.find(
-                                      (sc) => sc.id === doc.system
-                                    )?.color || "text-gray-500"
-                                  }`}
-                                />
-                              </div>
-                              <div className="flex items-center gap-3 text-xs text-gray-500 dark:text-gray-400">
-                                <span
-                                  className={`px-2 py-0.5 rounded-full ${getFileTypeColor(
-                                    doc.type
-                                  )}`}
-                                >
-                                  {
-                                    documentTypes.find(
-                                      (dt) => dt.id === doc.type
-                                    )?.label
-                                  }
-                                </span>
-                                <span>
-                                  {formatDate(
-                                    doc.document_date || doc.created_at
-                                  )}
-                                </span>
-                              </div>
-                            </div>
-                            <div className="flex items-center gap-2">
-                              <button
-                                onClick={(e) => {
-                                  e.stopPropagation();
-                                  setSelectedDocument({
-                                    ...doc,
-                                    document_key: docKey,
-                                    document_url: docUrl,
-                                  });
-                                }}
-                                className="p-1.5 rounded-md hover:bg-gray-100 dark:hover:bg-gray-700 text-gray-600 dark:text-gray-400 hover:text-indigo-600 dark:hover:text-indigo-400"
-                                title="Preview"
-                              >
-                                <Eye className="w-4 h-4" />
-                              </button>
-                              <button
-                                onClick={(e) => {
-                                  e.stopPropagation();
-                                  handleOpenInNewTab({
-                                    ...doc,
-                                    document_key: docKey,
-                                    document_url: docUrl,
-                                  });
-                                }}
-                                className="p-1.5 rounded-md hover:bg-gray-100 dark:hover:bg-gray-700 text-gray-600 dark:text-gray-400 hover:text-indigo-600 dark:hover:text-indigo-400"
-                                title="Open in new tab"
-                              >
-                                <ExternalLink className="w-4 h-4" />
-                              </button>
-                              <button
-                                onClick={(e) => {
-                                  e.stopPropagation();
-                                  handleDelete(doc.id);
-                                }}
-                                className="p-1.5 rounded-md hover:bg-gray-100 dark:hover:bg-gray-700 text-gray-600 dark:text-gray-400 hover:text-red-600 dark:hover:text-red-400"
-                                title="Delete"
-                              >
-                                <Trash2 className="w-4 h-4" />
-                              </button>
-                            </div>
-                          </div>
-                        </div>
-                      );
-                    })}
-                  </div>
-                  {filteredDocuments.length === 0 && (
-                    <div className="text-center py-12 text-gray-500 dark:text-gray-400">
-                      <File className="w-16 h-16 mx-auto mb-4 opacity-50" />
-                      <p className="text-sm">No documents found</p>
-                    </div>
-                  )}
-                </div>
-              </div>
-
-              {selectedDocument && (
-                <div className="lg:col-span-1">
-                  <div className="sticky top-6 bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 shadow-lg overflow-hidden">
-                    <div className="px-4 py-3 border-b border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-700/50 flex items-center justify-between">
-                      <h3 className="text-sm font-semibold text-gray-900 dark:text-white">
-                        Document Preview
-                      </h3>
-                      <button
-                        onClick={() => setSelectedDocument(null)}
-                        className="p-1 rounded-md hover:bg-gray-200 dark:hover:bg-gray-600 text-gray-500 dark:text-gray-400 transition-colors"
-                        title="Close"
-                      >
-                        <X className="w-4 h-4" />
-                      </button>
-                    </div>
-
-                    <div className="p-4 space-y-4">
-                      <div className="flex items-start gap-3">
-                        <div className="flex-shrink-0">
-                          <div className="w-12 h-12 rounded-lg bg-indigo-50 dark:bg-indigo-900/30 border border-indigo-200 dark:border-indigo-800 flex items-center justify-center">
-                            {(() => {
-                              const DocIcon = getDocumentIcon(
-                                selectedDocument.type
-                              );
-                              return (
-                                <DocIcon className="w-6 h-6 text-indigo-600 dark:text-indigo-400" />
-                              );
-                            })()}
-                          </div>
-                        </div>
-                        <div className="flex-1 min-w-0">
-                          <h4 className="text-sm font-semibold text-gray-900 dark:text-white mb-1 break-words">
-                            {selectedDocument.name}
-                          </h4>
-                          <span
-                            className={`text-xs px-2.5 py-1 rounded-full font-medium ${getFileTypeColor(
-                              selectedDocument.type
-                            )}`}
-                          >
-                            {
-                              documentTypes.find(
-                                (dt) => dt.id === selectedDocument.type
-                              )?.label
-                            }
-                          </span>
-                        </div>
-                      </div>
-
-                      <div className="space-y-4 pt-4 border-t border-gray-200 dark:border-gray-700">
-                        <div>
-                          <label className="text-xs font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400 mb-1 block">
-                            System
-                          </label>
-                          <div className="flex items-center gap-2">
-                            {(() => {
-                              const SystemIcon =
-                                systemCategories.find(
-                                  (sc) => sc.id === selectedDocument.system
-                                )?.icon || Folder;
-                              const systemColor =
-                                systemCategories.find(
-                                  (sc) => sc.id === selectedDocument.system
-                                )?.color || "text-gray-500";
-                              return (
-                                <>
-                                  <SystemIcon
-                                    className={`w-4 h-4 ${systemColor}`}
-                                  />
-                                  <span className="text-sm font-medium text-gray-900 dark:text-white">
-                                    {systemCategories.find(
-                                      (sc) =>
-                                        sc.id === selectedDocument.system
-                                    )?.label || "General"}
-                                  </span>
-                                </>
-                              );
-                            })()}
-                          </div>
-                        </div>
-
-                        <div>
-                          <label className="text-xs font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400 mb-1 block">
-                            Document Date
-                          </label>
-                          <p className="text-sm text-gray-900 dark:text-white">
-                            {formatDate(
-                              selectedDocument.document_date ||
-                                selectedDocument.created_at
-                            )}
-                          </p>
-                        </div>
-                      </div>
-
-                      <div className="pt-4 border-t border-gray-200 dark:border-gray-700 flex gap-2">
-                        <button
-                          onClick={() =>
-                            handleOpenInNewTab(selectedDocument)
-                          }
-                          className="flex-1 btn-sm bg-indigo-600 hover:bg-indigo-700 text-white flex items-center justify-center gap-1.5"
-                        >
-                          <ExternalLink className="w-3.5 h-3.5" />
-                          Open in new tab
-                        </button>
-                      </div>
-
-                      <div className="pt-4 border-t border-gray-200 dark:border-gray-700">
-                        {selectedDocument.document_key &&
-                        presignedLoading ? (
-                          <div className="flex flex-col items-center justify-center py-12">
-                            <Loader2 className="w-8 h-8 text-indigo-500 animate-spin mb-2" />
-                            <p className="text-xs text-gray-500 dark:text-gray-400">
-                              Loading preview…
-                            </p>
-                          </div>
-                        ) : presignedError ? (
-                          <div className="flex flex-col items-center justify-center py-12 text-center">
-                            <AlertCircle className="w-10 h-10 text-amber-500 mb-2" />
-                            <p className="text-xs text-gray-600 dark:text-gray-400 mb-2">
-                              {presignedError}
-                            </p>
-                            <button
-                              type="button"
-                              onClick={() =>
-                                fetchPresignedPreview(selectedDocument.document_key)
-                              }
-                              className="btn-sm bg-indigo-600 hover:bg-indigo-700 text-white"
-                            >
-                              Retry
-                            </button>
-                          </div>
-                        ) : (
-                          <InlineDocumentPreview
-                            url={
-                              selectedDocument.document_key
-                                ? presignedPreviewUrl
-                                : selectedDocument.document_url
-                            }
-                            fileName={selectedDocument.name}
-                          />
-                        )}
-                      </div>
-                    </div>
-                  </div>
-                </div>
-              )}
-            </div>
+          {hasActiveFilters && (
+            <button
+              onClick={clearFilters}
+              className="text-xs text-[#456654] dark:text-[#5a7a68] hover:underline font-medium px-2 py-1"
+            >
+              Clear filters
+            </button>
           )}
-        </>
-      )}
+        </div>
+
+        <div className="flex-1 min-h-0">
+          <DocumentsPreviewPanel
+            selectedDocument={selectedDocument}
+            presignedPreviewUrl={presignedPreviewUrl}
+            presignedLoading={presignedLoading}
+            presignedError={presignedError}
+            fetchPresignedPreview={fetchPresignedPreview}
+            InlineDocumentPreview={InlineDocumentPreview}
+            onClose={() => setSelectedDocument(null)}
+            onOpenInNewTab={handleOpenInNewTab}
+            onDelete={handleDelete}
+            getDocumentIcon={getDocumentIcon}
+            getFileTypeColor={getFileTypeColor}
+            systemCategories={systemCategories}
+            documentTypes={documentTypes}
+          />
+        </div>
+      </div>
 
       {/* Upload Modal */}
       {showUploadModal && (
-        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+        <div
+          className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4"
+          onClick={(e) => {
+            if (e.target === e.currentTarget && !isUploading) {
+              setShowUploadModal(false);
+              setUploadFiles([]);
+              setUploadError(null);
+              clearUploadHookError();
+            }
+          }}
+        >
           <div className="bg-white dark:bg-gray-800 rounded-xl shadow-xl max-w-md w-full max-h-[90vh] overflow-y-auto">
             <div className="sticky top-0 bg-white dark:bg-gray-800 px-5 py-3 border-b border-gray-200 dark:border-gray-700 flex items-center justify-between">
               <h3 className="text-sm font-semibold text-gray-900 dark:text-white">
@@ -1283,7 +804,7 @@ function DocumentsTab({propertyData}) {
 
               <div>
                 <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                  Document Name
+                  Document Name <span className="text-red-500">*</span>
                 </label>
                 <input
                   type="text"
@@ -1291,28 +812,31 @@ function DocumentsTab({propertyData}) {
                   onChange={(e) => setUploadDocumentName(e.target.value)}
                   placeholder="e.g. AC Maintenance Receipt 2024"
                   className="form-input w-full bg-white dark:bg-gray-800 border-gray-200 dark:border-gray-700"
+                  required
                 />
               </div>
 
               <div>
                 <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                  Document Date
+                  Document Date <span className="text-red-500">*</span>
                 </label>
                 <DatePickerInput
                   name="documentDate"
                   value={uploadDocumentDate}
                   onChange={(e) => setUploadDocumentDate(e.target.value)}
+                  required
                 />
               </div>
 
               <div>
                 <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                  Document Type
+                  Document Type <span className="text-red-500">*</span>
                 </label>
                 <select
                   value={uploadDocumentType}
                   onChange={(e) => setUploadDocumentType(e.target.value)}
                   className="form-select w-full bg-white dark:bg-gray-800 border-gray-200 dark:border-gray-700"
+                  required
                 >
                   {documentTypes.map((t) => (
                     <option key={t.id} value={t.id}>
@@ -1324,14 +848,15 @@ function DocumentsTab({propertyData}) {
 
               <div>
                 <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                  System
+                  System <span className="text-red-500">*</span>
                 </label>
                 <select
                   value={uploadSystemKey}
                   onChange={(e) => setUploadSystemKey(e.target.value)}
                   className="form-select w-full bg-white dark:bg-gray-800 border-gray-200 dark:border-gray-700"
+                  required
                 >
-                  {systemCategories.map((cat) => (
+                  {systemsToShow.map((cat) => (
                     <option key={cat.id} value={cat.id}>
                       {cat.label}
                     </option>
@@ -1341,7 +866,7 @@ function DocumentsTab({propertyData}) {
 
               <div>
                 <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                  File(s)
+                  File(s) <span className="text-red-500">*</span>
                 </label>
                 <input
                   ref={fileInputRef}

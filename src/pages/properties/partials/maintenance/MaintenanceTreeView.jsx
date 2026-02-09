@@ -1,4 +1,5 @@
 import React, {useState, useMemo} from "react";
+import {format, parse, isValid} from "date-fns";
 import {
   ChevronDown,
   ChevronRight,
@@ -109,13 +110,22 @@ function MaintenanceTreeView({
   };
 
   const formatDate = (dateString) => {
-    if (!dateString) return "";
-    const date = new Date(dateString);
-    return date.toLocaleDateString("en-US", {
-      month: "short",
-      day: "numeric",
-      year: "numeric",
-    });
+    if (dateString == null) return "";
+    const s =
+      typeof dateString === "string"
+        ? dateString.trim()
+        : dateString instanceof Date
+          ? format(dateString, "yyyy-MM-dd")
+          : String(dateString).trim();
+    if (!s) return "";
+    // Extract YYYY-MM-DD part (handles "2025-03-15" and "2025-03-15T00:00:00.000Z")
+    const datePart = s.slice(0, 10);
+    if (/^\d{4}-\d{2}-\d{2}$/.test(datePart)) {
+      const parsed = parse(datePart, "yyyy-MM-dd", new Date());
+      if (isValid(parsed)) return format(parsed, "MMM d, yyyy");
+    }
+    const fallback = new Date(s);
+    return isValid(fallback) ? format(fallback, "MMM d, yyyy") : "";
   };
 
   const getTotalRecordCount = () => {
