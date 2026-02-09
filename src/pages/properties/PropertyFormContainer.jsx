@@ -38,6 +38,13 @@ import {
 } from "./helpers/formDataByTabs";
 import {buildPropertyPayloadFromRefresh} from "./helpers/buildPropertyPayloadFromRefresh";
 import {formSystemsToArray} from "./helpers/formSystemsToArray";
+import {computeHpsScore} from "./helpers/computeHpsScore";
+import {
+  mapMaintenanceRecordsFromBackend,
+  prepareMaintenanceRecordsForApi,
+  computeMaintenanceSyncPlan,
+  isNewMaintenanceRecord,
+} from "./helpers/maintenanceRecordMapping";
 import {STANDARD_CUSTOM_SYSTEM_FIELDS} from "./constants/propertySystems";
 import Banner from "../../partials/containers/Banner";
 import {useAutoCloseBanner} from "../../hooks/useAutoCloseBanner";
@@ -64,6 +71,9 @@ import {
   FileBarChart,
   Share2,
 } from "lucide-react";
+import useImageUpload from "../../hooks/useImageUpload";
+import usePresignedPreview from "../../hooks/usePresignedPreview";
+import ImageUploadField from "../../components/ImageUploadField";
 import {useTranslation} from "react-i18next";
 import Transition from "../../utils/Transition";
 
@@ -220,7 +230,6 @@ function PropertyFormContainer() {
   const navigate = useNavigate();
   const location = useLocation();
   const {uid, dbUrl: dbUrlParam} = useParams(); // dbUrl from route, uid is property_uid
-  const photoInputRef = useRef(null);
   const {t} = useTranslation();
   const {
     currentDb,
@@ -237,7 +246,11 @@ function PropertyFormContainer() {
     getSystemsByPropertyId,
     updateSystemsForProperty,
     getMaintenanceRecordsByPropertyId,
+    createMaintenanceRecords,
+    updateMaintenanceRecord,
+    deleteMaintenanceRecord,
   } = useContext(PropertyContext);
+
   const {users} = useContext(UserContext);
   const {contacts} = useContext(ContactContext);
   const {currentUser} = useAuth();
@@ -246,9 +259,52 @@ function PropertyFormContainer() {
   const [systemsSetupModalOpen, setSystemsSetupModalOpen] = useState(false);
   const [actionsDropdownOpen, setActionsDropdownOpen] = useState(false);
   const [shareModalOpen, setShareModalOpen] = useState(false);
+  const [mainPhotoMenuOpen, setMainPhotoMenuOpen] = useState(false);
+  const mainPhotoInputRef = useRef(null);
   const actionsTriggerRef = useRef(null);
   const actionsDropdownRef = useRef(null);
   const saveBarRef = useRef(null);
+  const originalMaintenanceRecordIdsRef = useRef(new Set());
+
+  const {
+    uploadImage: uploadMainPhoto,
+    imagePreviewUrl: mainPhotoPreviewUrl,
+    uploadedImageUrl: mainPhotoUploadedUrl,
+    imageUploading: mainPhotoUploading,
+    imageUploadError: mainPhotoUploadError,
+    setImageUploadError: setMainPhotoUploadError,
+    clearPreview: clearMainPhotoPreview,
+    clearUploadedUrl: clearMainPhotoUploadedUrl,
+  } = useImageUpload({
+    onSuccess: (key) => {
+      dispatch({type: "SET_IDENTITY_FORM_DATA", payload: {mainPhoto: key}});
+      if (state.isInitialLoad) {
+        dispatch({type: "SET_FORM_CHANGED", payload: true});
+      }
+    },
+  });
+
+  const {
+    url: mainPhotoPresignedUrl,
+    fetchPreview: fetchMainPhotoPresigned,
+    clearUrl: clearMainPhotoPresignedUrl,
+    currentKey: mainPhotoPresignedKey,
+  } = usePresignedPreview();
+
+  /* Fetch presigned URL when mainPhoto is an S3 key (not blob or http) */
+  const mainPhotoKey =
+    state.property?.identity?.mainPhoto ??
+    state.formData?.identity?.mainPhoto ??
+    "";
+  const mainPhotoNeedsPresigned =
+    mainPhotoKey &&
+    !mainPhotoKey.startsWith("blob:") &&
+    !mainPhotoKey.startsWith("http");
+  useEffect(() => {
+    if (mainPhotoNeedsPresigned) {
+      fetchMainPhotoPresigned(mainPhotoKey);
+    }
+  }, [mainPhotoNeedsPresigned, mainPhotoKey, fetchMainPhotoPresigned]);
 
   // Report: stored PDF report (TODO: integrate with backend)
   const hasReport = Boolean(state.property?.reportUrl);
@@ -289,10 +345,16 @@ function PropertyFormContainer() {
       if (uid === "new") return;
       const property = await getPropertyById(uid);
       const systemsArr = await getSystemsByPropertyId(property.id);
-      /* const maintenanceRecords = await getMaintenanceRecordsByPropertyId(
-        property.id,
+      const rawRecords = await getMaintenanceRecordsByPropertyId(property.id);
+      const maintenanceRecords = mapMaintenanceRecordsFromBackend(
+        rawRecords ?? [],
       );
-      setMaintenanceRecords(maintenanceRecords); */
+      setMaintenanceRecords(maintenanceRecords);
+      originalMaintenanceRecordIdsRef.current = new Set(
+        (maintenanceRecords ?? [])
+          .filter((r) => !isNewMaintenanceRecord(r))
+          .map((r) => r.id),
+      );
       const includedSystems = (systemsArr ?? []).filter(
         (s) => s.included !== false,
       );
@@ -309,6 +371,7 @@ function PropertyFormContainer() {
         type: "SET_PROPERTY",
         payload: {
           ...tabbed,
+          maintenanceRecords: maintenanceRecords ?? [],
           systems: {
             ...tabbed.systems,
             ...fromSystems,
@@ -347,16 +410,22 @@ function PropertyFormContainer() {
     prevUidRef.current = uid;
   }, [uid]);
 
-  /* Handles the change of the main photo */
-  const handlePhotoChange = (e) => {
-    const file = e.target.files?.[0];
-    if (!file) return;
-    const url = URL.createObjectURL(file);
-    dispatch({type: "SET_IDENTITY_FORM_DATA", payload: {mainPhoto: url}});
-    if (state.isInitialLoad) {
-      dispatch({type: "SET_FORM_CHANGED", payload: true});
+  /* Clear main photo preview and presigned URL when switching properties */
+  const prevPropertyUidRef = useRef(null);
+  useEffect(() => {
+    const currentUid =
+      state.property?.id ?? state.property?.identity?.id ?? null;
+    const switched =
+      prevPropertyUidRef.current != null &&
+      currentUid !== prevPropertyUidRef.current;
+    const cleared = prevPropertyUidRef.current != null && currentUid == null;
+    prevPropertyUidRef.current = currentUid;
+    if (switched || cleared) {
+      clearMainPhotoPreview();
+      clearMainPhotoUploadedUrl();
+      clearMainPhotoPresignedUrl();
     }
-  };
+  }, [state.property, clearMainPhotoPreview, clearMainPhotoUploadedUrl, clearMainPhotoPresignedUrl]);
 
   /* Sets default HomeOps Team (only for existing properties; new form keeps team [] from reset effect) */
   useEffect(() => {
@@ -501,10 +570,12 @@ function PropertyFormContainer() {
     dispatch({type: "SET_SUBMITTING", payload: true});
     try {
       const merged = mergeFormDataFromTabs(state.formData);
+      merged.hpsScore = computeHpsScore(merged);
       const propertyData = preparePropertyValues(merged);
       const res = await createProperty(propertyData);
       if (res) {
         const propertyId = res.id;
+        /* Add users to property */
         if (homeopsTeam.length > 0) {
           await addUsersToProperty(
             propertyId,
@@ -515,8 +586,19 @@ function PropertyFormContainer() {
           state.formData.systems ?? {},
           propertyId,
         );
+        /* Create systems for property */
         await createSystemsForProperty(propertyId, systemsPayloads);
         const newUid = res.property_uid ?? res.id;
+
+        /* Create maintenance records for property (batch endpoint) */
+        const recordsToCreate = state.formData.maintenanceRecords ?? [];
+        const payloads = prepareMaintenanceRecordsForApi(
+          recordsToCreate,
+          propertyId,
+        );
+        if (payloads.length > 0) {
+          await createMaintenanceRecords(propertyId, payloads);
+        }
 
         navigate(`/${dbUrl}/properties/${newUid}`, {
           state: {
@@ -610,10 +692,10 @@ function PropertyFormContainer() {
     dispatch({type: "SET_SUBMITTING", payload: true});
     try {
       const propertyId = state.property?.identity?.id ?? state.property?.id;
-      const res = await updateProperty(
-        propertyId,
-        prepareIdentityForUpdate(state.formData.identity ?? {}),
-      );
+      const merged = mergeFormDataFromTabs(state.formData);
+      const identityPayload = prepareIdentityForUpdate(state.formData.identity ?? {});
+      identityPayload.hps_score = computeHpsScore(merged);
+      const res = await updateProperty(propertyId, identityPayload);
       if (res) {
         await updateTeam(res.id, prepareTeamForProperty(homeopsTeam));
 
@@ -623,15 +705,53 @@ function PropertyFormContainer() {
           state.systems ?? [],
         );
         await updateSystemsForProperty(res.id, systemsArray);
+
+        /* Maintenance records sync */
+        const currentRecords = state.formData.maintenanceRecords ?? [];
+        const syncPlan = computeMaintenanceSyncPlan(
+          currentRecords,
+          originalMaintenanceRecordIdsRef.current,
+          res.id,
+        );
+
+        if (syncPlan.toDelete.length > 0) {
+          await Promise.all(
+            syncPlan.toDelete.map((id) => deleteMaintenanceRecord(id)),
+          );
+        }
+        if (syncPlan.toCreate.length > 0) {
+          await createMaintenanceRecords(res.id, syncPlan.toCreate);
+        }
+        if (syncPlan.toUpdate.length > 0) {
+          await Promise.all(
+            syncPlan.toUpdate.map(({id, payload}) =>
+              updateMaintenanceRecord(id, payload),
+            ),
+          );
+        }
+
         const refreshed = await getPropertyById(uid);
+        const rawRecords = await getMaintenanceRecordsByPropertyId(res.id);
+        const maintenanceRecords = mapMaintenanceRecordsFromBackend(
+          rawRecords ?? [],
+        );
+        setMaintenanceRecords(maintenanceRecords);
+        originalMaintenanceRecordIdsRef.current = new Set(
+          maintenanceRecords
+            .filter((r) => !isNewMaintenanceRecord(r))
+            .map((r) => r.id),
+        );
         const systemsFromBackend = await getSystemsByPropertyId(res.id);
         dispatch({
           type: "SET_PROPERTY",
-          payload: buildPropertyPayloadFromRefresh(
-            refreshed,
-            systemsFromBackend ?? [],
-            res,
-          ),
+          payload: {
+            ...buildPropertyPayloadFromRefresh(
+              refreshed,
+              systemsFromBackend ?? [],
+              res,
+            ),
+            maintenanceRecords: maintenanceRecords ?? [],
+          },
         });
         dispatch({type: "SET_SYSTEMS", payload: systemsFromBackend ?? []});
         dispatch({type: "SET_FORM_CHANGED", payload: false});
@@ -706,6 +826,12 @@ function PropertyFormContainer() {
     ? mergeFormDataFromTabs(state.property)
     : mergedFormData;
 
+  // HPS score: use backend value when saved, otherwise compute from form data
+  const displayHpsScore =
+    state.property != null
+      ? (cardData.hpsScore ?? cardData.hps_score ?? 0)
+      : computeHpsScore(mergedFormData);
+
   // Systems to show in Systems tab: only those with included=true (from modal selection)
   const visibleSystemIds = state.formData.systems?.selectedSystemIds ?? [];
 
@@ -717,8 +843,10 @@ function PropertyFormContainer() {
     state.systems ?? [],
   );
   /* console.log("systemsArray: ", systemsArray);
-  console.log("state.formData: ", state.formData); */
+  console.log("state.formData: ", state.formData);
+  console.log("maintenanceRecords: ", state.formData.maintenanceRecords); */
   console.log("maintenanceRecords: ", maintenanceRecords);
+  console.log("Porperty Form Container: ", state.formData);
   return (
     <div className="px-4 sm:px-6 lg:px-1 pt-1">
       <SharePropertyModal
@@ -1085,11 +1213,11 @@ function PropertyFormContainer() {
                     Health Score
                   </div>
                   <div className="text-sm font-semibold text-white">
-                    {cardData.hpsScore ?? 0}/100
+                    {displayHpsScore}/100
                   </div>
                 </div>
                 <CircularProgress
-                  percentage={cardData.hpsScore ?? 0}
+                  percentage={displayHpsScore}
                   size={68}
                   strokeWidth={5}
                 />
@@ -1102,32 +1230,60 @@ function PropertyFormContainer() {
             <div className="flex flex-col lg:flex-row gap-5 lg:gap-6">
               {/* Property Image */}
               <div className="w-full lg:w-2/5 flex-shrink-0">
-                <div className="relative h-52 lg:h-72 rounded-lg overflow-hidden border-2 border-dashed border-gray-200 dark:border-gray-700 shadow-sm">
-                  <input
-                    ref={photoInputRef}
-                    id="property-main-photo"
-                    type="file"
-                    accept="image/*"
-                    className="hidden"
-                    onChange={handlePhotoChange}
+                <div className="relative h-52 lg:h-72 rounded-lg border-2 border-dashed border-gray-200 dark:border-gray-700 shadow-sm">
+                  <ImageUploadField
+                    imageSrc={
+                      mainPhotoPreviewUrl ||
+                      cardData.mainPhotoUrl ||
+                      (cardData.mainPhoto?.startsWith?.("blob:") ||
+                      cardData.mainPhoto?.startsWith?.("http")
+                        ? cardData.mainPhoto
+                        : null) ||
+                      (mainPhotoPresignedKey === mainPhotoKey
+                        ? mainPhotoPresignedUrl
+                        : null) ||
+                      mainPhotoUploadedUrl
+                    }
+                    hasImage={
+                      !!(
+                        cardData.mainPhoto ||
+                        cardData.mainPhotoUrl ||
+                        state.formData.identity?.mainPhoto
+                      )
+                    }
+                    imageUploading={mainPhotoUploading}
+                    onUpload={uploadMainPhoto}
+                    onRemove={() => {
+                      clearMainPhotoPreview();
+                      clearMainPhotoUploadedUrl();
+                      dispatch({
+                        type: "SET_IDENTITY_FORM_DATA",
+                        payload: {mainPhoto: ""},
+                      });
+                      if (state.isInitialLoad) {
+                        dispatch({type: "SET_FORM_CHANGED", payload: true});
+                      }
+                    }}
+                    onPasteUrl={null}
+                    showRemove={
+                      !!(
+                        cardData.mainPhoto ||
+                        cardData.mainPhotoUrl ||
+                        state.formData.identity?.mainPhoto
+                      )
+                    }
+                    imageUploadError={mainPhotoUploadError}
+                    onDismissError={() => setMainPhotoUploadError(null)}
+                    size="xl"
+                    placeholder="generic"
+                    emptyLabel="Add image"
+                    alt={cardData.address || "Property"}
+                    uploadLabel="Upload photo"
+                    removeLabel="Remove photo"
+                    fileInputRef={mainPhotoInputRef}
+                    menuOpen={mainPhotoMenuOpen}
+                    onMenuToggle={setMainPhotoMenuOpen}
                   />
-                  {cardData.mainPhoto ? (
-                    <img
-                      src={cardData.mainPhoto}
-                      alt={cardData.address || "Property"}
-                      className="w-full h-full object-cover"
-                    />
-                  ) : (
-                    <label
-                      htmlFor="property-main-photo"
-                      className="flex flex-col items-center justify-center h-full bg-gray-50 dark:bg-gray-800/50 cursor-pointer hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors"
-                    >
-                      <ImageIcon className="w-12 h-12 text-gray-400 dark:text-gray-500 mb-2" />
-                      <span className="text-sm font-medium text-gray-500 dark:text-gray-400">
-                        Add image
-                      </span>
-                    </label>
-                  )}
                 </div>
               </div>
 

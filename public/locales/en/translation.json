@@ -305,5 +305,8 @@
   "propertyCreatedSuccessfullyMessage": "Property created successfully",
   "propertyUpdatedSuccessfullyMessage": "Property updated successfully",
   "propertyCreateErrorMessage": "Failed to create property",
-  "id": "ID"
+  "id": "ID",
+  "uploadImage": "Upload Image",
+  "pasteUrl": "Paste URL",
+  "removePhoto": "Remove Photo"
 }

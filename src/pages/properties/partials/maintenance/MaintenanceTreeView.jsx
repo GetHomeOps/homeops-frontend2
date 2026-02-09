@@ -255,9 +255,9 @@ function MaintenanceTreeView({
                 </button>
               </div>
 
-              {/* Records list */}
+              {/* Records list - extra left padding for visual distinction from system name */}
               {isExpanded && (
-                <div className="ml-6 mt-1 space-y-1">
+                <div className="ml-8 pl-2 mt-1 space-y-1">
                   {systemRecords.length > 0 ? (
                     systemRecords.map((record) => {
                       const isSelected = selectedRecordId === record.id;
@@ -265,10 +265,10 @@ function MaintenanceTreeView({
                         <div
                           key={record.id}
                           onClick={() => onSelectRecord?.(record)}
-                          className={`flex items-center gap-2 px-3 py-2 rounded-lg cursor-pointer transition-colors ${
+                          className={`flex items-center gap-2 px-3 py-2 rounded-lg cursor-pointer transition-colors border ${
                             isSelected
-                              ? "bg-[#456654] text-white"
-                              : "hover:bg-gray-100 dark:hover:bg-gray-700"
+                              ? "bg-slate-100/90 dark:bg-slate-700/40 border-slate-400/60 dark:border-slate-500/50"
+                              : "border-gray-200 dark:border-gray-600 hover:bg-gray-100 dark:hover:bg-gray-700"
                           }`}
                         >
                           {getStatusIcon(record.status)}
@@ -276,7 +276,7 @@ function MaintenanceTreeView({
                             <div
                               className={`text-sm font-medium truncate ${
                                 isSelected
-                                  ? "text-white"
+                                  ? "text-slate-800 dark:text-slate-100"
                                   : "text-gray-800 dark:text-gray-200"
                               }`}
                             >
@@ -287,7 +287,7 @@ function MaintenanceTreeView({
                                 <div
                                   className={`text-xs truncate ${
                                     isSelected
-                                      ? "text-white/80"
+                                      ? "text-slate-600 dark:text-slate-300"
                                       : "text-gray-500 dark:text-gray-400"
                                   }`}
                                 >

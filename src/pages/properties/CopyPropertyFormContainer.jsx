@@ -457,7 +457,7 @@ function PropertyFormContainer() {
               <div className="w-full lg:w-2/5 flex-shrink-0">
                 <div className="relative h-64 lg:h-80 rounded-lg overflow-hidden border-2 border-gray-200 dark:border-gray-700 shadow-sm">
                   <img
-                    src={propertyData.mainPhoto}
+                    src={propertyData.mainPhotoUrl || propertyData.mainPhoto}
                     alt={propertyData.address}
                     className="w-full h-full object-cover"
                   />

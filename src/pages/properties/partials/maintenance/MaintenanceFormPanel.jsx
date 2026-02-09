@@ -1,4 +1,4 @@
-import React, {useState, useEffect} from "react";
+import React, {useState, useEffect, useRef, useCallback} from "react";
 import {
   Wrench,
   Calendar,
@@ -25,18 +25,24 @@ import InstallerSelect from "../InstallerSelect";
 /**
  * Inline form panel for viewing/editing maintenance records.
  * Used in the split-view layout (right column).
+ * Edits update formData.maintenanceRecords in real time; global Save persists.
  */
 function MaintenanceFormPanel({
   record,
   systemId,
   systemName,
   propertyId,
+  onRecordChange,
   onSave,
   onDelete,
   onOpenInNewTab,
   contacts = [],
   isNewRecord = false,
 }) {
+  const persistOnChange = Boolean(onRecordChange);
+  const persistOnSave = Boolean(onSave) && !persistOnChange;
+  const newRecordIdRef = useRef(null);
+
   const [formData, setFormData] = useState({
     date: "",
     contractor: "",
@@ -55,7 +61,54 @@ function MaintenanceFormPanel({
 
   const [uploadedFiles, setUploadedFiles] = useState([]);
   const [requestStatus, setRequestStatus] = useState(null);
-  const [hasChanges, setHasChanges] = useState(false);
+
+  // Reset temp ID when entering "new record" mode
+  useEffect(() => {
+    if (!record) {
+      newRecordIdRef.current = null;
+    }
+  }, [record]);
+
+  const buildRecordData = useCallback(
+    (formFields = formData, files = uploadedFiles, overrides = {}) => {
+      const id =
+        record?.id ??
+        newRecordIdRef.current ??
+        (newRecordIdRef.current = `MT-${Date.now()}`);
+      return {
+        ...formFields,
+        files,
+        systemId: systemId || "roof",
+        id,
+        requestStatus,
+        ...overrides,
+      };
+    },
+    [record?.id, formData, uploadedFiles, systemId, requestStatus],
+  );
+
+  const notifyRecordChange = useCallback(
+    (formFields = formData, files = uploadedFiles, overrides = {}) => {
+      const data = buildRecordData(formFields, files, overrides);
+      if (persistOnChange) {
+        onRecordChange?.(data);
+      }
+    },
+    [
+      buildRecordData,
+      onRecordChange,
+      formData,
+      uploadedFiles,
+      persistOnChange,
+    ],
+  );
+
+  const handleSubmit = (e) => {
+    e?.preventDefault?.();
+    if (!formData.date?.trim()) return;
+    const data = buildRecordData();
+    onSave?.(data);
+  };
 
   useEffect(() => {
     if (record) {
@@ -76,7 +129,6 @@ function MaintenanceFormPanel({
       });
       setUploadedFiles(record.files || []);
       setRequestStatus(record.requestStatus || null);
-      setHasChanges(false);
     } else {
       // New record
       setFormData({
@@ -96,45 +148,50 @@ function MaintenanceFormPanel({
       });
       setUploadedFiles([]);
       setRequestStatus(null);
-      setHasChanges(false);
     }
   }, [record]);
 
   const handleInputChange = (e) => {
     const {name, value} = e.target;
-    setFormData((prev) => {
-      const next = {...prev, [name]: value};
-      if (name === "contractor" && contacts?.length) {
-        const contact =
-          contacts.find((c) => String(c.id) === String(value)) ||
-          contacts.find((c) => (c.name || "") === value);
-        if (contact) {
-          next.contractorEmail = contact.email || prev.contractorEmail;
-          next.contractorPhone = contact.phone || prev.contractorPhone;
-        }
+    const next = {...formData, [name]: value};
+    if (name === "contractor" && contacts?.length) {
+      const contact =
+        contacts.find((c) => String(c.id) === String(value)) ||
+        contacts.find((c) => (c.name || "") === value);
+      if (contact) {
+        next.contractorEmail = contact.email || formData.contractorEmail;
+        next.contractorPhone = contact.phone || formData.contractorPhone;
       }
-      return next;
-    });
-    setHasChanges(true);
+    }
+    setFormData(next);
+    if (persistOnChange) {
+      queueMicrotask(() => notifyRecordChange(next, uploadedFiles));
+    }
   };
 
   const handleFileUpload = (e) => {
     const files = Array.from(e.target.files);
-    setUploadedFiles((prev) => [
-      ...prev,
+    const newFiles = [
+      ...uploadedFiles,
       ...files.map((file) => ({
         name: file.name,
         size: file.size,
         type: file.type,
         file: file,
       })),
-    ]);
-    setHasChanges(true);
+    ];
+    setUploadedFiles(newFiles);
+    if (persistOnChange) {
+      queueMicrotask(() => notifyRecordChange(formData, newFiles));
+    }
   };
 
   const handleRemoveFile = (index) => {
-    setUploadedFiles((prev) => prev.filter((_, i) => i !== index));
-    setHasChanges(true);
+    const newFiles = uploadedFiles.filter((_, i) => i !== index);
+    setUploadedFiles(newFiles);
+    if (persistOnChange) {
+      queueMicrotask(() => notifyRecordChange(formData, newFiles));
+    }
   };
 
   const formatFileSize = (bytes) => {
@@ -143,23 +200,6 @@ function MaintenanceFormPanel({
     const sizes = ["Bytes", "KB", "MB", "GB"];
     const i = Math.floor(Math.log(bytes) / Math.log(k));
     return Math.round((bytes / Math.pow(k, i)) * 100) / 100 + " " + sizes[i];
-  };
-
-  const handleSubmit = (e) => {
-    e.preventDefault();
-    e.stopPropagation();
-    if (!formData.date?.trim()) {
-      return;
-    }
-    const recordData = {
-      ...formData,
-      files: uploadedFiles,
-      systemId: systemId,
-      id: record?.id || `MT-${Date.now()}`,
-      requestStatus: requestStatus,
-    };
-    onSave?.(recordData);
-    setHasChanges(false);
   };
 
   const handleSubmitRequest = () => {
@@ -173,6 +213,11 @@ function MaintenanceFormPanel({
       return;
     }
     setRequestStatus("pending");
+    if (persistOnChange) {
+      queueMicrotask(() =>
+        notifyRecordChange(formData, uploadedFiles, {requestStatus: "pending"}),
+      );
+    }
     alert(
       "Request submitted to contractor. They will be notified to fill out the maintenance report.",
     );
@@ -230,7 +275,11 @@ function MaintenanceFormPanel({
           {record && onDelete && (
             <button
               type="button"
-              onClick={() => onDelete(record.id)}
+              onClick={(e) => {
+                e.stopPropagation();
+                e.preventDefault();
+                onDelete(record.id);
+              }}
               className="flex items-center gap-2 px-3 py-2 text-sm text-red-600 hover:text-red-700 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-lg transition-colors"
               title="Delete record"
             >
@@ -296,7 +345,13 @@ function MaintenanceFormPanel({
           </div>
         )}
 
-        <form onSubmit={handleSubmit} className="p-6 space-y-6">
+        <form
+          onSubmit={(e) => {
+            e.preventDefault();
+            if (persistOnSave) handleSubmit(e);
+          }}
+          className="p-6 space-y-6"
+        >
           {/* Work Order & Date - at top */}
           <div className="pb-6 border-b border-gray-200 dark:border-gray-700">
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -570,32 +625,32 @@ function MaintenanceFormPanel({
         </form>
       </div>
 
-      {/* Footer with save button - fixed at bottom */}
+      {/* Footer: Save button (standalone) or hint (tab) */}
       <div className="flex items-center justify-between gap-3 px-6 py-4 border-t border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-900">
-        <div className="text-xs text-gray-500 dark:text-gray-400">
+        <p className="text-xs text-gray-500 dark:text-gray-400">
           <span className="text-red-500">*</span> Required fields
-          {hasChanges && (
-            <span className="ml-2 text-amber-600 dark:text-amber-400">
-              • Unsaved changes
+          {persistOnChange && (
+            <span className="ml-2 text-gray-500">
+              • Changes save when you click the property Save/Update button below
             </span>
           )}
-        </div>
-        <button
-          type="button"
-          onClick={handleSubmit}
-          disabled={!formData.date?.trim()}
-          className="btn text-white flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
-          style={{backgroundColor: "#6b9a7a"}}
-          onMouseEnter={(e) => {
-            if (!e.target.disabled) e.target.style.backgroundColor = "#5a8a6a";
-          }}
-          onMouseLeave={(e) => {
-            e.target.style.backgroundColor = "#6b9a7a";
-          }}
-        >
-          {record ? <Save className="w-4 h-4" /> : <Plus className="w-4 h-4" />}
-          {record ? "Update" : "Add"}
-        </button>
+        </p>
+        {persistOnSave && (
+          <button
+            type="button"
+            onClick={handleSubmit}
+            disabled={!formData.date?.trim()}
+            className="btn text-white flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
+            style={{backgroundColor: "#6b9a7a"}}
+          >
+            {record ? (
+              <Save className="w-4 h-4" />
+            ) : (
+              <Plus className="w-4 h-4" />
+            )}
+            {record ? "Update" : "Add"}
+          </button>
+        )}
       </div>
     </div>
   );

@@ -97,7 +97,14 @@ function PropertiesList() {
       Number(localStorage.getItem(PAGE_STORAGE_KEY)) || baseState.currentPage,
   }));
 
-  const {properties, setProperties} = useContext(propertyContext);
+  const {properties, setProperties, refreshProperties} =
+    useContext(propertyContext);
+
+  /* Refetch properties when returning to list so health status and other data are current */
+  useEffect(() => {
+    refreshProperties?.();
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- refetch only on mount (when navigating back)
+  }, []);
 
   useEffect(() => {
     localStorage.setItem(PAGE_STORAGE_KEY, state.currentPage);
@@ -155,6 +162,19 @@ function PropertiesList() {
     const startIndex = (state.currentPage - 1) * state.itemsPerPage;
     return sortedProperties.slice(startIndex, startIndex + state.itemsPerPage);
   }, [sortedProperties, state.currentPage, state.itemsPerPage]);
+
+  /* Ensure currentPage is valid when data changes (e.g. after fetch, filter, or switch user).
+   * If we're on a page beyond the available data, reset to page 1 so the table shows rows. */
+  useEffect(() => {
+    if (sortedProperties.length === 0) return;
+    const lastValidPage = Math.max(
+      1,
+      Math.ceil(sortedProperties.length / state.itemsPerPage),
+    );
+    if (state.currentPage > lastValidPage) {
+      dispatch({type: "SET_CURRENT_PAGE", payload: 1});
+    }
+  }, [sortedProperties.length, state.itemsPerPage, state.currentPage]);
 
   const handleSearchChange = (event) => {
     dispatch({type: "SET_SEARCH_TERM", payload: event.target.value});
@@ -222,7 +242,7 @@ function PropertiesList() {
       key: "health",
       label: "healthStatus",
       sortable: true,
-      render: (value) => <HealthBar value={value} />,
+      render: (value) => <HealthBar value={value ?? 0} />,
     },
   ];
 

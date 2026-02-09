@@ -289,7 +289,7 @@ function HomeownerHome() {
         {/* Background Image - Full Bleed */}
         <div className="relative h-[420px] lg:h-[480px] overflow-hidden">
           <img
-            src={propertyData.mainPhoto}
+            src={propertyData.mainPhotoUrl || propertyData.mainPhoto}
             alt="Your home"
             className="w-full h-full object-cover"
           />

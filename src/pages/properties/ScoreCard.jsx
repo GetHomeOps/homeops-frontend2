@@ -72,28 +72,28 @@ function ScoreCard({propertyData}) {
   const totalScore = (identityScore + systemsScore + maintenanceScore) / 3;
 
   return (
-    <div className="relative rounded-xl bg-gradient-to-br from-slate-50 via-white to-slate-100/80 dark:from-slate-800/95 dark:via-gray-900 dark:to-slate-800/90 ring-1 ring-slate-200/60 dark:ring-slate-600/40 shadow-lg shadow-slate-300/40 dark:shadow-black/40 p-5 overflow-hidden">
+    <div className="relative rounded-xl bg-gradient-to-br from-slate-50 via-white to-slate-100/80 dark:from-slate-800/95 dark:via-gray-900 dark:to-slate-800/90 ring-1 ring-slate-200/60 dark:ring-slate-600/40 shadow-lg shadow-slate-300/40 dark:shadow-black/40 p-4 overflow-hidden">
       {/* Subtle top accent line */}
       <div className="absolute inset-x-0 top-0 h-[2px] bg-gradient-to-r from-transparent via-slate-400/60 to-transparent dark:via-slate-500/50" />
 
       {/* Home Passport Health Status header and summary */}
-      <h2 className="text-lg font-semibold text-gray-900 dark:text-white mb-4">
+      <h2 className="text-base font-semibold text-gray-900 dark:text-white mb-2">
         Home Passport Health Status
       </h2>
 
-      <div className="flex flex-col lg:flex-row gap-5 items-center lg:items-start">
+      <div className="flex flex-col lg:flex-row gap-3 items-center lg:items-start">
         {/* Donut Chart */}
         <div className="flex-shrink-0">
           <DonutChart
             percentage={Math.round(totalScore)}
-            size={120}
-            strokeWidth={10}
+            size={96}
+            strokeWidth={8}
           />
         </div>
 
         {/* Progress bars */}
         <div className="flex-1 w-full">
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
             {/* Identity */}
             <div className="space-y-1.5">
               <div className="flex items-center justify-between">
@@ -150,7 +150,7 @@ function ScoreCard({propertyData}) {
           </div>
 
           {/* CTA Button */}
-          <div className="mt-4">
+          <div className="mt-2">
             <button
               className="btn text-white text-sm py-2 px-4 transition-colors"
               style={{backgroundColor: "#456654"}}
@@ -168,12 +168,12 @@ function ScoreCard({propertyData}) {
       </div>
 
       {/* Collapsible Scorecard details */}
-      <div className="mt-8 pt-8 border-t border-gray-200 dark:border-gray-700">
+      <div className="mt-4 pt-4 border-t border-gray-200 dark:border-gray-700">
         <button
           onClick={() => setScorecardOpen(!scorecardOpen)}
-          className="flex items-center justify-between w-full mb-4 text-left"
+          className="flex items-center justify-between w-full mb-2 text-left"
         >
-          <h3 className="text-lg font-semibold text-gray-900 dark:text-white">
+          <h3 className="text-base font-semibold text-gray-900 dark:text-white">
             Scorecard
           </h3>
           {scorecardOpen ? (

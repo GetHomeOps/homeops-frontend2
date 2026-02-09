@@ -37,9 +37,9 @@ function ModalBlank({
 
   return (
     <>
-      {/* Modal backdrop */}
+      {/* Modal backdrop - z-[200] ensures modals appear above floating elements like ImageUploadField (z-[100]) */}
       <Transition
-        className="fixed inset-0 bg-gray-900/30 z-50 transition-opacity"
+        className="fixed inset-0 bg-gray-900/30 z-[200] transition-opacity"
         show={modalOpen}
         enter="transition ease-out duration-200"
         enterStart="opacity-0"
@@ -52,7 +52,7 @@ function ModalBlank({
       {/* Modal dialog */}
       <Transition
         id={id}
-        className="fixed inset-0 z-50 overflow-hidden flex items-center my-4 justify-center px-4 sm:px-6"
+        className="fixed inset-0 z-[200] overflow-hidden flex items-center my-4 justify-center px-4 sm:px-6"
         role="dialog"
         aria-modal="true"
         show={modalOpen}

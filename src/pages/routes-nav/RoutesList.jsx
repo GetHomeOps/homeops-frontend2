@@ -21,6 +21,7 @@ import Property from "../properties/Property";
 import UserConfirmationEmail from "../users/UserConfirmationEmail";
 import HealthMetrics from "../configuration/HealthMetrics";
 import MaintenanceRecordPage from "../properties/MaintenanceRecordPage";
+import PdfFileExample from "../pdfFileExample";
 
 function RoutesList() {
   const {currentUser, isLoading} = useAuth();
@@ -67,6 +68,7 @@ function RoutesList() {
         path="/:dbUrl/configuration/healthmetrics"
         element={<HealthMetrics />}
       />
+      <Route path="/:dbUrl/pdfexample" element={<PdfFileExample />} />
     </>
   );
 

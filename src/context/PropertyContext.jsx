@@ -18,6 +18,16 @@ export function PropertyProvider({children}) {
   const {currentUser, isLoading} = useAuth();
   const {currentDb} = useCurrentDb();
 
+  /** Normalize property for list display - ensure health value from hps_score/hpsScore */
+  function normalizePropertyForList(property) {
+    if (!property || typeof property !== "object") return property;
+    return {
+      ...property,
+      health:
+        property.hps_score ?? property.hpsScore ?? property.health ?? 0,
+    };
+  }
+
   /* Get properties from backend */
   async function fetchProperties() {
     if (isLoading || !currentUser) return;
@@ -32,7 +42,9 @@ export function PropertyProvider({children}) {
           );
         }
       }
-      setProperties(fetchedProperties || []);
+      setProperties(
+        (fetchedProperties || []).map(normalizePropertyForList)
+      );
     } catch (err) {
       console.error("There was an error retrieving properties:", err);
       setProperties([]);
@@ -105,7 +117,10 @@ export function PropertyProvider({children}) {
   const createProperty = async (propertyData) => {
     try {
       const res = await AppApi.createProperty(propertyData);
-      setProperties((prevProperties) => [...prevProperties, res]);
+      setProperties((prevProperties) => [
+        ...prevProperties,
+        normalizePropertyForList(res),
+      ]);
       return res;
     } catch (err) {
       console.error("There was an error creating property:", err);
@@ -118,9 +133,18 @@ export function PropertyProvider({children}) {
     try {
       const res = await AppApi.updateProperty(propertyId, propertyData);
       setProperties((prevProperties) =>
-        prevProperties.map((property) =>
-          property.id === propertyId ? res : property,
-        ),
+        prevProperties.map((property) => {
+          if (property.id !== propertyId) return property;
+          // Merge response with existing + payload so hps_score is preserved
+          // (backend PATCH may not return all fields)
+          const merged = {
+            ...property,
+            ...res,
+            hps_score:
+              res.hps_score ?? propertyData.hps_score ?? property.hps_score,
+          };
+          return normalizePropertyForList(merged);
+        }),
       );
       return res;
     } catch (err) {
@@ -200,11 +224,22 @@ export function PropertyProvider({children}) {
 
   /* --------- Maintenance Records --------- */
 
+  /* Create multiple maintenance records (batch) */
+  async function createMaintenanceRecords(propertyId, records) {
+    try {
+      const res = await AppApi.createMaintenanceRecords(propertyId, records);
+      return res;
+    } catch (err) {
+      console.error("There was an error creating maintenance records:", err);
+      throw err;
+    }
+  }
   /* Create a new maintenance record */
   async function createMaintenanceRecord(data) {
     try {
       const res = await AppApi.createMaintenanceRecord(data);
       return res;
+      console.log("Res from createMaintenanceRecord: ", res);
     } catch (err) {
       console.error("There was an error creating maintenance record:", err);
       throw err;
@@ -222,10 +257,22 @@ export function PropertyProvider({children}) {
     }
   }
 
+  /* Delete a maintenance record */
+  async function deleteMaintenanceRecord(id) {
+    try {
+      await AppApi.deleteMaintenanceRecord(id);
+    } catch (err) {
+      console.error("There was an error deleting maintenance record:", err);
+      throw err;
+    }
+  }
+
   /*  Get all maintenance records by property ID */
   async function getMaintenanceRecordsByPropertyId(propertyId) {
+    console.log("Getting maintenance records by property ID: ", propertyId);
     try {
       const res = await AppApi.getMaintenanceRecordsByPropertyId(propertyId);
+      console.log("Maintenance records by property ID: ", res);
       return res;
     } catch (err) {
       console.error(
@@ -258,11 +305,14 @@ export function PropertyProvider({children}) {
       updateSystemsForProperty,
       createMaintenanceRecord,
       updateMaintenanceRecord,
+      deleteMaintenanceRecord,
       getMaintenanceRecordsByPropertyId,
       maintenanceRecords,
       setMaintenanceRecords,
+      createMaintenanceRecords,
+      refreshProperties: fetchProperties,
     }),
-    [properties, currentDb],
+    [properties, currentDb, maintenanceRecords],
   );
 
   return (

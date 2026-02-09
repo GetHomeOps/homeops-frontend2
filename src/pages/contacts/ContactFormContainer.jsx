@@ -31,136 +31,14 @@ import {countries} from "../../data/countries";
 import {usStates} from "../../data/states";
 import {motion, AnimatePresence, useAnimationControls} from "framer-motion";
 import SelectDropdown from "./SelectDropdown";
-
-// Helper function to map backend data to frontend form format
-function mapBackendToFrontend(backendData) {
-  if (!backendData) return initialFormData;
-
-  // Find country by code or name
-  // Backend uses 2-letter codes (US), frontend uses 3-letter codes (USA)
-  // IMPORTANT: Use country name as primary source since 2-letter codes can be ambiguous
-  // (e.g., "ES" matches both Spain ESP and Estonia EST)
-  let country = null;
-
-  // First, try to find by country name (most reliable and unambiguous)
-  if (backendData.country) {
-    country = countries.find((c) => c.name === backendData.country);
-  }
-
-  // If country name not found, try to find by matching 2-letter code
-  // But note: this can be ambiguous, so we only use it as a fallback
-  if (!country && backendData.country_code) {
-    // Find all countries that start with these 2 letters
-    const matchingCountries = countries.filter(
-      (c) =>
-        c.countryCode.substring(0, 2) ===
-        backendData.country_code.toUpperCase(),
-    );
-
-    // If only one match, use it; otherwise we can't reliably determine
-    if (matchingCountries.length === 1) {
-      country = matchingCountries[0];
-    }
-  }
-
-  // Last resort: try by countryCode if provided (3-letter code)
-  if (!country && backendData.countryCode) {
-    country = countries.find((c) => c.countryCode === backendData.countryCode);
-  }
-
-  return {
-    name: backendData.name || "",
-    email: backendData.email || "",
-    phone: backendData.phone || "",
-    website: backendData.website || "",
-    image: backendData.image || "",
-    // Map backend 'type' (number) to frontend 'contactType' (string)
-    // 1 = individual, 2 = company
-    contactType:
-      backendData.type === 2
-        ? "company"
-        : backendData.type === 1
-          ? "individual"
-          : backendData.contactType || "individual",
-    // Map backend 'zip_code' to frontend 'zip'
-    zip: backendData.zip_code || backendData.zip || "",
-    state: backendData.state || "",
-    city: backendData.city || "",
-    street1: backendData.street1 || "",
-    street2: backendData.street2 || "",
-    // Map backend 'country_code' (2-letter) to frontend 'countryCode' (3-letter)
-    countryCode: country?.countryCode || backendData.countryCode || "USA",
-    // Map backend 'country' (full name) to frontend 'country'
-    country: backendData.country || country?.name || "United States",
-    notes: backendData.notes || "",
-    // Keep UI-only fields (not in backend)
-    jobPosition: backendData.jobPosition || "",
-    linkedCompany: backendData.linkedCompany || "",
-    tags: backendData.tags || [],
-  };
-}
-
-// Helper function to map frontend form data to backend format
-function mapFrontendToBackend(formData) {
-  // Find country by countryCode (frontend uses 3-letter codes like "USA")
-  // Always use countryCode as the source of truth to ensure consistency
-  const country = countries.find((c) => c.countryCode === formData.countryCode);
-
-  return {
-    name: formData.name,
-    image: formData.image || "",
-    // Map frontend 'contactType' (string) to backend 'type' (number)
-    // "individual" = 1, "company" = 2
-    type:
-      formData.contactType === "company"
-        ? 2
-        : formData.contactType === "individual"
-          ? 1
-          : 1,
-    phone: formData.phone || "",
-    email: formData.email || "",
-    website: formData.website || "",
-    street1: formData.street1 || "",
-    street2: formData.street2 || "",
-    city: formData.city || "",
-    state: formData.state || "",
-    zip_code: formData.zip || "",
-    // Use the country name from the country object found by countryCode,
-    // or fall back to formData.country if country object not found
-    country: country?.name || formData.country || "United States",
-    // Convert 3-letter code (USA) to 2-letter code (US) for backend
-    // Always derive from countryCode to ensure consistency
-    country_code:
-      country?.countryCode?.substring(0, 2).toUpperCase() ||
-      (formData.countryCode?.length >= 2
-        ? formData.countryCode.substring(0, 2).toUpperCase()
-        : "US"),
-    notes: formData.notes || "",
-  };
-}
-
-const initialFormData = {
-  name: "",
-  email: "",
-  phone: "",
-  website: "",
-  jobPosition: "",
-  countryCode: "USA", // Default to USA
-  contactType: "individual", // Default to individual
-  image: "", // Add missing image field
-  // Contact tab fields
-  street1: "",
-  street2: "",
-  city: "",
-  zip: "",
-  state: "",
-  country: "USA",
-  // Notes tab field
-  notes: "",
-  // New fields
-  linkedCompany: "",
-  tags: [],
-};
+import {
+  mapBackendToFrontend,
+  mapFrontendToBackend,
+  initialFormData,
+} from "./helpers/contactFormMapping";
+import AppApi from "../../api/api";
+import useImageUpload from "../../hooks/useImageUpload";
+import ImageUploadField from "../../components/ImageUploadField";
 
 const initialState = {
   formData: initialFormData,
@@ -263,10 +141,29 @@ ContactFormContainer
 */
 function ContactsFormContainer() {
   const [state, dispatch] = useReducer(reducer, initialState);
+  const fileInputRef = useRef(null);
   const {id} = useParams();
+  const {t} = useTranslation();
+
+  const {
+    uploadImage,
+    imagePreviewUrl,
+    uploadedImageUrl,
+    imageUploading,
+    imageUploadError,
+    setImageUploadError,
+    clearPreview,
+    clearUploadedUrl,
+  } = useImageUpload({
+    onSuccess: (key) => {
+      dispatch({type: "SET_FORM_DATA", payload: {image: key}});
+      if (state.isInitialLoad) {
+        dispatch({type: "SET_FORM_CHANGED", payload: true});
+      }
+    },
+  });
   const navigate = useNavigate();
   const location = useLocation();
-  const {t} = useTranslation();
   const controls = useAnimationControls();
   const {currentDb} = useCurrentDb();
   const dbUrl = currentDb?.url || currentDb?.name || "";
@@ -349,6 +246,20 @@ function ContactsFormContainer() {
     }),
   );
 
+  // Clear local preview and uploaded URL when switching to a different contact (not when updating the same one)
+  const prevContactIdRef = useRef(null);
+  useEffect(() => {
+    const currentId = state.contact?.id != null ? Number(state.contact.id) : null;
+    const switchedContact = prevContactIdRef.current != null && currentId !== prevContactIdRef.current;
+    const clearedContact = prevContactIdRef.current != null && currentId == null;
+    prevContactIdRef.current = currentId;
+
+    if (switchedContact || clearedContact) {
+      clearPreview();
+      clearUploadedUrl();
+    }
+  }, [state.contact, clearPreview, clearUploadedUrl]);
+
   // Populate form data when contact changes
   useEffect(() => {
     if (state.contact) {
@@ -362,6 +273,15 @@ function ContactsFormContainer() {
       dispatch({type: "SET_FORM_DATA", payload: initialFormData});
     }
   }, [state.contact]);
+
+  // Cleanup object URL on unmount
+  useEffect(() => {
+    return () => {
+      if (imagePreviewUrl) {
+        URL.revokeObjectURL(imagePreviewUrl);
+      }
+    };
+  }, [imagePreviewUrl]);
 
   /* Handles form change */
   const handleChange = (e) => {
@@ -387,6 +307,18 @@ function ContactsFormContainer() {
       dispatch({type: "SET_FORM_CHANGED", payload: true});
     }
   };
+
+  /** Remove contact photo */
+  function handleRemovePhoto() {
+    clearPreview();
+    clearUploadedUrl();
+    dispatch({type: "SET_FORM_DATA", payload: {image: ""}});
+    dispatch({type: "SET_IMAGE_MENU_OPEN", payload: false});
+    setImageUploadError(null);
+    if (state.isInitialLoad) {
+      dispatch({type: "SET_FORM_CHANGED", payload: true});
+    }
+  }
 
   /* Handles submit button */
   async function handleSubmit(evt) {
@@ -1395,145 +1327,32 @@ function ContactsFormContainer() {
             <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
               {/* Image and Name with Info */}
               <div className="flex items-start gap-4">
-                {/* Image Preview */}
-                <div className="relative group w-36 h-36 shrink-0">
-                  <div className="w-full h-full bg-gray-100 dark:bg-gray-700 rounded-lg overflow-hidden ring-1 ring-gray-200 dark:ring-gray-700">
-                    {state.formData.image ? (
-                      <img
-                        src={state.formData.image}
-                        alt="Preview"
-                        className="w-full h-full object-cover"
-                        onError={(e) => {
-                          e.target.onerror = null;
-                          e.target.src =
-                            "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 24 24' stroke='%23E5E7EB'%3E%3Cpath stroke-linecap='round' stroke-linejoin='round' stroke-width='2' d='M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z'%3E%3C/path%3E%3C/svg%3E";
-                        }}
-                      />
-                    ) : (
-                      <div className="w-full h-full flex items-center justify-center text-gray-400">
-                        <svg
-                          className="w-10 h-10"
-                          fill="none"
-                          viewBox="0 0 24 24"
-                          stroke="currentColor"
-                        >
-                          <path
-                            strokeLinecap="round"
-                            strokeLinejoin="round"
-                            strokeWidth={2}
-                            d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z"
-                          />
-                        </svg>
-                      </div>
-                    )}
-                  </div>
-
-                  <button
-                    className="absolute top-1.5 right-1.5 w-6 h-6 flex items-center justify-center bg-white dark:bg-gray-800 rounded-full shadow-sm hover:bg-gray-50 dark:hover:bg-gray-700 opacity-0 group-hover:opacity-100 transition-all duration-200 ring-1 ring-gray-200 dark:ring-gray-700"
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      dispatch({
-                        type: "SET_IMAGE_MENU_OPEN",
-                        payload: !state.imageMenuOpen,
-                      });
-                    }}
-                  >
-                    <svg
-                      className="w-4 h-4 text-gray-500"
-                      fill="none"
-                      viewBox="0 0 24 24"
-                      stroke="currentColor"
-                    >
-                      <path
-                        strokeLinecap="round"
-                        strokeLinejoin="round"
-                        strokeWidth={2}
-                        d="M12 5v.01M12 12v.01M12 19v.01M12 6a1 1 0 110-2 1 1 0 010 2zm0 7a1 1 0 110-2 1 1 0 010 2zm0 7a1 1 0 110-2 1 1 0 010 2z"
-                      />
-                    </svg>
-                  </button>
-
-                  {state.imageMenuOpen && (
-                    <div className="absolute left-full ml-2 top-0 w-48 bg-white dark:bg-gray-800 rounded-lg shadow-lg border border-gray-200 dark:border-gray-700 z-10">
-                      <div className="py-1">
-                        <button
-                          className="w-full px-4 py-2 text-left text-sm text-gray-700 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-gray-700/50 flex items-center gap-2"
-                          onClick={(e) => {
-                            e.preventDefault();
-                            e.stopPropagation();
-                            dispatch({
-                              type: "SET_IMAGE_MENU_OPEN",
-                              payload: false,
-                            });
-                            dispatch({
-                              type: "SET_SHOW_URL_INPUT",
-                              payload: true,
-                            });
-                          }}
-                        >
-                          <svg
-                            className="w-4 h-4"
-                            fill="none"
-                            viewBox="0 0 24 24"
-                            stroke="currentColor"
-                          >
-                            <path
-                              strokeLinecap="round"
-                              strokeLinejoin="round"
-                              strokeWidth={2}
-                              d="M13.828 10.172a4 4 0 00-5.656 0l-4 4a4 4 0 105.656 5.656l1.102-1.101m-.758-4.899a4 4 0 005.656 0l4-4a4 4 0 00-5.656-5.656l-1.1 1.1"
-                            />
-                          </svg>
-                          {t("pasteUrl")}
-                        </button>
-                        <label
-                          className="w-full px-4 py-2 text-left text-sm text-gray-700 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-gray-700/50 flex items-center gap-2 cursor-pointer"
-                          onClick={(e) => {
-                            e.preventDefault();
-                            e.stopPropagation();
-                            dispatch({
-                              type: "SET_IMAGE_MENU_OPEN",
-                              payload: false,
-                            });
-                          }}
-                        >
-                          <svg
-                            className="w-4 h-4"
-                            fill="none"
-                            viewBox="0 0 24 24"
-                            stroke="currentColor"
-                          >
-                            <path
-                              strokeLinecap="round"
-                              strokeLinejoin="round"
-                              strokeWidth={2}
-                              d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12"
-                            />
-                          </svg>
-                          <input
-                            type="file"
-                            className="hidden"
-                            accept="image/*"
-                            onChange={(e) => {
-                              const file = e.target.files[0];
-                              if (file) {
-                                const reader = new FileReader();
-                                reader.onloadend = () => {
-                                  dispatch({
-                                    type: "SET_FORM_DATA",
-                                    payload: {image: reader.result},
-                                  });
-                                };
-                                reader.readAsDataURL(file);
-                              }
-                            }}
-                          />
-                          {t("uploadImage")}
-                        </label>
-                      </div>
-                    </div>
-                  )}
-                </div>
+                {/* Photo Section - using shared ImageUploadField */}
+                <ImageUploadField
+                  imageSrc={
+                    imagePreviewUrl ||
+                    state.contact?.image_url ||
+                    uploadedImageUrl ||
+                    (state.formData.image?.startsWith?.("http") ? state.formData.image : null)
+                  }
+                  hasImage={!!state.formData.image}
+                  imageUploading={imageUploading}
+                  onUpload={uploadImage}
+                  onRemove={handleRemovePhoto}
+                  onPasteUrl={() => dispatch({type: "SET_SHOW_URL_INPUT", payload: true})}
+                  showRemove={!!state.formData.image}
+                  imageUploadError={imageUploadError}
+                  onDismissError={() => setImageUploadError(null)}
+                  size="md"
+                  placeholder="avatar"
+                  alt="Contact"
+                  uploadLabel={t("uploadImage") || "Upload photo"}
+                  removeLabel={t("removePhoto") || "Remove photo"}
+                  pasteUrlLabel={t("pasteUrl") || "Paste URL"}
+                  fileInputRef={fileInputRef}
+                  menuOpen={state.imageMenuOpen}
+                  onMenuToggle={(open) => dispatch({type: "SET_IMAGE_MENU_OPEN", payload: open})}
+                />
 
                 {/* Contact Name, Type and Info */}
                 <div className="flex-1 min-w-0">

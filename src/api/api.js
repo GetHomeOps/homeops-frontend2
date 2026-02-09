@@ -33,8 +33,24 @@ class AppApi {
     }
 
     return await resp.json();
+  }
 
-  };
+  /** Request with FormData body (no Content-Type; browser sets multipart boundary). */
+  static async requestFormData(endpoint, formData, method = "POST") {
+    const url = new URL(`${BASE_URL}/${endpoint}`);
+    const headers = { Authorization: `Bearer ${AppApi.token}` };
+
+    const resp = await fetch(url, { method, body: formData, headers });
+
+    if (!resp.ok) {
+      console.error("API Error:", resp.statusText, resp.status);
+      const err = await resp.json().catch(() => ({}));
+      const message = err?.error?.message || resp.statusText;
+      throw Array.isArray(message) ? message : [message];
+    }
+
+    return await resp.json();
+  }
 
   // Individual API routes
 
@@ -282,23 +298,88 @@ class AppApi {
   }
 
   /* --------- Maintenance Records --------- */
+
+  /* Create multiple maintenance records (batch) */
+  static async createMaintenanceRecords(propertyId, records) {
+    const res = await this.request(
+      `maintenance/${propertyId}`,
+      { maintenanceRecords: records },
+      "POST",
+    );
+    return res.maintenanceRecords;
+  }
+
   /* Create a new maintenance record */
   static async createMaintenanceRecord(data) {
-    let res = await this.request(`maintenance`, data, 'POST');
+    console.log("Creating maintenance record with data: ", data);
+    let res = await this.request(`maintenance/record/${data.property_id}`, data, 'POST');
+    console.log("Res from createMaintenanceRecord: ", res);
     return res.maintenance;
   }
 
   /* Update a maintenance record */
   static async updateMaintenanceRecord(id, data) {
-    let res = await this.request(`maintenance/${id}`, data, 'PATCH');
+    const res = await this.request(`maintenance/${id}`, data, "PATCH");
     return res.maintenance;
+  }
+
+  /* Delete a maintenance record */
+  static async deleteMaintenanceRecord(id) {
+    await this.request(`maintenance/${id}`, {}, "DELETE");
   }
 
   /* Get all maintenance records by property ID */
   static async getMaintenanceRecordsByPropertyId(propertyId) {
     console.log("Getting maintenance records by property ID: ", propertyId);
-    let res = await this.request(`maintenance/property/${propertyId}`);
-    return res.maintenance;
+    let res = await this.request(`maintenance/${propertyId}`);
+    console.log("Res from Api: ", res);
+    return res.maintenanceRecords;
+  }
+
+  /* --------- Documents --------- */
+
+  /** Get a temporary presigned URL for document preview. Valid ~5 minutes. */
+  static async getPresignedPreviewUrl(key) {
+    if (!key) {
+      throw ["Document key is required"];
+    }
+    let res = await this.request("documents/presigned-preview", {key}, "GET");
+    return res.url;
+  }
+
+  /** Upload a document (e.g. PDF, image) to S3. Returns { key, url } from the response. */
+  static async uploadDocument(file) {
+    const formData = new FormData();
+    formData.append("file", file);
+    let res = await this.requestFormData("documents/upload", formData);
+    return res.document;
+  }
+
+  /* --------- Property Documents --------- */
+
+  /** Create a property document. Sends document_key (S3 path) like contacts/users photos. */
+  static async createPropertyDocument(data) {
+    const res = await this.request("propertyDocuments", data, "POST");
+    return res.document;
+  }
+
+  /** Get all documents for a property. */
+  static async getPropertyDocuments(propertyId) {
+    const res = await this.request(
+      `propertyDocuments/property/${propertyId}`,
+    );
+    return res.documents ?? [];
+  }
+
+  /** Get a single property document. */
+  static async getPropertyDocument(id) {
+    const res = await this.request(`propertyDocuments/${id}`);
+    return res.document;
+  }
+
+  /** Delete a property document. */
+  static async deletePropertyDocument(id) {
+    await this.request(`propertyDocuments/${id}`, {}, "DELETE");
   }
 }
 

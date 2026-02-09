@@ -4,12 +4,13 @@
  * Property id is a ULID assigned by the backend on create; do not send id when creating.
  */
 
-import {IDENTITY_SECTIONS} from "../constants/identitySections";
+import { IDENTITY_SECTIONS } from "../constants/identitySections";
 
 /** Fields that appear on the Identity tab form - only these are sent on property update. */
-const IDENTITY_FORM_KEYS = new Set(
-  IDENTITY_SECTIONS.flatMap((s) => s.fields ?? [])
-);
+const IDENTITY_FORM_KEYS = new Set([
+  ...IDENTITY_SECTIONS.flatMap((s) => s.fields ?? []),
+  "mainPhoto", // Set via image upload on property card; not in form sections
+]);
 
 /** Identity/string fields the backend expects as strings (send "" instead of null). */
 const STRING_KEYS = new Set([
