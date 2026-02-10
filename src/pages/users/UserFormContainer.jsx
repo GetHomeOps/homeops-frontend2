@@ -133,8 +133,20 @@ function UsersFormContainer() {
     },
   });
 
-  const userImageKey =
+  const userImageRaw =
     state.user?.image ?? state.formData?.image ?? "";
+  const userImageKey =
+    userImageRaw?.startsWith?.("http") &&
+    userImageRaw?.includes?.("amazonaws.com")
+      ? (() => {
+          try {
+            const path = new URL(userImageRaw).pathname;
+            return path.startsWith("/") ? path.slice(1) : path;
+          } catch {
+            return "";
+          }
+        })()
+      : userImageRaw;
   const userImageKeyNeedsPresigned =
     userImageKey &&
     !userImageKey.startsWith("blob:") &&
@@ -479,9 +491,7 @@ function UsersFormContainer() {
     userPhotoPreviewUrl ||
     state.user?.image_url ||
     userPhotoUploadedUrl ||
-    (state.formData.image?.startsWith?.("blob:") || state.formData.image?.startsWith?.("http")
-      ? state.formData.image
-      : null) ||
+    (state.formData.image?.startsWith?.("blob:") ? state.formData.image : null) ||
     (userPhotoPresignedKey === userImageKey ? userPhotoPresignedUrl : null) ||
     null;
 
