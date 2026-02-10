@@ -110,6 +110,7 @@ function ImageUploadField({
         ) : imageSrc ? (
           <>
             <img
+              key={imageSrc}
               src={imageSrc}
               alt={alt}
               className="w-full h-full object-cover"
@@ -118,23 +119,25 @@ function ImageUploadField({
                 e.target.src = PLACEHOLDER_FALLBACK;
               }}
             />
+            {showRemove && (
+              <button
+                type="button"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  e.preventDefault();
+                  onRemove();
+                }}
+                className="absolute top-2 right-2 z-10 p-1.5 rounded-full bg-black/60 hover:bg-red-600 text-white transition-colors shadow-md"
+                aria-label={removeLabel}
+              >
+                <X className="w-4 h-4" />
+              </button>
+            )}
             {showOverlay && (
-              <div className="absolute inset-0 bg-black/50 flex flex-col items-center justify-center gap-2">
+              <div className="absolute inset-0 bg-black/50 flex flex-col items-center justify-center gap-2 pointer-events-none">
                 <span className="text-sm font-medium text-white">
                   {uploadLabel}
                 </span>
-                {showRemove && (
-                  <button
-                    type="button"
-                    className="px-3 py-1.5 text-sm font-medium text-white bg-red-500/90 hover:bg-red-600 rounded-lg transition-colors"
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      onRemove();
-                    }}
-                  >
-                    {removeLabel}
-                  </button>
-                )}
               </div>
             )}
           </>

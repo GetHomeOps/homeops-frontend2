@@ -377,6 +377,13 @@ function DocumentsTab({propertyData}) {
     return [general, ...selected, ...custom].filter(Boolean);
   }, [visibleSystemIds, customSystemNames]);
 
+  // When filtering by system, tree column shows only that system
+  const systemsForTree = useMemo(() => {
+    if (selectedSystem === "all") return systemsToShow;
+    const match = systemsToShow.find((s) => s.id === selectedSystem);
+    return match ? [match] : systemsToShow;
+  }, [systemsToShow, selectedSystem]);
+
   const handleSelectDocument = useCallback(
     (doc) => {
       const docRow = documents.find((d) => d.id === doc.id);
@@ -603,7 +610,7 @@ function DocumentsTab({propertyData}) {
             </div>
           ) : (
             <DocumentsTreeView
-              systemsToShow={systemsToShow}
+              systemsToShow={systemsForTree}
               documentTypes={documentTypes}
               documentsBySystem={documentsBySystem}
               selectedDocumentId={selectedDocument?.id}

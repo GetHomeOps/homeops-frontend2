@@ -1,5 +1,6 @@
-import {useState, useCallback} from "react";
+import { useState, useCallback } from "react";
 import AppApi from "../api/api";
+import { compressImageForUpload } from "../utils/compressImage";
 
 const ACCEPT_IMAGE = "image/jpeg,image/png,image/webp,image/gif";
 
@@ -22,7 +23,7 @@ const ACCEPT_IMAGE = "image/jpeg,image/png,image/webp,image/gif";
  *   accept: string,
  * }}
  */
-export default function useImageUpload({onSuccess, onError} = {}) {
+export default function useImageUpload({ onSuccess, onError } = {}) {
   const [imagePreviewUrl, setImagePreviewUrl] = useState(null);
   const [uploadedImageUrl, setUploadedImageUrl] = useState(null);
   const [imageUploading, setImageUploading] = useState(false);
@@ -55,7 +56,8 @@ export default function useImageUpload({onSuccess, onError} = {}) {
       setImageUploadError(null);
 
       try {
-        const document = await AppApi.uploadDocument(file);
+        const toUpload = await compressImageForUpload(file);
+        const document = await AppApi.uploadDocument(toUpload);
         const key =
           document?.key ??
           document?.s3Key ??

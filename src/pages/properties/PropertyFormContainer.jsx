@@ -1333,10 +1333,13 @@ function PropertyFormContainer() {
                   <ImageUploadField
                     imageSrc={
                       mainPhotoPreviewUrl ||
-                      cardData.mainPhotoUrl ||
-                      (cardData.mainPhoto?.startsWith?.("blob:") ||
-                      cardData.mainPhoto?.startsWith?.("http")
-                        ? cardData.mainPhoto
+                      (state.formData.identity?.mainPhoto !== ""
+                        ? cardData.mainPhotoUrl
+                        : null) ||
+                      (state.formData.identity?.mainPhoto !== ""
+                        ? cardData.mainPhoto?.startsWith?.("blob:")
+                          ? cardData.mainPhoto
+                          : null
                         : null) ||
                       (mainPhotoPresignedKey === mainPhotoKey
                         ? mainPhotoPresignedUrl
@@ -1345,9 +1348,11 @@ function PropertyFormContainer() {
                     }
                     hasImage={
                       !!(
-                        cardData.mainPhoto ||
-                        cardData.mainPhotoUrl ||
-                        state.formData.identity?.mainPhoto
+                        state.formData.identity?.mainPhoto ||
+                        mainPhotoPreviewUrl ||
+                        mainPhotoUploadedUrl ||
+                        (state.formData.identity?.mainPhoto !== "" &&
+                          (cardData.mainPhoto || cardData.mainPhotoUrl))
                       )
                     }
                     imageUploading={mainPhotoUploading}
@@ -1355,6 +1360,7 @@ function PropertyFormContainer() {
                     onRemove={() => {
                       clearMainPhotoPreview();
                       clearMainPhotoUploadedUrl();
+                      clearMainPhotoPresignedUrl();
                       dispatch({
                         type: "SET_IDENTITY_FORM_DATA",
                         payload: {mainPhoto: ""},
@@ -1366,9 +1372,11 @@ function PropertyFormContainer() {
                     onPasteUrl={null}
                     showRemove={
                       !!(
-                        cardData.mainPhoto ||
-                        cardData.mainPhotoUrl ||
-                        state.formData.identity?.mainPhoto
+                        state.formData.identity?.mainPhoto ||
+                        mainPhotoPreviewUrl ||
+                        mainPhotoUploadedUrl ||
+                        (state.formData.identity?.mainPhoto !== "" &&
+                          (cardData.mainPhoto || cardData.mainPhotoUrl))
                       )
                     }
                     imageUploadError={null}

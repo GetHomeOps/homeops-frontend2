@@ -23,7 +23,7 @@ function HomeOpsTeam({
   };
 
   return (
-    <section className="bg-white dark:bg-gray-900 rounded-2xl shadow-sm border border-gray-100 dark:border-gray-800 p-5 md:p-6">
+    <section className="bg-white dark:bg-gray-900 rounded-2xl shadow-sm border border-gray-100 dark:border-gray-800 p-4 md:p-5">
       <HomeOpsTeamModal
         modalOpen={modalOpen}
         setModalOpen={setModalOpen}
@@ -35,7 +35,7 @@ function HomeOpsTeam({
         creatorId={creatorId}
         canEditAgent={canEditAgent}
       />
-      <div className="flex items-center justify-between mb-4">
+      <div className="flex items-center justify-between mb-3">
         <h2 className="text-lg font-semibold text-gray-900 dark:text-white">
           {t("yourHomeOpsTeam")}
         </h2>
@@ -48,7 +48,7 @@ function HomeOpsTeam({
         </button>
       </div>
 
-      <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-4 md:gap-5">
+      <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-3 md:gap-4">
         {teamMembers?.map((member) => {
           const initials = member.name
             ? member.name
@@ -69,11 +69,11 @@ function HomeOpsTeam({
           return (
             <div
               key={member.id}
-              className="group flex flex-col items-center gap-3 p-4 md:p-5 rounded-xl border border-gray-200/80 dark:border-gray-700/80 bg-gradient-to-b from-gray-50/90 to-white dark:from-gray-800/50 dark:to-gray-800/30 hover:border-[#456564]/30 dark:hover:border-[#456564]/40 hover:shadow-md dark:hover:shadow-lg dark:shadow-black/10 transition-all duration-200"
+              className="group flex flex-col items-center gap-2 p-3 md:p-3.5 rounded-lg border border-gray-200/80 dark:border-gray-700/80 bg-gradient-to-b from-gray-50/90 to-white dark:from-gray-800/50 dark:to-gray-800/30 hover:border-[#456564]/30 dark:hover:border-[#456564]/40 hover:shadow-md dark:hover:shadow-lg dark:shadow-black/10 transition-all duration-200"
             >
               <div
-                className="w-20 h-20 md:w-24 md:h-24 rounded-full flex items-center justify-center text-white font-semibold text-lg shadow-lg ring-2 ring-white dark:ring-gray-700/50 ring-offset-2 ring-offset-gray-50 dark:ring-offset-gray-800 overflow-hidden bg-[#456564] flex-shrink-0"
-                style={{minWidth: "5rem", minHeight: "5rem"}}
+                className="w-14 h-14 md:w-16 md:h-16 rounded-full flex items-center justify-center text-white font-semibold text-sm shadow-md ring-2 ring-white dark:ring-gray-700/50 ring-offset-2 ring-offset-gray-50 dark:ring-offset-gray-800 overflow-hidden bg-[#456564] flex-shrink-0"
+                style={{minWidth: "3.5rem", minHeight: "3.5rem"}}
               >
                 {photoUrl ? (
                   <img
@@ -86,10 +86,10 @@ function HomeOpsTeam({
                 )}
               </div>
               <div className="text-center w-full min-w-0">
-                <p className="text-sm font-semibold text-gray-900 dark:text-white truncate">
+                <p className="text-xs font-semibold text-gray-900 dark:text-white truncate">
                   {member.name}
                 </p>
-                <p className="text-xs text-gray-500 dark:text-gray-400 mt-0.5 truncate">
+                <p className="text-[11px] text-gray-500 dark:text-gray-400 mt-0.5 truncate">
                   {member.role}
                 </p>
               </div>
