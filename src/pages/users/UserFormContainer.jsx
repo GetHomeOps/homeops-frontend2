@@ -133,20 +133,7 @@ function UsersFormContainer() {
     },
   });
 
-  const userImageRaw =
-    state.user?.image ?? state.formData?.image ?? "";
-  const userImageKey =
-    userImageRaw?.startsWith?.("http") &&
-    userImageRaw?.includes?.("amazonaws.com")
-      ? (() => {
-          try {
-            const path = new URL(userImageRaw).pathname;
-            return path.startsWith("/") ? path.slice(1) : path;
-          } catch {
-            return "";
-          }
-        })()
-      : userImageRaw;
+  const userImageKey = state.user?.image ?? state.formData?.image ?? "";
   const userImageKeyNeedsPresigned =
     userImageKey &&
     !userImageKey.startsWith("blob:") &&
@@ -181,7 +168,7 @@ function UsersFormContainer() {
         try {
           // Find user in context (users come from UserContext)
           const existingUser = users.find(
-            (user) => Number(user.id) === Number(id)
+            (user) => Number(user.id) === Number(id),
           );
           if (existingUser) {
             dispatch({type: "SET_USER", payload: existingUser});
@@ -221,7 +208,12 @@ function UsersFormContainer() {
       clearUserPhotoUploadedUrl();
       clearUserPhotoPresignedUrl();
     };
-  }, [state.user?.id, clearUserPhotoPreview, clearUserPhotoUploadedUrl, clearUserPhotoPresignedUrl]);
+  }, [
+    state.user?.id,
+    clearUserPhotoPreview,
+    clearUserPhotoUploadedUrl,
+    clearUserPhotoPresignedUrl,
+  ]);
 
   // Banner timeout useEffect with the custom hook
   useAutoCloseBanner(state.bannerOpen, state.bannerMessage, () =>
@@ -232,7 +224,7 @@ function UsersFormContainer() {
         type: state.bannerType,
         message: state.bannerMessage,
       },
-    })
+    }),
   );
 
   // Populate form data when user changes
@@ -277,8 +269,7 @@ function UsersFormContainer() {
     }
   };
 
-
-/* Fetches a new user confirmation token */
+  /* Fetches a new user confirmation token */
   async function fetchUserConfirmationToken(userId) {
     let userData = {
       userId: userId,
@@ -291,8 +282,12 @@ function UsersFormContainer() {
       // UserConfirmationEmail expects email, name, and token as query parameters
       // Using HashRouter, so URL needs # prefix
       if (token?.result && state.user) {
-        const email = encodeURIComponent(state.user.email || state.formData.email || "");
-        const name = encodeURIComponent(state.user.name || state.formData.name || "");
+        const email = encodeURIComponent(
+          state.user.email || state.formData.email || "",
+        );
+        const name = encodeURIComponent(
+          state.user.name || state.formData.name || "",
+        );
         const tokenValue = encodeURIComponent(token.result);
         const url = `/#/${dbUrl}/invite/confirm?token=${tokenValue}&email=${email}&name=${name}`;
         window.open(url, "_blank", "noopener,noreferrer");
@@ -302,7 +297,6 @@ function UsersFormContainer() {
       return null;
     }
   }
-
 
   // Generate a random password
   function generateRandomPassword() {
@@ -402,7 +396,6 @@ function UsersFormContainer() {
       console.log("res:", res);
 
       if (res) {
-
         // Update the user in the state
         dispatch({
           type: "SET_USER",
@@ -411,7 +404,7 @@ function UsersFormContainer() {
 
         // Update the users in the context
         const updatedUsers = users.map((u) =>
-          u.id === Number(id) ? {...res, id: Number(id)} : u
+          u.id === Number(id) ? {...res, id: Number(id)} : u,
         );
         setUsers(updatedUsers);
 
@@ -483,15 +476,17 @@ function UsersFormContainer() {
     return t("newUser") || "New User";
   }
 
-  const displayName =
-    state.user?.name || getPageTitle();
+  const displayName = state.user?.name || getPageTitle();
   const displayEmail = state.user?.email || "";
 
   const userPhotoDisplayUrl =
     userPhotoPreviewUrl ||
     state.user?.image_url ||
     userPhotoUploadedUrl ||
-    (state.formData.image?.startsWith?.("blob:") ? state.formData.image : null) ||
+    (state.formData.image?.startsWith?.("blob:") ||
+    state.formData.image?.startsWith?.("http")
+      ? state.formData.image
+      : null) ||
     (userPhotoPresignedKey === userImageKey ? userPhotoPresignedUrl : null) ||
     null;
 
@@ -706,7 +701,7 @@ function UsersFormContainer() {
   const selectedContact = useMemo(() => {
     if (!state.formData.contact) return null;
     return contacts.find(
-      (contact) => contact.id === Number(state.formData.contact)
+      (contact) => contact.id === Number(state.formData.contact),
     );
   }, [contacts, state.formData.contact]);
 
@@ -714,7 +709,7 @@ function UsersFormContainer() {
   const savedContact = useMemo(() => {
     if (!state.user?.contact) return null;
     return contacts.find(
-      (contact) => contact.id === Number(state.user.contact)
+      (contact) => contact.id === Number(state.user.contact),
     );
   }, [contacts, state.user?.contact]);
 
@@ -738,7 +733,6 @@ function UsersFormContainer() {
       : "";
     return `${baseClasses} ${errorClasses}`;
   };
-
 
   return (
     <div className="relative min-h-screen bg-[var(--color-gray-50)] dark:bg-gray-900">
@@ -891,9 +885,7 @@ function UsersFormContainer() {
                   <ExternalLink className="w-3.5 h-3.5" />
                 </a>
               ) : (
-                <div
-                  className="flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-semibold shadow-sm bg-[#d3f4e3] dark:bg-[#173c36] text-[#2a9f52] dark:text-[#258c4d]"
-                >
+                <div className="flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-semibold shadow-sm bg-[#d3f4e3] dark:bg-[#173c36] text-[#2a9f52] dark:text-[#258c4d]">
                   <span>Active</span>
                 </div>
               ))}

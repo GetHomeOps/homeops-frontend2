@@ -317,23 +317,11 @@ function PropertyFormContainer() {
     currentKey: mainPhotoPresignedKey,
   } = usePresignedPreview();
 
-  /* Resolve main photo: use S3 key for presigned fetch; never use direct S3 URL as img src (private bucket). */
-  const mainPhotoRaw =
+  /* Fetch presigned URL when mainPhoto is an S3 key (not blob or http) */
+  const mainPhotoKey =
     state.property?.identity?.mainPhoto ??
     state.formData?.identity?.mainPhoto ??
     "";
-  const mainPhotoKey =
-    mainPhotoRaw?.startsWith?.("http") &&
-    mainPhotoRaw?.includes?.("amazonaws.com")
-      ? (() => {
-          try {
-            const path = new URL(mainPhotoRaw).pathname;
-            return path.startsWith("/") ? path.slice(1) : path;
-          } catch {
-            return "";
-          }
-        })()
-      : mainPhotoRaw;
   const mainPhotoNeedsPresigned =
     mainPhotoKey &&
     !mainPhotoKey.startsWith("blob:") &&
@@ -1346,7 +1334,8 @@ function PropertyFormContainer() {
                     imageSrc={
                       mainPhotoPreviewUrl ||
                       cardData.mainPhotoUrl ||
-                      (cardData.mainPhoto?.startsWith?.("blob:")
+                      (cardData.mainPhoto?.startsWith?.("blob:") ||
+                      cardData.mainPhoto?.startsWith?.("http")
                         ? cardData.mainPhoto
                         : null) ||
                       (mainPhotoPresignedKey === mainPhotoKey
