@@ -1298,7 +1298,11 @@ function PropertyFormContainer() {
           <div className="p-5 md:p-6">
             <div className="flex flex-col lg:flex-row gap-5 lg:gap-6">
               {/* Property Image */}
-              <div className="w-full lg:w-2/5 flex-shrink-0">
+              <div
+                className={`w-full lg:w-2/5 flex-shrink-0 ${
+                  mainPhotoUploadError ? "pb-14" : ""
+                }`}
+              >
                 <div className="relative h-52 lg:h-72 rounded-lg border-2 border-dashed border-gray-200 dark:border-gray-700 shadow-sm">
                   <ImageUploadField
                     imageSrc={
