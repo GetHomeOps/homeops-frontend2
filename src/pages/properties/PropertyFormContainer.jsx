@@ -106,7 +106,13 @@ function getCreatorAsTeamMember(currentUser) {
   if (!currentUser?.id) return null;
   const r = (currentUser.role ?? "").toLowerCase();
   const displayRole =
-    r === "super_admin" ? "Admin" : r === "agent" ? "Agent" : r === "homeowner" ? "Homeowner" : "Agent";
+    r === "super_admin"
+      ? "Admin"
+      : r === "agent"
+        ? "Agent"
+        : r === "homeowner"
+          ? "Homeowner"
+          : "Agent";
   return {
     id: currentUser.id,
     name: currentUser.name ?? "User",
@@ -192,15 +198,15 @@ function reducer(state, action) {
           ? {...payload}
           : splitFormDataByTabs(payload)
         : {...initialFormData};
-      const savedRecords = payload
-        ? payload.maintenanceRecords ?? []
-        : [];
+      const savedRecords = payload ? (payload.maintenanceRecords ?? []) : [];
       return {
         ...state,
         property: payload,
         isNew: !payload,
         formData: nextFormData,
-        savedMaintenanceRecords: Array.isArray(savedRecords) ? savedRecords : [],
+        savedMaintenanceRecords: Array.isArray(savedRecords)
+          ? savedRecords
+          : [],
         formDataChanged: false,
         isInitialLoad: true,
         errors: {},
@@ -455,7 +461,26 @@ function PropertyFormContainer() {
       clearMainPhotoUploadedUrl();
       clearMainPhotoPresignedUrl();
     }
-  }, [state.property, clearMainPhotoPreview, clearMainPhotoUploadedUrl, clearMainPhotoPresignedUrl]);
+  }, [
+    state.property,
+    clearMainPhotoPreview,
+    clearMainPhotoUploadedUrl,
+    clearMainPhotoPresignedUrl,
+  ]);
+
+  /* Show main photo upload error in the top banner instead of under the image */
+  useEffect(() => {
+    if (mainPhotoUploadError) {
+      dispatch({
+        type: "SET_BANNER",
+        payload: {
+          open: true,
+          type: "error",
+          message: mainPhotoUploadError,
+        },
+      });
+    }
+  }, [mainPhotoUploadError]);
 
   /* Sets default HomeOps Team (only for existing properties; new form keeps team [] from reset effect). Enrich with property_role as role and user image from context so photos and roles display after save/refetch. */
   useEffect(() => {
@@ -464,7 +489,9 @@ function PropertyFormContainer() {
       const team = await getPropertyTeam(uid);
       const raw = team?.property_users ?? [];
       const enriched = raw.map((m) => {
-        const u = users?.find((us) => us && m?.id != null && Number(us.id) === Number(m.id));
+        const u = users?.find(
+          (us) => us && m?.id != null && Number(us.id) === Number(m.id),
+        );
         return {
           ...m,
           role: m.property_role ?? m.role,
@@ -747,7 +774,9 @@ function PropertyFormContainer() {
     try {
       const propertyId = state.property?.identity?.id ?? state.property?.id;
       const merged = mergeFormDataFromTabs(state.formData);
-      const identityPayload = prepareIdentityForUpdate(state.formData.identity ?? {});
+      const identityPayload = prepareIdentityForUpdate(
+        state.formData.identity ?? {},
+      );
       identityPayload.hps_score = computeHpsScore(merged);
       const res = await updateProperty(propertyId, identityPayload);
       if (res) {
@@ -993,7 +1022,8 @@ function PropertyFormContainer() {
         <Banner
           type={state.bannerType}
           open={state.bannerOpen}
-          setOpen={(open) =>
+          setOpen={(open) => {
+            if (!open) setMainPhotoUploadError(null);
             dispatch({
               type: "SET_BANNER",
               payload: {
@@ -1001,8 +1031,8 @@ function PropertyFormContainer() {
                 type: state.bannerType,
                 message: state.bannerMessage,
               },
-            })
-          }
+            });
+          }}
           className="transition-opacity duration-300"
         >
           {state.bannerMessage}
@@ -1298,11 +1328,7 @@ function PropertyFormContainer() {
           <div className="p-5 md:p-6">
             <div className="flex flex-col lg:flex-row gap-5 lg:gap-6">
               {/* Property Image */}
-              <div
-                className={`w-full lg:w-2/5 flex-shrink-0 ${
-                  mainPhotoUploadError ? "pb-14" : ""
-                }`}
-              >
+              <div className="w-full lg:w-2/5 flex-shrink-0">
                 <div className="relative h-52 lg:h-72 rounded-lg border-2 border-dashed border-gray-200 dark:border-gray-700 shadow-sm">
                   <ImageUploadField
                     imageSrc={
@@ -1345,7 +1371,7 @@ function PropertyFormContainer() {
                         state.formData.identity?.mainPhoto
                       )
                     }
-                    imageUploadError={mainPhotoUploadError}
+                    imageUploadError={null}
                     onDismissError={() => setMainPhotoUploadError(null)}
                     size="xl"
                     placeholder="generic"
@@ -1566,9 +1592,7 @@ function PropertyFormContainer() {
                 <MaintenanceTab
                   propertyData={mergedFormData}
                   maintenanceRecords={state.formData.maintenanceRecords ?? []}
-                  savedMaintenanceRecords={
-                    state.savedMaintenanceRecords ?? []
-                  }
+                  savedMaintenanceRecords={state.savedMaintenanceRecords ?? []}
                   onMaintenanceRecordsChange={(records) =>
                     dispatch({
                       type: "SET_MAINTENANCE_FORM_DATA",
