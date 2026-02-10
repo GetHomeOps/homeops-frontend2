@@ -71,7 +71,7 @@ function Tooltip({children, className, bg, size, position, content}) {
             show={tooltipOpen}
             tag="div"
             className={`rounded-lg border overflow-hidden shadow-lg ${sizeClasses(
-              size
+              size,
             )} ${colorClasses(bg)} ${positionInnerClasses(position)}`}
             enter="transition ease-out duration-200 transform"
             enterStart="opacity-0 -translate-y-2"
