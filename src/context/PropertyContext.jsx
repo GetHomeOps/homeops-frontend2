@@ -23,14 +23,16 @@ export function PropertyProvider({children}) {
     if (!property || typeof property !== "object") return property;
     return {
       ...property,
-      health:
-        property.hps_score ?? property.hpsScore ?? property.health ?? 0,
+      health: property.hps_score ?? property.hpsScore ?? property.health ?? 0,
     };
   }
 
   /* Get properties from backend */
   async function fetchProperties() {
-    if (isLoading || !currentUser) return;
+    if (isLoading || !currentUser) {
+      setProperties([]);
+      return;
+    }
     try {
       let fetchedProperties;
       if (currentUser.role === "super_admin") {
@@ -42,18 +44,23 @@ export function PropertyProvider({children}) {
           );
         }
       }
-      setProperties(
-        (fetchedProperties || []).map(normalizePropertyForList)
-      );
+      setProperties((fetchedProperties || []).map(normalizePropertyForList));
     } catch (err) {
       console.error("There was an error retrieving properties:", err);
       setProperties([]);
     }
   }
 
+  // Clear properties immediately when the user changes to prevent stale data
+  useEffect(() => {
+    if (!currentUser) {
+      setProperties([]);
+    }
+  }, [currentUser]);
+
   useEffect(() => {
     fetchProperties();
-  }, [isLoading, currentDb]);
+  }, [isLoading, currentUser, currentDb]);
 
   /* Get all properties by user ID */
   async function getPropertiesByUserId(userId) {

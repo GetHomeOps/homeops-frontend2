@@ -21,6 +21,20 @@ import ScoreCard from "./ScoreCard";
 import HomeOpsTeam from "./partials/HomeOpsTeam";
 import SystemsSetupModal from "./partials/SystemsSetupModal";
 import SharePropertyModal from "./partials/SharePropertyModal";
+import PropertyUnauthorized from "./PropertyUnauthorized";
+import PropertyNotFound from "./PropertyNotFound";
+import {ApiError} from "../../api/api";
+
+/** True if the API error indicates the property does not exist (404 or 403 "Property not found"). */
+function isPropertyNotFoundError(err) {
+  if (!(err instanceof ApiError)) return false;
+  if (err.status === 404) return true;
+  if (err.status === 403) {
+    const msg = (err.message || (err.messages && err.messages[0]) || "").toLowerCase();
+    return msg.includes("not found");
+  }
+  return false;
+}
 import {
   preparePropertyValues,
   prepareIdentityForUpdate,
@@ -99,6 +113,10 @@ const initialState = {
   bannerOpen: false,
   bannerType: "success",
   bannerMessage: "",
+  /** Set when GET property returns 403 (user not on HomeOps team) */
+  propertyAccessDenied: false,
+  /** Set when GET property returns 404 or 403 "Property not found" */
+  propertyNotFound: false,
 };
 
 /** Build default team member for the current user (creator) so new property always has at least one. */
@@ -210,8 +228,14 @@ function reducer(state, action) {
         formDataChanged: false,
         isInitialLoad: true,
         errors: {},
+        propertyAccessDenied: false,
+        propertyNotFound: false,
       };
     }
+    case "SET_PROPERTY_ACCESS_DENIED":
+      return {...state, propertyAccessDenied: action.payload};
+    case "SET_PROPERTY_NOT_FOUND":
+      return {...state, propertyNotFound: action.payload};
     case "SET_SYSTEMS":
       return {...state, systems: action.payload ?? []};
     case "SET_ACTIVE_TAB":
@@ -369,59 +393,73 @@ function PropertyFormContainer() {
   useEffect(() => {
     async function loadPropertyAndSystems() {
       if (uid === "new") return;
-      const property = await getPropertyById(uid);
-      const systemsArr = await getSystemsByPropertyId(property.id);
-      const rawRecords = await getMaintenanceRecordsByPropertyId(property.id);
-      const maintenanceRecords = mapMaintenanceRecordsFromBackend(
-        rawRecords ?? [],
-      );
-      setMaintenanceRecords(maintenanceRecords);
-      originalMaintenanceRecordIdsRef.current = new Set(
-        (maintenanceRecords ?? [])
-          .filter((r) => !isNewMaintenanceRecord(r))
-          .map((r) => r.id),
-      );
-      const includedSystems = (systemsArr ?? []).filter(
-        (s) => s.included !== false,
-      );
-      const flat = mapPropertyFromBackend(property) ?? property;
-      const tabbed = splitFormDataByTabs(flat);
-      const fromSystems = mapSystemsFromBackend(includedSystems);
-      const selectedIdsFromBackend = includedSystems
-        .map((s) => s.system_key ?? s.systemKey)
-        .filter((k) => k && !k.startsWith("custom-"));
-      const customNamesFromBackend = Object.keys(
-        fromSystems.customSystemsData ?? {},
-      );
-      dispatch({
-        type: "SET_PROPERTY",
-        payload: {
-          ...tabbed,
-          maintenanceRecords: maintenanceRecords ?? [],
-          systems: {
-            ...tabbed.systems,
-            ...fromSystems,
-            selectedSystemIds:
-              selectedIdsFromBackend.length > 0
-                ? selectedIdsFromBackend
-                : (tabbed.systems.selectedSystemIds ?? []),
-            customSystemNames:
-              customNamesFromBackend.length > 0
-                ? customNamesFromBackend
-                : (tabbed.systems.customSystemNames ?? []),
-            customSystemsData:
-              fromSystems.customSystemsData ??
-              tabbed.systems.customSystemsData ??
-              {},
+      try {
+        const property = await getPropertyById(uid);
+        const systemsArr = await getSystemsByPropertyId(property.id);
+        const rawRecords = await getMaintenanceRecordsByPropertyId(property.id);
+        const maintenanceRecords = mapMaintenanceRecordsFromBackend(
+          rawRecords ?? [],
+        );
+        setMaintenanceRecords(maintenanceRecords);
+        originalMaintenanceRecordIdsRef.current = new Set(
+          (maintenanceRecords ?? [])
+            .filter((r) => !isNewMaintenanceRecord(r))
+            .map((r) => r.id),
+        );
+        const includedSystems = (systemsArr ?? []).filter(
+          (s) => s.included !== false,
+        );
+        const flat = mapPropertyFromBackend(property) ?? property;
+        const tabbed = splitFormDataByTabs(flat);
+        const fromSystems = mapSystemsFromBackend(includedSystems);
+        const selectedIdsFromBackend = includedSystems
+          .map((s) => s.system_key ?? s.systemKey)
+          .filter((k) => k && !k.startsWith("custom-"));
+        const customNamesFromBackend = Object.keys(
+          fromSystems.customSystemsData ?? {},
+        );
+        dispatch({
+          type: "SET_PROPERTY",
+          payload: {
+            ...tabbed,
+            maintenanceRecords: maintenanceRecords ?? [],
+            systems: {
+              ...tabbed.systems,
+              ...fromSystems,
+              selectedSystemIds:
+                selectedIdsFromBackend.length > 0
+                  ? selectedIdsFromBackend
+                  : (tabbed.systems.selectedSystemIds ?? []),
+              customSystemNames:
+                customNamesFromBackend.length > 0
+                  ? customNamesFromBackend
+                  : (tabbed.systems.customSystemNames ?? []),
+              customSystemsData:
+                fromSystems.customSystemsData ??
+                tabbed.systems.customSystemsData ??
+                {},
+            },
           },
-        },
-      });
-      dispatch({type: "SET_SYSTEMS", payload: systemsArr ?? []});
+        });
+        dispatch({type: "SET_SYSTEMS", payload: systemsArr ?? []});
+      } catch (err) {
+        if (err instanceof ApiError) {
+          if (isPropertyNotFoundError(err)) {
+            dispatch({type: "SET_PROPERTY_NOT_FOUND", payload: true});
+          } else if (err.status === 403) {
+            dispatch({type: "SET_PROPERTY_ACCESS_DENIED", payload: true});
+          } else {
+            throw err;
+          }
+        } else {
+          throw err;
+        }
+      }
     }
     loadPropertyAndSystems();
   }, [uid]);
 
-  /* Reset form when navigating TO new from another property (not on initial mount) */
+  /* Reset form when navigating TO new from another property (not on initial mount); clear 403 when uid changes */
   const prevUidRef = useRef(null);
   useEffect(() => {
     if (uid === "new") {
@@ -430,8 +468,13 @@ function PropertyFormContainer() {
       if (cameFromOtherProperty) {
         dispatch({type: "SET_PROPERTY", payload: null});
         dispatch({type: "SET_SYSTEMS", payload: []});
+        dispatch({type: "SET_PROPERTY_ACCESS_DENIED", payload: false});
+        dispatch({type: "SET_PROPERTY_NOT_FOUND", payload: false});
         setHomeopsTeam([]);
       }
+    } else if (prevUidRef.current !== uid) {
+      dispatch({type: "SET_PROPERTY_ACCESS_DENIED", payload: false});
+      dispatch({type: "SET_PROPERTY_NOT_FOUND", payload: false});
     }
     prevUidRef.current = uid;
   }, [uid]);
@@ -782,6 +825,16 @@ function PropertyFormContainer() {
       if (res) {
         await updateTeam(res.id, prepareTeamForProperty(homeopsTeam));
 
+        /* If current user removed themselves from the team, they no longer have access; go to list */
+        const stillOnTeam = homeopsTeam.some(
+          (m) => m && String(m.id) === String(currentUser?.id),
+        );
+        if (!stillOnTeam) {
+          dispatch({type: "SET_SUBMITTING", payload: false});
+          navigate(`/${dbUrl}/properties`);
+          return;
+        }
+
         const systemsArray = formSystemsToArray(
           mergeFormDataFromTabs(state.formData) ?? {},
           res.id,
@@ -945,6 +998,37 @@ function PropertyFormContainer() {
   console.log("maintenanceRecords: ", state.formData.maintenanceRecords); */
   console.log("maintenanceRecords: ", maintenanceRecords);
   console.log("Porperty Form Container: ", state.formData);
+
+  // While loading an existing property, don't show empty form; show loading until we get data or a 403/404
+  const loadingExisting =
+    uid !== "new" &&
+    state.property == null &&
+    !state.propertyNotFound &&
+    !state.propertyAccessDenied;
+  if (loadingExisting) {
+    return (
+      <div className="px-4 sm:px-6 lg:px-1 pt-1 flex items-center justify-center min-h-[40vh]">
+        <div className="text-gray-500 dark:text-gray-400">Loading property...</div>
+      </div>
+    );
+  }
+
+  if (state.propertyNotFound && uid !== "new") {
+    return (
+      <div className="px-4 sm:px-6 lg:px-1 pt-1">
+        <PropertyNotFound />
+      </div>
+    );
+  }
+
+  if (state.propertyAccessDenied && uid !== "new") {
+    return (
+      <div className="px-4 sm:px-6 lg:px-1 pt-1">
+        <PropertyUnauthorized />
+      </div>
+    );
+  }
+
   return (
     <div className="px-4 sm:px-6 lg:px-1 pt-1">
       <SharePropertyModal
@@ -1319,6 +1403,13 @@ function PropertyFormContainer() {
                   percentage={displayHpsScore}
                   size={68}
                   strokeWidth={5}
+                  colorClass={
+                    displayHpsScore >= 60
+                      ? "text-green-400 dark:text-green-500"
+                      : displayHpsScore >= 40
+                        ? "text-amber-400 dark:text-amber-500"
+                        : "text-red-400 dark:text-red-500"
+                  }
                 />
               </div>
             </div>

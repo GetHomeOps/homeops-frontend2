@@ -1,7 +1,6 @@
 import React, {useState, useEffect, useRef} from "react";
-import {Link} from "react-router-dom";
+import {Link, useLocation, useNavigate} from "react-router-dom";
 import {useTranslation} from "react-i18next";
-import {useNavigate} from "react-router-dom";
 import {AlertCircle} from "lucide-react";
 import {useAuth} from "../../context/AuthContext";
 import "../../i18n";
@@ -10,6 +9,7 @@ import Logo from "../../images/logo-no-bg.png";
 
 function Signin() {
   const navigate = useNavigate();
+  const location = useLocation();
   const {login, currentUser} = useAuth();
   const [formData, setFormData] = useState({
     email: "",
@@ -33,10 +33,15 @@ function Signin() {
           typeof e === "string" ? e : e?.message || String(e)
         ).join(" ");
 
-  // Navigate after successful login when currentUser is available
+  // Navigate after successful login when currentUser is available (redirect-after-login from ProtectedRoute)
   useEffect(() => {
     if (justLoggedIn.current && currentUser) {
-      if (currentUser.databases && currentUser.databases.length > 0) {
+      const from = location.state?.from;
+      const isInternalPath =
+        typeof from === "string" && from.startsWith("/") && !from.startsWith("//");
+      if (isInternalPath && from !== "/signin" && from !== "/signup") {
+        navigate(from, {replace: true});
+      } else if (currentUser.databases && currentUser.databases.length > 0) {
         const dbUrl =
           currentUser.databases[0].url?.replace(/^\/+/, "") ||
           currentUser.databases[0].name;
@@ -46,7 +51,7 @@ function Signin() {
       }
       justLoggedIn.current = false;
     }
-  }, [currentUser, navigate]);
+  }, [currentUser, navigate, location.state?.from]);
 
   /** Handle form submit:
    *
@@ -60,9 +65,8 @@ function Signin() {
       await login(formData);
       justLoggedIn.current = true;
     } catch (err) {
-      const messages = Array.isArray(err)
-        ? err.map((e) => (typeof e === "string" ? e : e?.message || String(e)))
-        : [err?.message || err?.toString?.() || String(err)];
+      const raw = err?.messages ?? (Array.isArray(err) ? err : [err?.message || err?.toString?.() || String(err)]);
+      const messages = raw.map((e) => (typeof e === "string" ? e : e?.message || String(e)));
       setFormErrors(messages);
       justLoggedIn.current = false;
     } finally {

@@ -1,6 +1,16 @@
 const BASE_URL =
   import.meta.env.VITE_BASE_URL || "http://localhost:3000";
 
+/** Thrown by API request() on non-ok response. Preserves status for 403/401 handling. */
+export class ApiError extends Error {
+  constructor(messages, status = 500) {
+    const msg = Array.isArray(messages) ? messages[0] : messages;
+    super(typeof msg === "string" ? msg : msg?.message ?? "Request failed");
+    this.messages = Array.isArray(messages) ? messages : [messages];
+    this.status = status;
+  }
+}
+
 /** API Class.
  *
  * Static class tying together methods used to get/send to the API.
@@ -28,8 +38,10 @@ class AppApi {
 
     if (!resp.ok) {
       console.error("API Error:", resp.statusText, resp.status);
-      const message = (await resp.json()).error.message;
-      throw Array.isArray(message) ? message : [message];
+      const body = await resp.json().catch(() => ({}));
+      const message = body?.error?.message ?? resp.statusText;
+      const messages = Array.isArray(message) ? message : [message];
+      throw new ApiError(messages, resp.status);
     }
 
     return await resp.json();
@@ -46,7 +58,8 @@ class AppApi {
       console.error("API Error:", resp.statusText, resp.status);
       const err = await resp.json().catch(() => ({}));
       const message = err?.error?.message || resp.statusText;
-      throw Array.isArray(message) ? message : [message];
+      const messages = Array.isArray(message) ? message : [message];
+      throw new ApiError(messages, resp.status);
     }
 
     return await resp.json();
@@ -380,6 +393,127 @@ class AppApi {
   /** Delete a property document. */
   static async deletePropertyDocument(id) {
     await this.request(`propertyDocuments/${id}`, {}, "DELETE");
+  }
+
+  /* --------- Subscriptions --------- */
+
+  /** Get all subscriptions (super_admin). Supports optional filters: status, type, userId. */
+  static async getAllSubscriptions(filters = {}) {
+    let res = await this.request(`subscriptions`, filters);
+    return res.subscriptions;
+  }
+
+  /** Get a single subscription by id. */
+  static async getSubscription(id) {
+    let res = await this.request(`subscriptions/${id}`);
+    return res.subscription;
+  }
+
+  /** Create a new subscription. */
+  static async createSubscription(data) {
+    let res = await this.request(`subscriptions`, data, "POST");
+    return res.subscription;
+  }
+
+  /** Update a subscription. */
+  static async updateSubscription(id, data) {
+    let res = await this.request(`subscriptions/${id}`, data, "PATCH");
+    return res.subscription;
+  }
+
+  /** Delete a subscription. */
+  static async deleteSubscription(id) {
+    let res = await this.request(`subscriptions/${id}`, {}, "DELETE");
+    return res;
+  }
+
+  /** Get all subscription products (for form dropdowns). */
+  static async getSubscriptionProducts() {
+    let res = await this.request(`subscriptions/products`);
+    return res.products;
+  }
+
+  /* --------- Subscription Products (CRUD) --------- */
+
+  /** Get all subscription products (full CRUD list). */
+  static async getAllSubscriptionProducts() {
+    let res = await this.request(`subscription-products`);
+    return res.products;
+  }
+
+  /** Get a single subscription product by id. */
+  static async getSubscriptionProduct(id) {
+    let res = await this.request(`subscription-products/${id}`);
+    return res.product;
+  }
+
+  /** Create a new subscription product. */
+  static async createSubscriptionProduct(data) {
+    let res = await this.request(`subscription-products`, data, "POST");
+    return res.product;
+  }
+
+  /** Update a subscription product. */
+  static async updateSubscriptionProduct(id, data) {
+    let res = await this.request(`subscription-products/${id}`, data, "PATCH");
+    return res.product;
+  }
+
+  /** Delete a subscription product. */
+  static async deleteSubscriptionProduct(id) {
+    let res = await this.request(`subscription-products/${id}`, {}, "DELETE");
+    return res;
+  }
+
+  /* --------- Platform Analytics (super_admin) --------- */
+
+  /** GET /analytics/summary — platform summary (totals, growth, averages). */
+  static async getAnalyticsSummary() {
+    let res = await this.request("analytics/summary");
+    return res.summary;
+  }
+
+  /** GET /analytics/daily — daily platform metrics from view. */
+  static async getAnalyticsDaily(params = {}) {
+    let res = await this.request("analytics/daily", params);
+    return res.metrics;
+  }
+
+  /** GET /analytics/growth/:entity — monthly growth (users|databases|properties|subscriptions). */
+  static async getAnalyticsGrowth(entity, months = 12) {
+    let res = await this.request("analytics/growth/" + entity, { months });
+    return res.growth;
+  }
+
+  /** GET /analytics/databases — all databases analytics from database_analytics view. */
+  static async getAnalyticsDatabases() {
+    let res = await this.request("analytics/databases");
+    return res.analytics;
+  }
+
+  /** GET /analytics/databases/:id — single database analytics. */
+  static async getAnalyticsDatabaseById(databaseId) {
+    let res = await this.request(`analytics/databases/${databaseId}`);
+    return res.analytics;
+  }
+
+  /* --------- Platform Engagement (super_admin) --------- */
+
+  /** GET /engagement/counts — event counts by type. */
+  static async getEngagementCounts(params = {}) {
+    let res = await this.request("engagement/counts", params);
+    return res.counts;
+  }
+
+  /** GET /engagement/trend — daily event trend. */
+  static async getEngagementTrend(params = {}) {
+    let res = await this.request("engagement/trend", params);
+    return res.trend;
+  }
+
+  /** POST /engagement — log an engagement event (eventType, eventData). Uses current user. */
+  static async logEngagementEvent(eventType, eventData = {}) {
+    await this.request("engagement", { eventType, eventData }, "POST");
   }
 }
 

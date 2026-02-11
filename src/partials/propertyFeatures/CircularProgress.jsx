@@ -9,6 +9,7 @@ import React from "react";
  * @param {number} strokeWidth - The width of the stroke in pixels (default: 8)
  * @param {string} label - Optional label text to display below the percentage (default: "HPS")
  * @param {string} className - Additional CSS classes for the container
+ * @param {string} colorClass - Tailwind class for progress stroke, e.g. text-green-500 (default: green)
  */
 function CircularProgress({
   percentage,
@@ -16,6 +17,7 @@ function CircularProgress({
   strokeWidth = 8,
   label = "HPS",
   className = "",
+  colorClass = "text-green-400 dark:text-green-500",
 }) {
   const radius = (size - strokeWidth) / 2;
   const circumference = radius * 2 * Math.PI;
@@ -52,7 +54,7 @@ function CircularProgress({
           strokeDasharray={circumference}
           strokeDashoffset={offset}
           strokeLinecap="round"
-          className="text-green-400 dark:text-green-500 transition-all duration-500"
+          className={`${colorClass} transition-all duration-500`}
         />
       </svg>
       <div className="relative z-10 flex flex-col items-center justify-center">

@@ -71,8 +71,23 @@ function ScoreCard({propertyData}) {
 
   const totalScore = (identityScore + systemsScore + maintenanceScore) / 3;
 
+  const scoreRingColorClass =
+    totalScore >= 60
+      ? "text-green-400 dark:text-green-500"
+      : totalScore >= 40
+        ? "text-amber-400 dark:text-amber-500"
+        : "text-red-400 dark:text-red-500";
+
   return (
-    <div className="relative rounded-xl bg-gradient-to-br from-slate-50 via-white to-slate-100/80 dark:from-slate-800/95 dark:via-gray-900 dark:to-slate-800/90 ring-1 ring-slate-200/60 dark:ring-slate-600/40 shadow-lg shadow-slate-300/40 dark:shadow-black/40 p-4 overflow-hidden">
+    <div
+      className={`relative rounded-xl bg-gradient-to-br from-slate-50 via-white to-slate-100/80 dark:from-slate-800/95 dark:via-gray-900 dark:to-slate-800/90 ring-1 shadow-lg shadow-slate-300/40 dark:shadow-black/40 p-4 overflow-hidden ${
+        totalScore >= 60
+          ? "ring-green-200/60 dark:ring-green-600/40"
+          : totalScore >= 40
+            ? "ring-amber-200/60 dark:ring-amber-600/40"
+            : "ring-red-200/60 dark:ring-red-600/40"
+      }`}
+    >
       {/* Subtle top accent line */}
       <div className="absolute inset-x-0 top-0 h-[2px] bg-gradient-to-r from-transparent via-slate-400/60 to-transparent dark:via-slate-500/50" />
 
@@ -88,6 +103,7 @@ function ScoreCard({propertyData}) {
             percentage={Math.round(totalScore)}
             size={96}
             strokeWidth={8}
+            colorClass={scoreRingColorClass}
           />
         </div>
 
@@ -210,6 +226,13 @@ function ScoreCard({propertyData}) {
                     percentage={Math.round(identityScore)}
                     size={80}
                     strokeWidth={8}
+                    colorClass={
+                      identityScore >= 60
+                        ? "text-green-400 dark:text-green-500"
+                        : identityScore >= 40
+                          ? "text-amber-400 dark:text-amber-500"
+                          : "text-red-400 dark:text-red-500"
+                    }
                   />
                 </div>
                 <div className="flex-1 space-y-2">
@@ -309,6 +332,13 @@ function ScoreCard({propertyData}) {
                     percentage={Math.round(systemsScore)}
                     size={80}
                     strokeWidth={8}
+                    colorClass={
+                      systemsScore >= 60
+                        ? "text-green-400 dark:text-green-500"
+                        : systemsScore >= 40
+                          ? "text-amber-400 dark:text-amber-500"
+                          : "text-red-400 dark:text-red-500"
+                    }
                   />
                 </div>
                 <div className="flex-1 space-y-2">
@@ -414,6 +444,13 @@ function ScoreCard({propertyData}) {
                     percentage={Math.round(maintenanceScore)}
                     size={80}
                     strokeWidth={8}
+                    colorClass={
+                      maintenanceScore >= 60
+                        ? "text-green-400 dark:text-green-500"
+                        : maintenanceScore >= 40
+                          ? "text-amber-400 dark:text-amber-500"
+                          : "text-red-400 dark:text-red-500"
+                    }
                   />
                 </div>
                 <div className="flex-1 space-y-2">

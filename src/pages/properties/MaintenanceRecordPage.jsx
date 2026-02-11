@@ -6,10 +6,23 @@ import Header from "../../partials/Header";
 import PropertyContext from "../../context/PropertyContext";
 import ContactContext from "../../context/ContactContext";
 import {MaintenanceFormPanel} from "./partials/maintenance";
+import PropertyUnauthorized from "./PropertyUnauthorized";
+import PropertyNotFound from "./PropertyNotFound";
+import {ApiError} from "../../api/api";
 import {
   PROPERTY_SYSTEMS,
   DEFAULT_SYSTEM_IDS,
 } from "./constants/propertySystems";
+
+function isPropertyNotFoundError(err) {
+  if (!(err instanceof ApiError)) return false;
+  if (err.status === 404) return true;
+  if (err.status === 403) {
+    const msg = (err.message || (err.messages && err.messages[0]) || "").toLowerCase();
+    return msg.includes("not found");
+  }
+  return false;
+}
 
 /**
  * Standalone page for viewing/editing a single maintenance record.
@@ -34,11 +47,15 @@ function MaintenanceRecordPage() {
   const [record, setRecord] = useState(null);
   const [loading, setLoading] = useState(true);
   const [saveMessage, setSaveMessage] = useState(null);
+  const [propertyAccessDenied, setPropertyAccessDenied] = useState(false);
+  const [propertyNotFound, setPropertyNotFound] = useState(false);
 
   // Load property and find the record
   useEffect(() => {
     async function loadProperty() {
       setLoading(true);
+      setPropertyAccessDenied(false);
+      setPropertyNotFound(false);
       try {
         const propertyData = await getPropertyById(propertyId);
         setProperty(propertyData);
@@ -57,7 +74,17 @@ function MaintenanceRecordPage() {
           setRecord(null);
         }
       } catch (err) {
-        console.error("Error loading property:", err);
+        if (err instanceof ApiError) {
+          if (isPropertyNotFoundError(err)) {
+            setPropertyNotFound(true);
+          } else if (err.status === 403) {
+            setPropertyAccessDenied(true);
+          } else {
+            console.error("Error loading property:", err);
+          }
+        } else {
+          console.error("Error loading property:", err);
+        }
       } finally {
         setLoading(false);
       }
@@ -162,6 +189,38 @@ function MaintenanceRecordPage() {
           <Header sidebarOpen={sidebarOpen} setSidebarOpen={setSidebarOpen} />
           <main className="grow flex items-center justify-center">
             <div className="text-gray-500 dark:text-gray-400">Loading...</div>
+          </main>
+        </div>
+      </div>
+    );
+  }
+
+  if (propertyNotFound) {
+    return (
+      <div className="flex h-[100dvh] overflow-hidden">
+        <Sidebar sidebarOpen={sidebarOpen} setSidebarOpen={setSidebarOpen} />
+        <div className="relative flex flex-col flex-1 overflow-y-auto overflow-x-hidden bg-white dark:bg-gray-900">
+          <Header sidebarOpen={sidebarOpen} setSidebarOpen={setSidebarOpen} />
+          <main className="grow">
+            <div className="px-4 sm:px-6 lg:px-8 py-8 w-full max-w-[96rem] mx-auto">
+              <PropertyNotFound />
+            </div>
+          </main>
+        </div>
+      </div>
+    );
+  }
+
+  if (propertyAccessDenied) {
+    return (
+      <div className="flex h-[100dvh] overflow-hidden">
+        <Sidebar sidebarOpen={sidebarOpen} setSidebarOpen={setSidebarOpen} />
+        <div className="relative flex flex-col flex-1 overflow-y-auto overflow-x-hidden bg-white dark:bg-gray-900">
+          <Header sidebarOpen={sidebarOpen} setSidebarOpen={setSidebarOpen} />
+          <main className="grow">
+            <div className="px-4 sm:px-6 lg:px-8 py-8 w-full max-w-[96rem] mx-auto">
+              <PropertyUnauthorized />
+            </div>
           </main>
         </div>
       </div>
