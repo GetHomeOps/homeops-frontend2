@@ -84,6 +84,10 @@ function Sidebar({sidebarOpen, setSidebarOpen, variant = "default"}) {
   // Home is active only when path has a segment exactly "home", not when a segment contains "home" (e.g. /home-ops/properties)
   const isHomeActive = pathname === "/home" || /\/home(\/|$)/.test(pathname);
 
+  // Subscriptions section is active when on /subscriptions or /subscription-products (any segment)
+  const isSubscriptionsActive =
+    /\/subscriptions(\/|$)/.test(pathname) || /\/subscription-products(\/|$)/.test(pathname);
+
   const trigger = useRef(null);
   const sidebar = useRef(null);
 
@@ -93,7 +97,7 @@ function Sidebar({sidebarOpen, setSidebarOpen, variant = "default"}) {
   );
   const [settingsOpen, setSettingsOpen] = useState(pathname.includes("users"));
   const [subscriptionsOpen, setSubscriptionsOpen] = useState(
-    pathname.includes("subscription"),
+    isSubscriptionsActive,
   );
   const isCollapsed = !sidebarExpanded;
 
@@ -102,7 +106,9 @@ function Sidebar({sidebarOpen, setSidebarOpen, variant = "default"}) {
   }, [pathname]);
 
   useEffect(() => {
-    if (pathname.includes("subscription")) setSubscriptionsOpen(true);
+    if (/\/subscriptions(\/|$)/.test(pathname) || /\/subscription-products(\/|$)/.test(pathname)) {
+      setSubscriptionsOpen(true);
+    }
   }, [pathname]);
 
   // close on click outside
@@ -328,9 +334,7 @@ function Sidebar({sidebarOpen, setSidebarOpen, variant = "default"}) {
                   <li className="mb-0.5 last:mb-0">
                     <div
                       className={`rounded-lg ${
-                        pathname.includes("subscription")
-                          ? "bg-white/[0.08]"
-                          : ""
+                        isSubscriptionsActive ? "bg-white/15" : ""
                       }`}
                     >
                       <SidebarTooltip show={isCollapsed} label="Subscriptions">
@@ -341,7 +345,7 @@ function Sidebar({sidebarOpen, setSidebarOpen, variant = "default"}) {
                           }
                           aria-label="Subscriptions"
                           className={`flex items-center w-full pl-4 pr-3 py-2 rounded-lg transition-all duration-200 ${
-                            pathname.includes("subscription")
+                            isSubscriptionsActive
                               ? "text-white [&_svg]:text-white"
                               : "text-white/90 hover:text-white [&_svg]:text-white/70"
                           }`}

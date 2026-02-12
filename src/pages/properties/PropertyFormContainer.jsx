@@ -84,6 +84,7 @@ import {
   ChevronUp,
   FileBarChart,
   Share2,
+  Loader2,
 } from "lucide-react";
 import useImageUpload from "../../hooks/useImageUpload";
 import usePresignedPreview from "../../hooks/usePresignedPreview";
@@ -1778,9 +1779,12 @@ function PropertyFormContainer() {
               </button>
               <button
                 type="button"
-                className="btn text-white transition-colors duration-200 shadow-sm min-w-[100px] bg-[#456564] hover:bg-[#34514f]"
+                className="btn text-white transition-colors duration-200 shadow-sm min-w-[100px] bg-[#456564] hover:bg-[#34514f] flex items-center justify-center gap-2"
                 onClick={state.isNew ? handleSubmit : handleUpdate}
               >
+                {state.isSubmitting && (
+                  <Loader2 className="w-4 h-4 animate-spin shrink-0" aria-hidden />
+                )}
                 {state.isSubmitting
                   ? state.isNew
                     ? "Saving..."

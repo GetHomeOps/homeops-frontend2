@@ -1,6 +1,7 @@
 import React, {useState, useEffect, useRef} from "react";
 import {Link} from "react-router-dom";
 import {useNavigate} from "react-router-dom";
+import {Loader2} from "lucide-react";
 import {useAuth} from "../../context/AuthContext";
 import {useTranslation} from "react-i18next";
 
@@ -163,8 +164,11 @@ function Signup() {
                   <button
                     type="submit"
                     disabled={isSubmitting}
-                    className="btn bg-gray-900 text-gray-100 hover:bg-gray-800 dark:bg-gray-100 dark:text-gray-800 dark:hover:bg-white  whitespace-nowrap"
+                    className="btn bg-gray-900 text-gray-100 hover:bg-gray-800 dark:bg-gray-100 dark:text-gray-800 dark:hover:bg-white whitespace-nowrap flex items-center justify-center gap-2"
                   >
+                    {isSubmitting && (
+                      <Loader2 className="w-4 h-4 animate-spin shrink-0" aria-hidden />
+                    )}
                     {isSubmitting ? t("signingUp") : t("signUp")}
                   </button>
                 </div>
