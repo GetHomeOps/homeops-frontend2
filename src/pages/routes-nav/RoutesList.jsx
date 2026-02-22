@@ -33,6 +33,13 @@ import SubscriptionsList from "../subscriptions/SubscriptionsList";
 import Subscription from "../subscriptions/Subscription";
 import SubscriptionProductsList from "../subscriptions/SubscriptionProductsList";
 import SubscriptionProduct from "../subscriptions/SubscriptionProduct";
+import ProfessionalDirectory from "../professionals/ProfessionalDirectory";
+import CategoryDirectoryPage from "../professionals/CategoryDirectoryPage";
+import MyProfessionals from "../professionals/MyProfessionals";
+import ProfessionalProfile from "../professionals/ProfessionalProfile";
+import ProfessionalFormContainer from "../professionals/ProfessionalFormContainer";
+import CategoriesList from "../professionals/categories/CategoriesList";
+import CategoryFormContainer from "../professionals/categories/CategoryFormContainer";
 
 function RoutesList() {
   const {currentUser, isLoading} = useAuth();
@@ -181,6 +188,62 @@ function RoutesList() {
         element={
           <ProtectedRoute>
             <MaintenanceRecordPage />
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/:dbUrl/professionals"
+        element={
+          <ProtectedRoute>
+            <ProfessionalDirectory />
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/:dbUrl/professionals/search"
+        element={
+          <ProtectedRoute>
+            <CategoryDirectoryPage />
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/:dbUrl/professionals/manage"
+        element={
+          <ProtectedRoute>
+            <ProfessionalFormContainer />
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/:dbUrl/professionals/categories"
+        element={
+          <ProtectedRoute>
+            <CategoriesList />
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/:dbUrl/professionals/categories/:categoryId"
+        element={
+          <ProtectedRoute>
+            <CategoryFormContainer />
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/:dbUrl/professionals/:proId"
+        element={
+          <ProtectedRoute>
+            <ProfessionalProfile />
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/:dbUrl/my-professionals"
+        element={
+          <ProtectedRoute>
+            <MyProfessionals />
           </ProtectedRoute>
         }
       />

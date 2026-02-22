@@ -1,11 +1,89 @@
-import React, {useState, useEffect} from "react";
-import {Plus, X, Settings2, CheckCircle2, MapPin, Sparkles} from "lucide-react";
+import React, {useState, useEffect, useCallback} from "react";
+import {
+  Plus,
+  X,
+  Settings2,
+  CheckCircle2,
+  MapPin,
+  Sparkles,
+  Loader2,
+  Wand2,
+  AlertCircle,
+  DollarSign,
+} from "lucide-react";
 import ModalBlank from "../../../components/ModalBlank";
 import {
   PROPERTY_SYSTEMS,
   STANDARD_CUSTOM_SYSTEM_FIELDS,
 } from "../constants/propertySystems";
-import {usStates} from "../../../data/states";
+import useGooglePlacesAutocomplete from "../../../hooks/useGooglePlacesAutocomplete";
+import AppApi from "../../../api/api";
+
+/** All AI-predictable identity fields keyed by display group. */
+const AI_FIELD_GROUPS = [
+  {
+    label: "General",
+    fields: [
+      {key: "propertyType", label: "Property Type"},
+      {key: "subType", label: "Sub Type"},
+      {key: "roofType", label: "Roof Type"},
+      {key: "yearBuilt", label: "Year Built", type: "number"},
+      {
+        key: "effectiveYearBuilt",
+        label: "Effective Year Built",
+        type: "number",
+      },
+      {key: "effectiveYearBuiltSource", label: "Effective Yr Built Source"},
+    ],
+  },
+  {
+    label: "Size & Lot",
+    fields: [
+      {key: "sqFtTotal", label: "Total ft²", type: "number"},
+      {key: "sqFtFinished", label: "Finished ft²", type: "number"},
+      {key: "sqFtUnfinished", label: "Unfinished ft²", type: "number"},
+      {key: "garageSqFt", label: "Garage ft²", type: "number"},
+      {key: "totalDwellingSqFt", label: "Total Dwelling ft²", type: "number"},
+      {key: "lotSize", label: "Lot Size"},
+    ],
+  },
+  {
+    label: "Rooms & Baths",
+    fields: [
+      {key: "bedCount", label: "Bedrooms", type: "number"},
+      {key: "bathCount", label: "Bathrooms", type: "number"},
+      {key: "fullBaths", label: "Full Baths", type: "number"},
+      {key: "threeQuarterBaths", label: "3/4 Baths", type: "number"},
+      {key: "halfBaths", label: "Half Baths", type: "number"},
+      {key: "numberOfShowers", label: "Showers", type: "number"},
+      {key: "numberOfBathtubs", label: "Bathtubs", type: "number"},
+    ],
+  },
+  {
+    label: "Features & Parking",
+    fields: [
+      {key: "fireplaces", label: "Fireplaces", type: "number"},
+      {key: "fireplaceTypes", label: "Fireplace Types"},
+      {key: "basement", label: "Basement"},
+      {key: "parkingType", label: "Parking Type"},
+      {key: "totalCoveredParking", label: "Covered Parking", type: "number"},
+      {
+        key: "totalUncoveredParking",
+        label: "Uncovered Parking",
+        type: "number",
+      },
+    ],
+  },
+  {
+    label: "Schools",
+    fields: [
+      {key: "schoolDistrict", label: "School District"},
+      {key: "elementarySchool", label: "Elementary"},
+      {key: "juniorHighSchool", label: "Junior High"},
+      {key: "seniorHighSchool", label: "Senior High"},
+    ],
+  },
+];
 
 function SystemsSetupModal({
   modalOpen,
@@ -13,7 +91,6 @@ function SystemsSetupModal({
   selectedSystemIds = [],
   customSystems = [],
   isNewProperty = false,
-  /** When true, skip identity step and show only systems (e.g. Configure on existing property) */
   skipIdentityStep = false,
   formData = {},
   onIdentityFieldsChange,
@@ -24,25 +101,55 @@ function SystemsSetupModal({
   const [custom, setCustom] = useState(
     customSystems.length
       ? customSystems.map((n) => ({id: `custom-${n}`, name: n}))
-      : []
+      : [],
   );
   const [newCustomName, setNewCustomName] = useState("");
   const [showSuccess, setShowSuccess] = useState(false);
   const showSystemsOnly = skipIdentityStep || !isNewProperty;
   const [step, setStep] = useState(showSystemsOnly ? "systems" : "identity");
   const [identityFields, setIdentityFields] = useState({
+    propertyName: "",
     address: "",
+    addressLine1: "",
+    addressLine2: "",
     city: "",
     state: "",
     zip: "",
     county: "",
   });
 
+  const [aiFields, setAiFields] = useState({});
+  const [predicting, setPredicting] = useState(false);
+  const [predictError, setPredictError] = useState(null);
+  const [predictConfidence, setPredictConfidence] = useState(null);
+  const [aiUsage, setAiUsage] = useState(null);
+  const [hasPredicted, setHasPredicted] = useState(false);
+
+  const handlePlaceSelected = useCallback((parsed) => {
+    setIdentityFields((prev) => ({
+      ...prev,
+      address: parsed.formattedAddress,
+      addressLine1: parsed.addressLine1,
+      addressLine2: parsed.addressLine2 || prev.addressLine2,
+      city: parsed.city,
+      state: parsed.state,
+      zip: parsed.zip,
+      county: parsed.county,
+    }));
+  }, []);
+
+  const {
+    inputRef: addressInputRef,
+    isLoaded: placesLoaded,
+    error: placesError,
+  } = useGooglePlacesAutocomplete({onPlaceSelected: handlePlaceSelected});
+
   useEffect(() => {
     if (!modalOpen) return;
     const systemsOnly = skipIdentityStep || !isNewProperty;
     setStep(systemsOnly ? "systems" : "identity");
     setIdentityFields({
+      propertyName: formData?.propertyName ?? "",
       address:
         formData?.address ||
         formData?.fullAddress ||
@@ -50,19 +157,30 @@ function SystemsSetupModal({
           .filter(Boolean)
           .join(", ") ||
         "",
+      addressLine1: formData?.addressLine1 ?? "",
+      addressLine2: formData?.addressLine2 ?? "",
       city: formData?.city ?? "",
       state: formData?.state ?? "",
       zip: formData?.zip ?? "",
       county: formData?.county ?? "",
     });
+    setAiFields({});
     setSelected(new Set(selectedSystemIds ?? []));
     setCustom(
       customSystems.length
         ? customSystems.map((n) => ({id: `custom-${n}`, name: n}))
-        : []
+        : [],
     );
     setNewCustomName("");
     setShowSuccess(false);
+    setPredicting(false);
+    setPredictError(null);
+    setPredictConfidence(null);
+    setHasPredicted(false);
+    // Fetch usage on open
+    AppApi.getAiUsage()
+      .then(setAiUsage)
+      .catch(() => {});
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [modalOpen, skipIdentityStep, isNewProperty]);
 
@@ -72,7 +190,69 @@ function SystemsSetupModal({
 
   const handleIdentityContinue = () => {
     onIdentityFieldsChange?.(identityFields);
+    setStep("details");
+  };
+
+  const handleDetailsContinue = () => {
+    const payload = {...identityFields};
+    for (const group of AI_FIELD_GROUPS) {
+      for (const f of group.fields) {
+        const val = aiFields[f.key];
+        if (val !== undefined && val !== null && val !== "") {
+          payload[f.key] = f.type === "number" ? Number(val) : val;
+        }
+      }
+    }
+    onIdentityFieldsChange?.(payload);
     setStep("systems");
+  };
+
+  const handlePredictWithAI = async () => {
+    setPredicting(true);
+    setPredictError(null);
+    setPredictConfidence(null);
+    try {
+      const propertyInfo = {
+        propertyName: identityFields.propertyName,
+        address: identityFields.address,
+        addressLine1: identityFields.addressLine1,
+        city: identityFields.city,
+        state: identityFields.state,
+        zip: identityFields.zip,
+        county: identityFields.county,
+        propertyType: formData?.propertyType ?? "",
+        sqFtTotal: formData?.sqFtTotal ?? formData?.squareFeet ?? "",
+        yearBuilt: formData?.yearBuilt ?? "",
+      };
+      const result = await AppApi.predictPropertyDetails(propertyInfo);
+      if (result?.prediction) {
+        const p = result.prediction;
+        const newFields = {};
+        for (const group of AI_FIELD_GROUPS) {
+          for (const f of group.fields) {
+            if (
+              p[f.key] !== undefined &&
+              p[f.key] !== null &&
+              p[f.key] !== ""
+            ) {
+              newFields[f.key] = p[f.key];
+            }
+          }
+        }
+        setAiFields(newFields);
+        setPredictConfidence(p.confidence);
+        setHasPredicted(true);
+      }
+      if (result?.usage) {
+        setAiUsage(result.usage);
+      }
+    } catch (err) {
+      const msg =
+        err?.message || "Failed to predict. Please enter values manually.";
+      setPredictError(msg);
+    } finally {
+      setPredicting(false);
+    }
   };
 
   const toggleSystem = (id) => {
@@ -172,12 +352,12 @@ function SystemsSetupModal({
           </>
         )}
 
-        {/* Step 1: Identity & Address (new properties only — never show for existing) */}
+        {/* Step 1: Identity & Address — property name + address only (details from OpenAI) */}
         {step === "identity" && isNewProperty && (
-          <div className="space-y-8">
-            {/* Setup header */}
-            <div className="text-center pb-2">
-              <div className="inline-flex items-center justify-center w-16 h-16 rounded-2xl bg-gradient-to-br from-[#456564]/12 to-[#456564]/5 dark:from-[#456564]/20 dark:to-[#456564]/8 mb-4">
+          <div className="space-y-10">
+            {/* Centered header */}
+            <div className="text-center">
+              <div className="inline-flex items-center justify-center w-16 h-16 rounded-2xl bg-gradient-to-br from-[#456564]/15 to-[#456564]/5 dark:from-[#456564]/25 dark:to-[#456564]/10 mb-5">
                 <Sparkles
                   className="w-8 h-8 text-[#456564]"
                   strokeWidth={1.5}
@@ -186,113 +366,62 @@ function SystemsSetupModal({
               <h2 className="text-2xl font-semibold text-gray-900 dark:text-white mb-2">
                 Let's set up your property
               </h2>
-              <p className="text-sm text-gray-500 dark:text-gray-400 max-w-md mx-auto leading-relaxed">
-                Let's start with your address — this will appear in the Identity
-                tab.
+              <p className="text-sm text-gray-500 dark:text-gray-400 max-w-sm mx-auto leading-relaxed">
+                Enter the name and address. Additional details will be filled in
+                by AI.
               </p>
             </div>
 
-            {/* Address form card */}
-            <div className="rounded-2xl border border-gray-200 dark:border-gray-700 bg-gray-50/50 dark:bg-gray-800/30 p-6 md:p-8">
-              <div className="flex items-center gap-2 mb-6">
-                <div className="flex items-center justify-center w-9 h-9 rounded-lg bg-[#456564]/10 dark:bg-[#456564]/20">
-                  <MapPin className="w-4 h-4 text-[#456564]" />
-                </div>
-                <span className="text-sm font-semibold text-gray-700 dark:text-gray-300">
-                  Property address
-                </span>
-              </div>
-
-              <div className="space-y-5">
+            {/* Centered form — property name + address only */}
+            <div className="flex justify-center">
+              <div className="w-full max-w-md space-y-6">
                 <div>
-                  <label className="block text-xs font-medium text-gray-500 dark:text-gray-400 mb-1.5">
-                    Street address
+                  <label className="block text-sm font-medium text-gray-600 dark:text-gray-300 mb-2">
+                    Property name
                   </label>
                   <input
                     type="text"
-                    value={identityFields.address}
+                    value={identityFields.propertyName}
                     onChange={(e) =>
-                      handleIdentityFieldChange("address", e.target.value)
+                      handleIdentityFieldChange("propertyName", e.target.value)
                     }
-                    placeholder="123 Main St, Apt 4"
-                    className="form-input w-full rounded-xl border-gray-200 dark:border-gray-600 dark:bg-gray-800 dark:text-white focus:ring-2 focus:ring-[#456564]/20 focus:border-[#456564] transition-colors"
+                    placeholder="e.g. Lakewood Estate, My Home"
+                    className="form-input w-full rounded-xl border-gray-200 dark:border-gray-600 dark:bg-gray-800 dark:text-white focus:outline-none focus:ring-2 focus:ring-[#456564]/30 focus:border-[#456564] transition-colors py-3"
                   />
                 </div>
 
-                <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-                  <div className="sm:col-span-2">
-                    <label className="block text-xs font-medium text-gray-500 dark:text-gray-400 mb-1.5">
-                      City
-                    </label>
-                    <input
-                      type="text"
-                      value={identityFields.city}
-                      onChange={(e) =>
-                        handleIdentityFieldChange("city", e.target.value)
-                      }
-                      placeholder="Seattle"
-                      className="form-input w-full rounded-xl border-gray-200 dark:border-gray-600 dark:bg-gray-800 dark:text-white focus:ring-2 focus:ring-[#456564]/20 focus:border-[#456564] transition-colors"
-                    />
-                  </div>
-                  <div>
-                    <label className="block text-xs font-medium text-gray-500 dark:text-gray-400 mb-1.5">
-                      State
-                    </label>
-                    <select
-                      value={identityFields.state}
-                      onChange={(e) =>
-                        handleIdentityFieldChange("state", e.target.value)
-                      }
-                      className="form-input w-full rounded-xl border-gray-200 dark:border-gray-600 dark:bg-gray-800 dark:text-white focus:ring-2 focus:ring-[#456564]/20 focus:border-[#456564] transition-colors"
-                    >
-                      <option value="">Select</option>
-                      {usStates.map((s) => (
-                        <option key={s.code} value={s.code}>
-                          {s.name}
-                        </option>
-                      ))}
-                    </select>
-                  </div>
-                </div>
-
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                  <div>
-                    <label className="block text-xs font-medium text-gray-500 dark:text-gray-400 mb-1.5">
-                      ZIP code
-                    </label>
-                    <input
-                      type="text"
-                      value={identityFields.zip}
-                      onChange={(e) =>
-                        handleIdentityFieldChange("zip", e.target.value)
-                      }
-                      placeholder="98101"
-                      className="form-input w-full rounded-xl border-gray-200 dark:border-gray-600 dark:bg-gray-800 dark:text-white focus:ring-2 focus:ring-[#456564]/20 focus:border-[#456564] transition-colors"
-                    />
-                  </div>
-                  <div>
-                    <label className="block text-xs font-medium text-gray-500 dark:text-gray-400 mb-1.5">
-                      County
-                    </label>
-                    <input
-                      type="text"
-                      value={identityFields.county}
-                      onChange={(e) =>
-                        handleIdentityFieldChange("county", e.target.value)
-                      }
-                      placeholder="e.g. King"
-                      className="form-input w-full rounded-xl border-gray-200 dark:border-gray-600 dark:bg-gray-800 dark:text-white focus:ring-2 focus:ring-[#456564]/20 focus:border-[#456564] transition-colors"
-                    />
-                  </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-600 dark:text-gray-300 mb-2">
+                    Address
+                    {placesLoaded && (
+                      <span className="ml-2 text-emerald-600 dark:text-emerald-400 text-xs font-normal">
+                        Autocomplete active
+                      </span>
+                    )}
+                  </label>
+                  <input
+                    key={String(modalOpen)}
+                    ref={addressInputRef}
+                    type="text"
+                    defaultValue={identityFields.address}
+                    placeholder="Start typing an address to search..."
+                    className="form-input w-full rounded-xl border-gray-200 dark:border-gray-600 dark:bg-gray-800 dark:text-white focus:outline-none focus:ring-2 focus:ring-[#456564]/30 focus:border-[#456564] transition-colors py-3"
+                    autoComplete="off"
+                  />
+                  {placesError && (
+                    <p className="mt-1.5 text-xs text-amber-600 dark:text-amber-400">
+                      {placesError} — you can still type the address manually.
+                    </p>
+                  )}
                 </div>
               </div>
             </div>
 
-            <div className="flex justify-end gap-3 pt-2">
+            <div className="flex justify-center gap-3 pt-4">
               <button
                 type="button"
                 onClick={() => {
-                  setStep("systems");
+                  setStep("details");
                 }}
                 className="btn border border-gray-200 dark:border-gray-600 hover:bg-gray-50 dark:hover:bg-gray-700 text-gray-700 dark:text-gray-300"
               >
@@ -309,7 +438,175 @@ function SystemsSetupModal({
           </div>
         )}
 
-        {/* Step 2: Property Systems (always shown for existing properties, or when user continues from identity) */}
+        {/* Step 2: AI Autofill — predict all identity fields (new properties only) */}
+        {step === "details" && isNewProperty && (
+          <div className="space-y-6">
+            <div className="text-center pb-2">
+              <div className="inline-flex items-center justify-center w-16 h-16 rounded-2xl bg-gradient-to-br from-[#456564]/12 to-[#456564]/5 dark:from-[#456564]/20 dark:to-[#456564]/8 mb-4">
+                <Wand2 className="w-8 h-8 text-[#456564]" strokeWidth={1.5} />
+              </div>
+              <h2 className="text-2xl font-semibold text-gray-900 dark:text-white mb-2">
+                AI Property Autofill
+              </h2>
+              <p className="text-sm text-gray-500 dark:text-gray-400 max-w-md mx-auto leading-relaxed">
+                Let AI populate property details based on the address you
+                provided. You can review and edit every field before saving.
+              </p>
+            </div>
+
+            {/* Budget indicator */}
+            {aiUsage && (
+              <div className="flex items-center justify-center gap-2">
+                <DollarSign className="w-3.5 h-3.5 text-gray-400" />
+                <div className="flex items-center gap-2">
+                  <div className="w-32 h-1.5 rounded-full bg-gray-200 dark:bg-gray-700 overflow-hidden">
+                    <div
+                      className={`h-full rounded-full transition-all duration-500 ${
+                        aiUsage.remaining <= 0
+                          ? "bg-red-500"
+                          : aiUsage.spent / aiUsage.cap > 0.8
+                            ? "bg-amber-500"
+                            : "bg-emerald-500"
+                      }`}
+                      style={{
+                        width: `${Math.min(100, (aiUsage.spent / aiUsage.cap) * 100)}%`,
+                      }}
+                    />
+                  </div>
+                  <span className="text-xs text-gray-500 dark:text-gray-400">
+                    ${aiUsage.spent.toFixed(2)} / ${aiUsage.cap.toFixed(2)} this
+                    month
+                  </span>
+                </div>
+              </div>
+            )}
+
+            {/* AI Prediction button */}
+            {(() => {
+              const hasAddress = !!(
+                identityFields.address?.trim() ||
+                identityFields.addressLine1?.trim()
+              );
+              return (
+                <div className="flex flex-col items-center gap-3">
+                  <button
+                    type="button"
+                    disabled={
+                      predicting ||
+                      !hasAddress ||
+                      (aiUsage && aiUsage.remaining <= 0)
+                    }
+                    onClick={handlePredictWithAI}
+                    className="btn bg-gradient-to-r from-[#456564] to-[#3a5548] hover:from-[#34514f] hover:to-[#2d4640] text-white shadow-sm inline-flex items-center gap-2 disabled:opacity-60"
+                  >
+                    {predicting ? (
+                      <Loader2 className="w-4 h-4 animate-spin" />
+                    ) : (
+                      <Wand2 className="w-4 h-4" />
+                    )}
+                    {predicting
+                      ? "Analyzing property..."
+                      : hasPredicted
+                        ? "Re-run AI prediction"
+                        : "Populate with AI"}
+                  </button>
+                  {predictConfidence && (
+                    <span
+                      className={`text-xs font-medium px-2.5 py-1 rounded-full ${
+                        predictConfidence === "high"
+                          ? "bg-emerald-100 text-emerald-700 dark:bg-emerald-900/40 dark:text-emerald-400"
+                          : predictConfidence === "medium"
+                            ? "bg-amber-100 text-amber-700 dark:bg-amber-900/40 dark:text-amber-400"
+                            : "bg-gray-100 text-gray-600 dark:bg-gray-700 dark:text-gray-400"
+                      }`}
+                    >
+                      {predictConfidence} confidence
+                    </span>
+                  )}
+                  {aiUsage && aiUsage.remaining <= 0 && (
+                    <p className="text-xs text-red-500 dark:text-red-400">
+                      Monthly AI budget exhausted. Resets on the 1st of next
+                      month.
+                    </p>
+                  )}
+                  {predictError && (
+                    <div className="flex items-center gap-1.5 text-sm text-red-500 dark:text-red-400">
+                      <AlertCircle className="w-4 h-4 flex-shrink-0" />
+                      <span>{predictError}</span>
+                    </div>
+                  )}
+                  {!hasAddress && (
+                    <p className="text-xs text-amber-600 dark:text-amber-400">
+                      Enter an address on the previous step to use AI
+                      prediction.
+                    </p>
+                  )}
+                </div>
+              );
+            })()}
+
+            {/* AI-predicted fields (editable) */}
+            {hasPredicted && (
+              <div className="rounded-2xl border border-gray-200 dark:border-gray-700 bg-gray-50/50 dark:bg-gray-800/30 p-5 md:p-6 space-y-5 max-h-[45vh] overflow-y-auto">
+                {AI_FIELD_GROUPS.map((group) => (
+                  <div key={group.label}>
+                    <h4 className="text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider mb-3">
+                      {group.label}
+                    </h4>
+                    <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
+                      {group.fields.map((f) => (
+                        <div key={f.key}>
+                          <label className="block text-[11px] font-medium text-gray-500 dark:text-gray-400 mb-1">
+                            {f.label}
+                          </label>
+                          <input
+                            type={f.type === "number" ? "number" : "text"}
+                            value={aiFields[f.key] ?? ""}
+                            onChange={(e) =>
+                              setAiFields((prev) => ({
+                                ...prev,
+                                [f.key]: e.target.value,
+                              }))
+                            }
+                            className="form-input w-full text-sm rounded-lg border-gray-200 dark:border-gray-600 dark:bg-gray-800 dark:text-white focus:ring-2 focus:ring-[#456564]/20 focus:border-[#456564] transition-colors py-1.5"
+                          />
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+
+            <div className="flex justify-between gap-3 pt-2">
+              <button
+                type="button"
+                onClick={() => setStep("identity")}
+                className="btn border border-gray-200 dark:border-gray-600 hover:bg-gray-50 dark:hover:bg-gray-700 text-gray-700 dark:text-gray-300"
+              >
+                Back
+              </button>
+              <div className="flex gap-3">
+                <button
+                  type="button"
+                  onClick={() => setStep("systems")}
+                  className="btn border border-gray-200 dark:border-gray-600 hover:bg-gray-50 dark:hover:bg-gray-700 text-gray-700 dark:text-gray-300"
+                >
+                  Skip
+                </button>
+                <button
+                  type="button"
+                  onClick={handleDetailsContinue}
+                  className="btn bg-[#456564] hover:bg-[#34514f] text-white"
+                >
+                  Continue
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* Step 3: Property Systems (always shown for existing properties, or when user continues from details) */}
         {(step === "systems" || (step === "identity" && !isNewProperty)) && (
           <>
             <div className="flex items-center gap-3 mb-6">

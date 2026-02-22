@@ -465,6 +465,20 @@ class AppApi {
     return res;
   }
 
+  /* --------- Property Prediction (OpenAI) --------- */
+
+  /** Predict all identity-section fields using AI from property info. Returns { prediction, usage }. */
+  static async predictPropertyDetails(propertyInfo) {
+    let res = await this.request("predict/property-details", propertyInfo, "POST");
+    return res;
+  }
+
+  /** Get the current user's monthly AI usage/budget. Returns { allowed, spent, remaining, cap }. */
+  static async getAiUsage() {
+    let res = await this.request("predict/usage");
+    return res.usage;
+  }
+
   /* --------- Platform Analytics (super_admin) --------- */
 
   /** GET /analytics/summary — platform summary (totals, growth, averages). */

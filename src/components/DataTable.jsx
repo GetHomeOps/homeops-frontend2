@@ -84,7 +84,12 @@ function DataTable({
   );
 
   const renderTableBody = () => {
-    if (items.length === 0) {
+    const isEmpty =
+      isCollapsible && groupBy
+        ? Object.keys(groupBy).length === 0
+        : items.length === 0;
+
+    if (isEmpty) {
       return (
         <tr>
           <td

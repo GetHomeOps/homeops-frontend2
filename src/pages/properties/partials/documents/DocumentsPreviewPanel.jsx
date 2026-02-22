@@ -43,16 +43,15 @@ function DocumentsPreviewPanel({
   documentTypes = [],
 }) {
   // Hooks must run before any early return to satisfy Rules of Hooks
-  const [metadataOpen, setMetadataOpen] = useState(() => {
-    if (typeof window === "undefined") return true;
-    return window.innerWidth >= 1024;
-  });
+  // Smaller screens: collapsed by default (more space for preview). 1440px+: open by default.
+  const [metadataOpen, setMetadataOpen] = useState(false);
 
   useEffect(() => {
-    const mq = window.matchMedia("(min-width: 1024px)");
+    const mq = window.matchMedia("(min-width: 1440px)");
     const handleChange = (e) => {
-      if (e.matches) setMetadataOpen(true);
+      setMetadataOpen(e.matches);
     };
+    handleChange(mq); // set initial state on mount
     mq.addEventListener("change", handleChange);
     return () => mq.removeEventListener("change", handleChange);
   }, []);
@@ -193,18 +192,18 @@ function DocumentsPreviewPanel({
           </div>
         ) : null}
 
-        {/* Mobile: collapsible "Details" bar when metadata is hidden - tap to expand */}
+        {/* Mobile: slim collapsible "Details" bar when metadata is hidden - tap to expand */}
         {!metadataOpen && (
           <div className="lg:hidden flex-shrink-0">
             <button
               type="button"
               onClick={() => setMetadataOpen(true)}
-              className="w-full px-4 py-3 flex items-center justify-between gap-2 bg-gray-50 dark:bg-gray-900/30 hover:bg-gray-100 dark:hover:bg-gray-800/50 border-b border-gray-200 dark:border-gray-700 transition-colors"
+              className="w-full px-3 py-2 flex items-center justify-between gap-2 bg-gray-50/80 dark:bg-gray-900/20 hover:bg-gray-100 dark:hover:bg-gray-800/40 border-b border-gray-200 dark:border-gray-700 transition-colors"
             >
-              <span className="text-sm font-medium text-gray-700 dark:text-gray-300">
-                Document details
+              <span className="text-xs font-medium text-gray-600 dark:text-gray-400">
+                Details
               </span>
-              <ChevronDown className="w-4 h-4 text-gray-500 dark:text-gray-400" />
+              <ChevronDown className="w-3.5 h-3.5 text-gray-400 dark:text-gray-500" />
             </button>
           </div>
         )}

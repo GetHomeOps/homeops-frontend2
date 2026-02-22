@@ -168,7 +168,7 @@ function InlineDocumentPreview({
           className={`flex-1 min-h-0 ${narrowerPdf ? "max-w-lg mx-auto w-full" : "w-full"}`}
         >
           <object
-            data={url}
+            data={`${url}#toolbar=0`}
             type="application/pdf"
             className="w-full h-full min-h-[400px]"
             title={fileName || "PDF preview"}

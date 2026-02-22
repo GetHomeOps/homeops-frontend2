@@ -7,7 +7,7 @@ export const IDENTITY_SECTIONS = [
     id: "identity_address",
     label: "Identity & Address",
     description: "Core property identification and location information",
-    fields: ["address", "city", "state", "zip", "county", "taxId"],
+    fields: ["propertyName", "address", "addressLine1", "addressLine2", "city", "state", "zip", "county", "taxId"],
   },
   {
     id: "ownership_occupancy",

@@ -30,7 +30,11 @@ function isPropertyNotFoundError(err) {
   if (!(err instanceof ApiError)) return false;
   if (err.status === 404) return true;
   if (err.status === 403) {
-    const msg = (err.message || (err.messages && err.messages[0]) || "").toLowerCase();
+    const msg = (
+      err.message ||
+      (err.messages && err.messages[0]) ||
+      ""
+    ).toLowerCase();
     return msg.includes("not found");
   }
   return false;
@@ -88,6 +92,7 @@ import {
 } from "lucide-react";
 import useImageUpload from "../../hooks/useImageUpload";
 import usePresignedPreview from "../../hooks/usePresignedPreview";
+import useGooglePlacesAutocomplete from "../../hooks/useGooglePlacesAutocomplete";
 import ImageUploadField from "../../components/ImageUploadField";
 import {useTranslation} from "react-i18next";
 import Transition from "../../utils/Transition";
@@ -233,6 +238,26 @@ function reducer(state, action) {
         propertyNotFound: false,
       };
     }
+    case "REFRESH_PROPERTY_AFTER_SAVE": {
+      const payload = action.payload;
+      const nextFormData = payload
+        ? payload.identity && payload.systems
+          ? {...payload}
+          : splitFormDataByTabs(payload)
+        : {...initialFormData};
+      const savedRecords = payload ? (payload.maintenanceRecords ?? []) : [];
+      return {
+        ...state,
+        property: payload,
+        formData: nextFormData,
+        savedMaintenanceRecords: Array.isArray(savedRecords)
+          ? savedRecords
+          : [],
+        formDataChanged: false,
+        isInitialLoad: false,
+        errors: {},
+      };
+    }
     case "SET_PROPERTY_ACCESS_DENIED":
       return {...state, propertyAccessDenied: action.payload};
     case "SET_PROPERTY_NOT_FOUND":
@@ -342,6 +367,31 @@ function PropertyFormContainer() {
     currentKey: mainPhotoPresignedKey,
   } = usePresignedPreview();
 
+  /* Google Places Autocomplete for Identity tab address field */
+  const handleIdentityPlaceSelected = useCallback((parsed) => {
+    dispatch({
+      type: "SET_IDENTITY_FORM_DATA",
+      payload: {
+        address: parsed.formattedAddress,
+        addressLine1: parsed.addressLine1,
+        addressLine2: parsed.addressLine2,
+        city: parsed.city,
+        state: parsed.state,
+        zip: parsed.zip,
+        county: parsed.county,
+      },
+    });
+    dispatch({type: "SET_FORM_CHANGED", payload: true});
+  }, []);
+
+  const {
+    inputRef: identityAddressRef,
+    isLoaded: identityPlacesLoaded,
+    error: identityPlacesError,
+  } = useGooglePlacesAutocomplete({
+    onPlaceSelected: handleIdentityPlaceSelected,
+  });
+
   /* Fetch presigned URL when mainPhoto is an S3 key (not blob or http) */
   const mainPhotoKey =
     state.property?.identity?.mainPhoto ??
@@ -394,6 +444,21 @@ function PropertyFormContainer() {
   useEffect(() => {
     async function loadPropertyAndSystems() {
       if (uid === "new") return;
+      /* Use preloaded data from create flow to avoid blank/loading state */
+      const preloaded = location.state?.createdProperty;
+      const preloadedUid = location.state?.createdPropertyUid;
+      if (preloaded && preloadedUid === uid) {
+        dispatch({
+          type: "SET_PROPERTY",
+          payload: preloaded,
+        });
+        const propertyId = preloaded.identity?.id ?? preloaded.id;
+        if (propertyId) {
+          const systemsArr = await getSystemsByPropertyId(propertyId);
+          dispatch({type: "SET_SYSTEMS", payload: systemsArr ?? []});
+        }
+        return;
+      }
       try {
         const property = await getPropertyById(uid);
         const systemsArr = await getSystemsByPropertyId(property.id);
@@ -725,8 +790,33 @@ function PropertyFormContainer() {
           await createMaintenanceRecords(propertyId, payloads);
         }
 
+        /* Fetch the created property so we can pass it in nav state and avoid the loading/blank screen */
+        const refreshed = await getPropertyById(newUid);
+        const rawRecords = await getMaintenanceRecordsByPropertyId(propertyId);
+        const maintenanceRecordsFromCreate = mapMaintenanceRecordsFromBackend(
+          rawRecords ?? [],
+        );
+        setMaintenanceRecords(maintenanceRecordsFromCreate);
+        originalMaintenanceRecordIdsRef.current = new Set(
+          (maintenanceRecordsFromCreate ?? [])
+            .filter((r) => !isNewMaintenanceRecord(r))
+            .map((r) => r.id),
+        );
+        const systemsFromBackend = await getSystemsByPropertyId(propertyId);
+        const preloadedPayload = {
+          ...buildPropertyPayloadFromRefresh(
+            refreshed,
+            systemsFromBackend ?? [],
+            res,
+          ),
+          maintenanceRecords: maintenanceRecordsFromCreate ?? [],
+        };
+
         navigate(`/${dbUrl}/properties/${newUid}`, {
+          replace: true,
           state: {
+            createdProperty: preloadedPayload,
+            createdPropertyUid: newUid,
             currentIndex: properties.length + 1,
             totalItems: properties.length + 1,
             visiblePropertyIds: [
@@ -826,15 +916,40 @@ function PropertyFormContainer() {
       if (res) {
         await updateTeam(res.id, prepareTeamForProperty(homeopsTeam));
 
-        /* If current user removed themselves from the team, they no longer have access; go to list */
-        const stillOnTeam = homeopsTeam.some(
-          (m) => m && String(m.id) === String(currentUser?.id),
-        );
-        if (!stillOnTeam) {
-          dispatch({type: "SET_SUBMITTING", payload: false});
-          navigate(`/${dbUrl}/properties`);
-          return;
+        const teamAfterUpdate = await getPropertyTeam(uid);
+        const propertyUsers = teamAfterUpdate?.property_users ?? [];
+
+        /* Only redirect if current user removed themselves (no longer on team). Skip for super_admin – they have platform-wide access and should stay on the property to see the success message. */
+        const isSuperAdmin =
+          (currentUser?.role ?? "").toLowerCase() === "super_admin";
+        if (!isSuperAdmin) {
+          const currentUserId = currentUser?.id;
+          const stillOnTeam =
+            currentUserId == null
+              ? true
+              : propertyUsers.some(
+                  (m) =>
+                    m && String(m.id ?? m.user_id) === String(currentUserId),
+                );
+          if (!stillOnTeam) {
+            dispatch({type: "SET_SUBMITTING", payload: false});
+            navigate(`/${dbUrl}/properties`);
+            return;
+          }
         }
+        /* Sync local team with server so UI matches after save */
+        const enriched = propertyUsers.map((m) => {
+          const u = users?.find(
+            (us) => us && m?.id != null && Number(us.id) === Number(m.id),
+          );
+          return {
+            ...m,
+            role: m.property_role ?? m.role,
+            image_url: m.image_url ?? u?.image_url,
+            image: m.image ?? u?.image,
+          };
+        });
+        setHomeopsTeam(enriched);
 
         const systemsArray = formSystemsToArray(
           mergeFormDataFromTabs(state.formData) ?? {},
@@ -895,7 +1010,7 @@ function PropertyFormContainer() {
         );
         const systemsFromBackend = await getSystemsByPropertyId(res.id);
         dispatch({
-          type: "SET_PROPERTY",
+          type: "REFRESH_PROPERTY_AFTER_SAVE",
           payload: {
             ...buildPropertyPayloadFromRefresh(
               refreshed,
@@ -978,11 +1093,15 @@ function PropertyFormContainer() {
     ? mergeFormDataFromTabs(state.property)
     : mergedFormData;
 
-  // HPS score: use backend value when saved, otherwise compute from form data
-  const displayHpsScore =
-    state.property != null
-      ? (cardData.hpsScore ?? cardData.hps_score ?? 0)
-      : computeHpsScore(mergedFormData);
+  // HPS score: use backend value when present, otherwise compute from current data so score shows on first load
+  const backendScore = cardData.hpsScore ?? cardData.hps_score;
+  const hasBackendScore =
+    backendScore != null && Number.isFinite(Number(backendScore));
+  const displayHpsScore = hasBackendScore
+    ? Math.round(Number(backendScore))
+    : computeHpsScore(
+        state.property ? mergeFormDataFromTabs(state.property) : mergedFormData,
+      );
 
   // Systems to show in Systems tab: only those with included=true (from modal selection)
   const visibleSystemIds = state.formData.systems?.selectedSystemIds ?? [];
@@ -1000,16 +1119,20 @@ function PropertyFormContainer() {
   console.log("maintenanceRecords: ", maintenanceRecords);
   console.log("Porperty Form Container: ", state.formData);
 
-  // While loading an existing property, don't show empty form; show loading until we get data or a 403/404
+  // While loading an existing property, don't show empty form; show loading until we get data or a 403/404.
+  // Never show loading during save so the form doesn't briefly disappear.
   const loadingExisting =
     uid !== "new" &&
     state.property == null &&
     !state.propertyNotFound &&
-    !state.propertyAccessDenied;
+    !state.propertyAccessDenied &&
+    !state.isSubmitting;
   if (loadingExisting) {
     return (
       <div className="px-4 sm:px-6 lg:px-1 pt-1 flex items-center justify-center min-h-[40vh]">
-        <div className="text-gray-500 dark:text-gray-400">Loading property...</div>
+        <div className="text-gray-500 dark:text-gray-400">
+          Loading property...
+        </div>
       </div>
     );
   }
@@ -1067,15 +1190,13 @@ function PropertyFormContainer() {
         skipIdentityStep={uid !== "new"}
         formData={mergedFormData}
         onIdentityFieldsChange={(fields) => {
+          const payload = {};
+          for (const [key, value] of Object.entries(fields)) {
+            if (value !== undefined) payload[key] = value;
+          }
           dispatch({
             type: "SET_IDENTITY_FORM_DATA",
-            payload: {
-              address: fields.address,
-              city: fields.city,
-              state: fields.state,
-              zip: fields.zip,
-              county: fields.county,
-            },
+            payload,
           });
         }}
         onSave={({selectedIds, customNames}) => {
@@ -1498,7 +1619,14 @@ function PropertyFormContainer() {
                           Property Location
                         </span>
                       </div>
-                      <h1 className="text-xl md:text-2xl font-bold text-gray-900 dark:text-white mb-1 leading-tight">
+                      {cardData.propertyName && (
+                        <h1 className="text-xl md:text-2xl font-bold text-gray-900 dark:text-white mb-0.5 leading-tight">
+                          {cardData.propertyName}
+                        </h1>
+                      )}
+                      <h1
+                        className={`${cardData.propertyName ? "text-base text-gray-600 dark:text-gray-300" : "text-xl md:text-2xl text-gray-900 dark:text-white"} font-bold mb-1 leading-tight`}
+                      >
                         {cardData.address || "—"}
                       </h1>
                       <p className="text-sm text-gray-600 dark:text-gray-300 font-medium">
@@ -1614,189 +1742,198 @@ function PropertyFormContainer() {
           canEditAgent={currentUser?.role?.toLowerCase() !== "homeowner"}
         />
 
-        {/* Wrapper for sticky save bar - starts at Property Health so bar appears when scrolling there */}
-        <div className="space-y-8">
-          {/* Property Health & Completeness */}
-          <section className="bg-white dark:bg-gray-800 rounded-2xl shadow-sm border border-gray-200 dark:border-gray-700 p-5 md:p-6">
-            <ScoreCard propertyData={mergedFormData} />
-          </section>
+        {/* Property Health & Completeness */}
+        <section className="bg-white dark:bg-gray-800 rounded-2xl shadow-sm border border-gray-200 dark:border-gray-700 p-5 md:p-6">
+          <ScoreCard propertyData={mergedFormData} />
+        </section>
 
-          {/* Navigation Tabs */}
-          <section
-            className={`bg-white dark:bg-gray-800 shadow-sm border border-gray-200 dark:border-gray-700 ${
-              state.formDataChanged || state.isNew
-                ? "rounded-t-2xl border-b-0"
-                : "rounded-2xl"
-            }`}
-          >
-            <div className="border-b border-gray-200 dark:border-gray-700 px-6">
-              <nav className="flex flex-wrap gap-1">
-                {tabs.map((tab) => {
-                  const icons = {
-                    identity: FileText,
-                    systems: Settings,
-                    maintenance: Wrench,
-                    documents: FileText,
-                    media: ImageIcon,
-                  };
-                  const Icon = icons[tab.id] || FileText;
-                  return (
-                    <button
-                      key={tab.id}
-                      onClick={() =>
-                        dispatch({type: "SET_ACTIVE_TAB", payload: tab.id})
-                      }
-                      className={`py-4 px-4 text-sm font-medium transition border-b-2 flex items-center gap-2 ${
-                        state.activeTab === tab.id
-                          ? "border-transparent text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-300"
-                          : "border-transparent text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-300"
-                      }`}
-                      style={
-                        state.activeTab === tab.id
-                          ? {
-                              borderBottomColor: "#456654",
-                              color: "#456654",
-                            }
-                          : {}
-                      }
-                    >
-                      <Icon className="w-4 h-4" />
-                      {tab.label}
-                    </button>
-                  );
-                })}
-              </nav>
-            </div>
-            <div className="p-6">
-              {state.activeTab === "identity" && (
-                <IdentityTab
-                  propertyData={mergedFormData}
-                  handleInputChange={handleChange}
-                  errors={state.errors}
-                />
-              )}
+        {/* Navigation Tabs */}
+        <section
+          className={`bg-white dark:bg-gray-800 shadow-sm border border-gray-200 dark:border-gray-700 ${
+            state.formDataChanged || state.isNew
+              ? "rounded-t-2xl border-b-0"
+              : "rounded-2xl"
+          }`}
+        >
+          <div className="border-b border-gray-200 dark:border-gray-700 px-6">
+            <nav className="flex flex-wrap gap-1">
+              {tabs.map((tab) => {
+                const icons = {
+                  identity: FileText,
+                  systems: Settings,
+                  maintenance: Wrench,
+                  documents: FileText,
+                  media: ImageIcon,
+                };
+                const Icon = icons[tab.id] || FileText;
+                return (
+                  <button
+                    key={tab.id}
+                    onClick={() =>
+                      dispatch({type: "SET_ACTIVE_TAB", payload: tab.id})
+                    }
+                    className={`py-4 px-4 text-sm font-medium transition border-b-2 flex items-center gap-2 ${
+                      state.activeTab === tab.id
+                        ? "border-transparent text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-300"
+                        : "border-transparent text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-300"
+                    }`}
+                    style={
+                      state.activeTab === tab.id
+                        ? {
+                            borderBottomColor: "#456654",
+                            color: "#456654",
+                          }
+                        : {}
+                    }
+                  >
+                    <Icon className="w-4 h-4" />
+                    {tab.label}
+                  </button>
+                );
+              })}
+            </nav>
+          </div>
+          <div className="p-6">
+            {state.activeTab === "identity" && (
+              <IdentityTab
+                propertyData={mergedFormData}
+                handleInputChange={handleChange}
+                errors={state.errors}
+                addressInputRef={identityAddressRef}
+                placesLoaded={identityPlacesLoaded}
+                placesError={identityPlacesError}
+              />
+            )}
 
-              {state.activeTab === "systems" && (
-                <SystemsTab
-                  propertyData={mergedFormData}
-                  handleInputChange={handleChange}
-                  visibleSystemIds={visibleSystemIds}
-                  customSystemsData={
-                    state.formData.systems?.customSystemsData ?? {}
-                  }
-                  onSystemsCompletionChange={handleSystemsCompletionChange}
-                />
-              )}
+            {state.activeTab === "systems" && (
+              <SystemsTab
+                propertyData={mergedFormData}
+                handleInputChange={handleChange}
+                visibleSystemIds={visibleSystemIds}
+                customSystemsData={
+                  state.formData.systems?.customSystemsData ?? {}
+                }
+                onSystemsCompletionChange={handleSystemsCompletionChange}
+              />
+            )}
 
-              {state.activeTab === "maintenance" && (
-                <MaintenanceTab
-                  propertyData={mergedFormData}
-                  maintenanceRecords={state.formData.maintenanceRecords ?? []}
-                  savedMaintenanceRecords={state.savedMaintenanceRecords ?? []}
-                  onMaintenanceRecordsChange={(records) =>
-                    dispatch({
-                      type: "SET_MAINTENANCE_FORM_DATA",
-                      payload: records,
-                    })
-                  }
-                  onMaintenanceRecordAdded={() => {
-                    setTimeout(() => {
-                      saveBarRef.current?.scrollIntoView?.({
-                        behavior: "smooth",
-                        block: "nearest",
-                      });
-                    }, 100);
-                  }}
-                  contacts={contacts ?? []}
-                />
-              )}
+            {state.activeTab === "maintenance" && (
+              <MaintenanceTab
+                propertyData={mergedFormData}
+                maintenanceRecords={state.formData.maintenanceRecords ?? []}
+                savedMaintenanceRecords={state.savedMaintenanceRecords ?? []}
+                onMaintenanceRecordsChange={(records) =>
+                  dispatch({
+                    type: "SET_MAINTENANCE_FORM_DATA",
+                    payload: records,
+                  })
+                }
+                onMaintenanceRecordAdded={() => {
+                  setTimeout(() => {
+                    saveBarRef.current?.scrollIntoView?.({
+                      behavior: "smooth",
+                      block: "nearest",
+                    });
+                  }, 100);
+                }}
+                contacts={contacts ?? []}
+              />
+            )}
 
-              {state.activeTab === "media" && (
-                <div className="space-y-8">
-                  <div>
-                    <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-4">
-                      Media Content
-                    </h3>
-                    <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-                      {(state.formData.identity?.photos ?? []).map(
-                        (photo, index) => (
-                          <div
-                            key={photo}
-                            className="relative overflow-hidden rounded-2xl h-48 bg-gray-100"
-                          >
-                            <img
-                              src={photo}
-                              alt={`Property photo ${index + 1}`}
-                              className="w-full h-full object-cover"
-                            />
-                          </div>
-                        ),
-                      )}
-                    </div>
+            {state.activeTab === "media" && (
+              <div className="space-y-8">
+                <div>
+                  <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-4">
+                    Media Content
+                  </h3>
+                  <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                    {(state.formData.identity?.photos ?? []).map(
+                      (photo, index) => (
+                        <div
+                          key={photo}
+                          className="relative overflow-hidden rounded-2xl h-48 bg-gray-100"
+                        >
+                          <img
+                            src={photo}
+                            alt={`Property photo ${index + 1}`}
+                            className="w-full h-full object-cover"
+                          />
+                        </div>
+                      ),
+                    )}
                   </div>
                 </div>
-              )}
+              </div>
+            )}
 
-              {state.activeTab === "photos" && (
-                <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-                  {(state.formData.identity?.photos ?? []).map(
-                    (photo, index) => (
-                      <div
-                        key={photo}
-                        className="relative overflow-hidden rounded-2xl h-48 bg-gray-100"
-                      >
-                        <img
-                          src={photo}
-                          alt={`Property photo ${index + 1}`}
-                          className="w-full h-full object-cover"
-                        />
-                      </div>
-                    ),
-                  )}
-                </div>
-              )}
+            {state.activeTab === "photos" && (
+              <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                {(state.formData.identity?.photos ?? []).map((photo, index) => (
+                  <div
+                    key={photo}
+                    className="relative overflow-hidden rounded-2xl h-48 bg-gray-100"
+                  >
+                    <img
+                      src={photo}
+                      alt={`Property photo ${index + 1}`}
+                      className="w-full h-full object-cover"
+                    />
+                  </div>
+                ))}
+              </div>
+            )}
 
-              {state.activeTab === "documents" && (
+            {state.activeTab === "documents" && (
+              <React.Suspense
+                fallback={
+                  <div className="flex items-center justify-center py-16 text-gray-500 dark:text-gray-400">
+                    <Loader2 className="w-8 h-8 animate-spin mr-2" />
+                    Loading documents…
+                  </div>
+                }
+              >
                 <DocumentsTab propertyData={mergedFormData} />
-              )}
-            </div>
-          </section>
+              </React.Suspense>
+            )}
+          </div>
+        </section>
 
-          {/* Save/Cancel bar - attached to tabs section (negative margin removes gap), sticky at bottom */}
-          <div
-            ref={saveBarRef}
-            className={`${
-              state.formDataChanged || state.isNew ? "sticky" : "hidden"
-            } bottom-0 -mt-8 bg-white dark:bg-gray-800 border-t border-x border-b border-gray-200 dark:border-gray-700 px-6 py-4 rounded-b-2xl transition-all duration-200`}
-          >
-            <div className="flex justify-end gap-3">
-              <button
-                type="button"
-                className="btn bg-white dark:bg-gray-800 border-gray-200 dark:border-gray-700 hover:border-gray-300 dark:hover:border-gray-600 text-gray-800 dark:text-gray-300 transition-colors duration-200 shadow-sm"
-                onClick={handleCancelChanges}
-              >
-                Cancel
-              </button>
-              <button
-                type="button"
-                className="btn text-white transition-colors duration-200 shadow-sm min-w-[100px] bg-[#456564] hover:bg-[#34514f] flex items-center justify-center gap-2"
-                onClick={state.isNew ? handleSubmit : handleUpdate}
-              >
-                {state.isSubmitting && (
-                  <Loader2 className="w-4 h-4 animate-spin shrink-0" aria-hidden />
-                )}
-                {state.isSubmitting
-                  ? state.isNew
-                    ? "Saving..."
-                    : "Updating..."
-                  : state.isNew
-                    ? "Save"
-                    : "Update"}
-              </button>
-            </div>
+        {/* Save/Cancel bar - sticky at bottom, visible as soon as form is in view */}
+        <div
+          ref={saveBarRef}
+          className={`${
+            state.formDataChanged || state.isNew ? "sticky" : "hidden"
+          } bottom-0 -mt-8 bg-white dark:bg-gray-800 border-t border-x border-b border-gray-200 dark:border-gray-700 px-6 py-4 rounded-b-2xl transition-all duration-200`}
+        >
+          <div className="flex justify-end gap-3">
+            <button
+              type="button"
+              className="btn bg-white dark:bg-gray-800 border-gray-200 dark:border-gray-700 hover:border-gray-300 dark:hover:border-gray-600 text-gray-800 dark:text-gray-300 transition-colors duration-200 shadow-sm"
+              onClick={handleCancelChanges}
+            >
+              Cancel
+            </button>
+            <button
+              type="button"
+              className="btn text-white transition-colors duration-200 shadow-sm min-w-[100px] bg-[#456564] hover:bg-[#34514f] flex items-center justify-center gap-2"
+              onClick={state.isNew ? handleSubmit : handleUpdate}
+            >
+              {state.isSubmitting && (
+                <Loader2
+                  className="w-4 h-4 animate-spin shrink-0"
+                  aria-hidden
+                />
+              )}
+              {state.isSubmitting
+                ? state.isNew
+                  ? "Saving..."
+                  : "Updating..."
+                : state.isNew
+                  ? "Save"
+                  : "Update"}
+            </button>
           </div>
         </div>
-        {/* End wrapper for sticky save bar */}
       </div>
     </div>
   );

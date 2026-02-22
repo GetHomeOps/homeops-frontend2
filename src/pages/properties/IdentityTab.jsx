@@ -29,24 +29,36 @@ function Field({
   onChange,
   required = false,
   error,
+  inputRef,
+  hint,
+  uncontrolled = false,
 }) {
   const errorClasses = error
     ? "border-red-300 dark:border-red-500 focus:border-red-500 focus:ring-red-500 dark:focus:border-red-500 dark:focus:ring-red-500"
     : "";
+  const inputProps = uncontrolled
+    ? {defaultValue: value ?? "", autoComplete: "off"}
+    : {value: value ?? "", onChange};
+
   return (
     <div>
       <label className="block text-sm font-medium text-gray-500 dark:text-gray-400 mb-1">
         {label}
         {required && <span className="text-red-500 ml-0.5">*</span>}
+        {hint && (
+          <span className="ml-2 text-emerald-500 text-[10px] font-normal">
+            {hint}
+          </span>
+        )}
       </label>
       <input
+        ref={inputRef}
         type={type}
         name={name}
-        value={value ?? ""}
-        onChange={onChange}
         placeholder={placeholder}
         className={`${inputClassName} ${errorClasses}`}
         required={required}
+        {...inputProps}
       />
       {error && (
         <div className="mt-1 flex items-center text-sm text-red-500">
@@ -172,7 +184,14 @@ function SectionWithProgress({
   );
 }
 
-function IdentityTab({propertyData, handleInputChange, errors = {}}) {
+function IdentityTab({
+  propertyData,
+  handleInputChange,
+  errors = {},
+  addressInputRef,
+  placesLoaded,
+  placesError,
+}) {
   return (
     <div className="space-y-4">
       {/* Identity + Address */}
@@ -186,6 +205,17 @@ function IdentityTab({propertyData, handleInputChange, errors = {}}) {
           <div className="md:col-span-3">
             <Field
               onChange={handleInputChange}
+              label="Property Name"
+              name="propertyName"
+              value={propertyData.propertyName}
+              placeholder="e.g. Lakewood Estate, My Home"
+            />
+          </div>
+
+          <div className="md:col-span-3">
+            <Field
+              inputRef={addressInputRef}
+              uncontrolled
               label="Address"
               name="address"
               value={
@@ -201,11 +231,29 @@ function IdentityTab({propertyData, handleInputChange, errors = {}}) {
                   .join(", ") ||
                 ""
               }
-              placeholder="Street, City, State ZIP"
+              placeholder="Start typing an address to search..."
               required
-              error={errors.address}
+              error={errors.address || placesError}
+              hint={placesLoaded ? "Autocomplete active" : undefined}
             />
           </div>
+
+          <div className="md:col-span-2">
+            <Field
+              onChange={handleInputChange}
+              label="Address Line 1"
+              name="addressLine1"
+              value={propertyData.addressLine1}
+              placeholder="e.g. 123 Main St"
+            />
+          </div>
+          <Field
+            onChange={handleInputChange}
+            label="Address Line 2"
+            name="addressLine2"
+            value={propertyData.addressLine2}
+            placeholder="e.g. Apt 4, Suite 200"
+          />
 
           <Field
             onChange={handleInputChange}

@@ -29,16 +29,18 @@ function Signin() {
   const errorMessage =
     formErrors.length === 0
       ? null
-      : formErrors.map((e) =>
-          typeof e === "string" ? e : e?.message || String(e)
-        ).join(" ");
+      : formErrors
+          .map((e) => (typeof e === "string" ? e : e?.message || String(e)))
+          .join(" ");
 
   // Navigate after successful login when currentUser is available (redirect-after-login from ProtectedRoute)
   useEffect(() => {
     if (justLoggedIn.current && currentUser) {
       const from = location.state?.from;
       const isInternalPath =
-        typeof from === "string" && from.startsWith("/") && !from.startsWith("//");
+        typeof from === "string" &&
+        from.startsWith("/") &&
+        !from.startsWith("//");
       if (isInternalPath && from !== "/signin" && from !== "/signup") {
         navigate(from, {replace: true});
       } else if (currentUser.databases && currentUser.databases.length > 0) {
@@ -65,8 +67,14 @@ function Signin() {
       await login(formData);
       justLoggedIn.current = true;
     } catch (err) {
-      const raw = err?.messages ?? (Array.isArray(err) ? err : [err?.message || err?.toString?.() || String(err)]);
-      const messages = raw.map((e) => (typeof e === "string" ? e : e?.message || String(e)));
+      const raw =
+        err?.messages ??
+        (Array.isArray(err)
+          ? err
+          : [err?.message || err?.toString?.() || String(err)]);
+      const messages = raw.map((e) =>
+        typeof e === "string" ? e : e?.message || String(e),
+      );
       setFormErrors(messages);
       justLoggedIn.current = false;
     } finally {
@@ -157,7 +165,10 @@ function Signin() {
                   className="btn bg-gray-900 text-gray-100 hover:bg-gray-800 dark:bg-gray-100 dark:text-gray-800 dark:hover:bg-white shrink-0 flex items-center justify-center gap-2"
                 >
                   {isSubmitting && (
-                    <Loader2 className="w-4 h-4 animate-spin shrink-0" aria-hidden />
+                    <Loader2
+                      className="w-4 h-4 animate-spin shrink-0"
+                      aria-hidden
+                    />
                   )}
                   {isSubmitting ? t("signingIn") : t("signIn")}
                 </button>

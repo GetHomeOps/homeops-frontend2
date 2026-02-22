@@ -14,7 +14,10 @@ const IDENTITY_FORM_KEYS = new Set([
 
 /** Identity/string fields the backend expects as strings (send "" instead of null). */
 const STRING_KEYS = new Set([
+  "propertyName",
   "address",
+  "addressLine1",
+  "addressLine2",
   "city",
   "state",
   "zip",
@@ -98,7 +101,10 @@ const INSTALLER_ID_KEYS = new Set([
 /** CamelCase -> snake_case for known property fields (identity + form). */
 const SNAKE_MAP = {
   id: "id",
+  propertyName: "property_name",
   address: "address",
+  addressLine1: "address_line_1",
+  addressLine2: "address_line_2",
   city: "city",
   state: "state",
   zip: "zip",
@@ -345,7 +351,7 @@ export function preparePropertyValues(propertyData) {
   }
 
   // Ensure identity string fields are always sent as strings (backend rejects null)
-  const identityStringKeys = ["address", "city", "state", "zip", "county"];
+  const identityStringKeys = ["propertyName", "address", "addressLine1", "addressLine2", "city", "state", "zip", "county"];
   for (const camelKey of identityStringKeys) {
     const snakeKey = toSnakeCase(camelKey);
     const v = out[snakeKey];

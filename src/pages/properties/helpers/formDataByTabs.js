@@ -12,7 +12,10 @@ const MAINTENANCE_KEYS = new Set(["maintenanceHistory"]);
 
 const initialIdentity = {
   id: null,
+  propertyName: "",
   address: "",
+  addressLine1: "",
+  addressLine2: "",
   city: "",
   state: "",
   zip: "",

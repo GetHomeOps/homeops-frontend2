@@ -142,13 +142,39 @@ button {
   html,
   body,
   #root {
-    font-family: "Inter", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto,
-      "Helvetica Neue", Arial, sans-serif !important;
+    font-family:
+      "Inter",
+      -apple-system,
+      BlinkMacSystemFont,
+      "Segoe UI",
+      Roboto,
+      "Helvetica Neue",
+      Arial,
+      sans-serif !important;
+  }
+
+  /* Remove default black focus outline; forms use custom focus:ring for consistency */
+  input:focus,
+  select:focus,
+  textarea:focus {
+    outline: none;
   }
 }
 
 /* Font-inter utility class */
 .font-inter {
-  font-family: "Inter", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto,
-    "Helvetica Neue", Arial, sans-serif !important;
+  font-family:
+    "Inter",
+    -apple-system,
+    BlinkMacSystemFont,
+    "Segoe UI",
+    Roboto,
+    "Helvetica Neue",
+    Arial,
+    sans-serif !important;
+}
+
+/* Google Places Autocomplete dropdown – must sit above modals (z-[200]) */
+.pac-container {
+  z-index: 10000 !important;
 }

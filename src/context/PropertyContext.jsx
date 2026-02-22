@@ -3,6 +3,8 @@ import AppApi from "../api/api";
 import useLocalStorage from "../hooks/useLocalStorage";
 import {useAuth} from "./AuthContext";
 import useCurrentDb from "../hooks/useCurrentDb";
+import {computeHpsScore} from "../pages/properties/helpers/computeHpsScore";
+import {mapPropertyFromBackend} from "../pages/properties/helpers/preparePropertyValues";
 
 const PropertyContext = createContext();
 
@@ -12,18 +14,24 @@ export function PropertyProvider({children}) {
   const [maintenanceRecords, setMaintenanceRecords] = useState([]);
   const [selectedItems, setSelectedItems] = useState([]);
   const [viewMode, setViewMode] = useLocalStorage(
-    "properties-view-mode",
-    "list",
+    "properties-view-mode-v2",
+    "grid",
   );
   const {currentUser, isLoading} = useAuth();
   const {currentDb} = useCurrentDb();
 
-  /** Normalize property for list display - ensure health value from hps_score/hpsScore */
+  /** Normalize property for list display - ensure health value from hps_score/hpsScore.
+   *  When the backend has no persisted score, compute it from the property's identity data. */
   function normalizePropertyForList(property) {
     if (!property || typeof property !== "object") return property;
+    const stored = property.hps_score ?? property.hpsScore ?? property.health;
+    const health =
+      stored != null && Number.isFinite(Number(stored))
+        ? Number(stored)
+        : computeHpsScore(mapPropertyFromBackend(property));
     return {
       ...property,
-      health: property.hps_score ?? property.hpsScore ?? property.health ?? 0,
+      health,
     };
   }
 
@@ -319,7 +327,7 @@ export function PropertyProvider({children}) {
       createMaintenanceRecords,
       refreshProperties: fetchProperties,
     }),
-    [properties, currentDb, maintenanceRecords],
+    [properties, currentDb, maintenanceRecords, viewMode],
   );
 
   return (
