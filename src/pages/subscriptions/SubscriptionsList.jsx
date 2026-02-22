@@ -9,7 +9,7 @@ import Banner from "../../partials/containers/Banner";
 import ModalBlank from "../../components/ModalBlank";
 import DataTable from "../../components/DataTable";
 import DataTableItem from "../../components/DataTableItem";
-import useCurrentDb from "../../hooks/useCurrentDb";
+import useCurrentAccount from "../../hooks/useCurrentAccount";
 import AppApi from "../../api/api";
 import ListDropdown from "../../partials/buttons/ListDropdown";
 
@@ -70,8 +70,8 @@ function SubscriptionsList() {
 
   const navigate = useNavigate();
   const {t} = useTranslation();
-  const {currentDb} = useCurrentDb();
-  const dbUrl = currentDb?.url || currentDb?.name || "";
+  const {currentAccount} = useCurrentAccount();
+  const accountUrl = currentAccount?.url || currentAccount?.name || "";
 
   // Sort state
   const [sortConfig, setSortConfig] = useState({key: null, direction: null});
@@ -241,7 +241,7 @@ function SubscriptionsList() {
   function handleSubscriptionClick(subscription) {
     const visibleIds = filteredSubscriptions.map((s) => s.id);
     const currentIndex = visibleIds.indexOf(subscription.id) + 1;
-    navigate(`/${dbUrl}/subscriptions/${subscription.id}`, {
+    navigate(`/${accountUrl}/subscriptions/${subscription.id}`, {
       state: {
         currentIndex,
         totalItems: visibleIds.length,
@@ -351,7 +351,7 @@ function SubscriptionsList() {
   const columns = [
     {
       key: "databaseName",
-      label: t("subscriptions.database"),
+      label: t("subscriptions.account"),
       sortable: true,
       render: (value) => value || "—",
     },
@@ -521,7 +521,7 @@ function SubscriptionsList() {
                 {/* Add Subscription button */}
                 <button
                   className="btn bg-gray-900 text-gray-100 hover:bg-gray-800 dark:bg-gray-100 dark:text-gray-800 dark:hover:bg-white"
-                  onClick={() => navigate(`/${dbUrl}/subscriptions/new`)}
+                  onClick={() => navigate(`/${accountUrl}/subscriptions/new`)}
                 >
                   <svg
                     className="fill-current shrink-0 xs:hidden"

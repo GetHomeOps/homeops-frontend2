@@ -70,7 +70,7 @@ function AgentHome() {
   const {
     properties,
     getPropertyTeam,
-    currentDb,
+    currentAccount,
   } = useContext(PropertyContext);
   const { users } = useContext(UserContext);
   const { contacts } = useContext(ContactContext);
@@ -81,7 +81,7 @@ function AgentHome() {
   const fetchedKeysRef = useRef(new Set());
   const fetchedTeamUidsRef = useRef(new Set());
 
-  const dbUrl = currentDb?.url || currentDb?.name || "";
+  const accountUrl = currentAccount?.url || currentAccount?.name || "";
   const agentName =
     currentUser?.fullName?.split(" ")[0] ||
     currentUser?.name?.split(" ")[0] ||
@@ -383,7 +383,7 @@ function AgentHome() {
   const goToProperty = (property) => {
     if (!property) return;
     const uid = property.property_uid ?? property.id;
-    navigate(`/${dbUrl}/properties/${uid}`);
+    navigate(`/${accountUrl}/properties/${uid}`);
   };
 
   // ─── Loading State ──────────────────────────────────────────────
@@ -439,7 +439,7 @@ function AgentHome() {
             </span>
           </div>
           <button
-            onClick={() => navigate(`/${dbUrl}/properties`)}
+            onClick={() => navigate(`/${accountUrl}/properties`)}
             className="text-sm font-medium text-[#456564] dark:text-emerald-400 flex items-center gap-1 hover:text-[#3a5554] dark:hover:text-emerald-300 transition-colors"
           >
             {t("agentHome.viewAll") || "View all"}
@@ -459,7 +459,7 @@ function AgentHome() {
                   "No properties assigned yet. Create your first property to get started."}
               </p>
               <button
-                onClick={() => navigate(`/${dbUrl}/properties/new`)}
+                onClick={() => navigate(`/${accountUrl}/properties/new`)}
                 className="inline-flex items-center gap-2 px-5 py-2.5 bg-[#456564] text-white rounded-xl font-medium text-sm hover:bg-[#3a5554] transition-colors"
               >
                 {t("agentHome.createProperty") || "Create property"}

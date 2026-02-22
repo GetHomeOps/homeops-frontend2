@@ -387,14 +387,23 @@ export function prepareIdentityForUpdate(identityData) {
  * @param {Array} team - Array of user/team member objects
  * @returns {Array} Same array with each member's role lowercased
  */
+const VALID_PROPERTY_ROLES = new Set(["owner", "editor", "viewer"]);
+
+function toPropertyRole(role) {
+  const lower = typeof role === "string" ? role.toLowerCase() : "editor";
+  if (VALID_PROPERTY_ROLES.has(lower)) return lower;
+  if (lower === "super_admin" || lower === "admin" || lower === "agent") return "editor";
+  if (lower === "homeowner") return "editor";
+  return "editor";
+}
+
 export function prepareTeamForProperty(team) {
   if (!Array.isArray(team)) return [];
   return team.map((member) => {
     if (!member || typeof member !== "object") return member;
-    const role = member.role;
     return {
       ...member,
-      role: typeof role === "string" ? role.toLowerCase() : role,
+      role: toPropertyRole(member.property_role || member.role),
     };
   });
 }

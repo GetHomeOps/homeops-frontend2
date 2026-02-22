@@ -1,6 +1,6 @@
 import React, {useMemo, useState} from "react";
 import {useNavigate, useLocation, useParams} from "react-router-dom";
-import useCurrentDb from "../../hooks/useCurrentDb";
+import useCurrentAccount from "../../hooks/useCurrentAccount";
 import SystemsTab from "./SystemsTab";
 import MaintenanceTab from "./MaintenanceTab";
 import IdentityTab from "./IdentityTab";
@@ -187,8 +187,8 @@ function PropertyFormContainer() {
   const navigate = useNavigate();
   const location = useLocation();
   const {id} = useParams();
-  const {currentDb} = useCurrentDb();
-  const dbUrl = currentDb?.url || currentDb?.name || "";
+  const {currentAccount} = useCurrentAccount();
+  const accountUrl = currentAccount?.url || currentAccount?.name || "";
   const [propertyData, setPropertyData] = useState(createInitialPropertyState);
   const [activeTab, setActiveTab] = useState("identity");
   const [formChanged, setFormChanged] = useState(false);
@@ -232,8 +232,8 @@ function PropertyFormContainer() {
     setFormChanged(true);
   };
 
-  const handleBackToProperties = () => navigate(`/${dbUrl}/properties`);
-  const handleNewProperty = () => navigate(`/${dbUrl}/properties/new`);
+  const handleBackToProperties = () => navigate(`/${accountUrl}/properties`);
+  const handleNewProperty = () => navigate(`/${accountUrl}/properties/new`);
 
   const handleCancelChanges = () => {
     setPropertyData(createInitialPropertyState());
@@ -325,7 +325,7 @@ function PropertyFormContainer() {
                           navState.visiblePropertyIds[prevIndex];
                         const prevNavState =
                           buildNavigationState(prevPropertyId);
-                        navigate(`/${dbUrl}/properties/${prevPropertyId}`, {
+                        navigate(`/${accountUrl}/properties/${prevPropertyId}`, {
                           state: prevNavState || {
                             ...navState,
                             currentIndex: navState.currentIndex - 1,
@@ -364,7 +364,7 @@ function PropertyFormContainer() {
                           navState.visiblePropertyIds[nextIndex];
                         const nextNavState =
                           buildNavigationState(nextPropertyId);
-                        navigate(`/${dbUrl}/properties/${nextPropertyId}`, {
+                        navigate(`/${accountUrl}/properties/${nextPropertyId}`, {
                           state: nextNavState || {
                             ...navState,
                             currentIndex: navState.currentIndex + 1,
@@ -580,7 +580,7 @@ function PropertyFormContainer() {
         <HomeOpsTeam
           teamMembers={propertyData.teamMembers}
           propertyId={propertyData.id}
-          dbUrl={dbUrl}
+          accountUrl={accountUrl}
         />
 
         {/* Property Health & Completeness */}

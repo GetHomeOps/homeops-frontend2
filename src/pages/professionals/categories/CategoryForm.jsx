@@ -1,7 +1,7 @@
 import React from "react";
 import {useNavigate} from "react-router-dom";
 import {Layers, Tag, Users, ArrowRight} from "lucide-react";
-import useCurrentDb from "../../../hooks/useCurrentDb";
+import useCurrentAccount from "../../../hooks/useCurrentAccount";
 
 const ICON_OPTIONS = [
   {value: "leaf", label: "Leaf"},
@@ -26,8 +26,8 @@ function CategoryForm({
   onChange,
 }) {
   const navigate = useNavigate();
-  const {currentDb} = useCurrentDb();
-  const dbUrl = currentDb?.url || currentDb?.name || "";
+  const {currentAccount} = useCurrentAccount();
+  const accountUrl = currentAccount?.url || currentAccount?.name || "";
 
   const isParent = formData.type === "parent";
 
@@ -312,13 +312,13 @@ function CategoryForm({
                 key={child.id}
                 className="flex items-center justify-between px-6 py-3 hover:bg-gray-50 dark:hover:bg-gray-700/30 transition-colors cursor-pointer"
                 onClick={() =>
-                  navigate(`/${dbUrl}/professionals/categories/${child.id}`)
+                  navigate(`/${accountUrl}/professionals/categories/${child.id}`)
                 }
                 role="button"
                 tabIndex={0}
                 onKeyDown={(e) =>
                   e.key === "Enter" &&
-                  navigate(`/${dbUrl}/professionals/categories/${child.id}`)
+                  navigate(`/${accountUrl}/professionals/categories/${child.id}`)
                 }
               >
                 <div className="flex items-center gap-3">

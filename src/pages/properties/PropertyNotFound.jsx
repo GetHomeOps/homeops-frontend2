@@ -7,9 +7,9 @@ import {FileQuestion, ArrowLeft, LayoutGrid} from "lucide-react";
  * Renders within the property layout so sidebar/navbar remain.
  */
 function PropertyNotFound() {
-  const {dbUrl} = useParams();
+  const {accountUrl} = useParams();
 
-  const propertiesListUrl = dbUrl ? `/${dbUrl}/properties` : "/";
+  const propertiesListUrl = accountUrl ? `/${accountUrl}/properties` : "/";
 
   return (
     <div className="max-w-lg mx-auto py-12 px-4 text-center">
@@ -32,7 +32,7 @@ function PropertyNotFound() {
           Back to properties
         </Link>
         <Link
-          to={dbUrl ? `/${dbUrl}/home` : "/"}
+          to={accountUrl ? `/${accountUrl}/home` : "/"}
           className="btn bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 text-gray-700 dark:text-gray-300 hover:border-gray-300 dark:hover:border-gray-600 inline-flex items-center justify-center gap-2"
         >
           <ArrowLeft className="w-4 h-4" />

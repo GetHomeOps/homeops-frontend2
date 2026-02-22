@@ -12,7 +12,7 @@ import Banner from "../../partials/containers/Banner";
 import ModalBlank from "../../components/ModalBlank";
 import DatePickerInput from "../../components/DatePickerInput";
 import {useTranslation} from "react-i18next";
-import useCurrentDb from "../../hooks/useCurrentDb";
+import useCurrentAccount from "../../hooks/useCurrentAccount";
 import {useAutoCloseBanner} from "../../hooks/useAutoCloseBanner";
 import AppApi from "../../api/api";
 
@@ -111,8 +111,8 @@ function SubscriptionFormContainer() {
   const routeLocation = useLocation();
   const {t} = useTranslation();
   const navigate = useNavigate();
-  const {currentDb} = useCurrentDb();
-  const dbUrl = currentDb?.url || currentDb?.name || "";
+  const {currentAccount} = useCurrentAccount();
+  const accountUrl = currentAccount?.url || currentAccount?.name || "";
 
   const isNew = !id || id === "new";
 
@@ -256,7 +256,7 @@ function SubscriptionFormContainer() {
       const res = await AppApi.createSubscription(data);
 
       if (res && res.id) {
-        navigate(`/${dbUrl}/subscriptions/${res.id}`);
+        navigate(`/${accountUrl}/subscriptions/${res.id}`);
         setTimeout(() => {
           dispatch({
             type: "SET_BANNER",
@@ -334,7 +334,7 @@ function SubscriptionFormContainer() {
     try {
       dispatch({type: "SET_DANGER_MODAL", payload: false});
       await AppApi.deleteSubscription(Number(id));
-      navigate(`/${dbUrl}/subscriptions`);
+      navigate(`/${accountUrl}/subscriptions`);
     } catch (error) {
       dispatch({
         type: "SET_BANNER",
@@ -357,12 +357,12 @@ function SubscriptionFormContainer() {
       dispatch({type: "SET_FORM_CHANGED", payload: false});
       dispatch({type: "SET_ERRORS", payload: {}});
     } else {
-      navigate(`/${dbUrl}/subscriptions`);
+      navigate(`/${accountUrl}/subscriptions`);
     }
   }
 
   function handleBackClick() {
-    navigate(`/${dbUrl}/subscriptions`);
+    navigate(`/${accountUrl}/subscriptions`);
   }
 
   function getPageTitle() {
@@ -515,7 +515,7 @@ function SubscriptionFormContainer() {
           <div className="flex items-center gap-3">
             <button
               className="btn bg-[#456564] hover:bg-[#34514f] text-white transition-colors duration-200 shadow-sm"
-              onClick={() => navigate(`/${dbUrl}/subscriptions/new`)}
+              onClick={() => navigate(`/${accountUrl}/subscriptions/new`)}
             >
               {t("new")}
             </button>
@@ -592,7 +592,7 @@ function SubscriptionFormContainer() {
                       title={t("previous") || "Previous"}
                       onClick={() => {
                         if (prevId != null) {
-                          navigate(`/${dbUrl}/subscriptions/${prevId}`, {
+                          navigate(`/${accountUrl}/subscriptions/${prevId}`, {
                             state: {
                               ...navState,
                               currentIndex: currentIndex - 1,
@@ -621,7 +621,7 @@ function SubscriptionFormContainer() {
                       title={t("next") || "Next"}
                       onClick={() => {
                         if (nextId != null) {
-                          navigate(`/${dbUrl}/subscriptions/${nextId}`, {
+                          navigate(`/${accountUrl}/subscriptions/${nextId}`, {
                             state: {
                               ...navState,
                               currentIndex: currentIndex + 1,
@@ -704,13 +704,13 @@ function SubscriptionFormContainer() {
                     {t("subscriptions.subscriptionDetails")}
                   </h3>
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                    {/* Database: read-only */}
+                    {/* Account: read-only */}
                     <div>
                       <label className={getLabelClasses()}>
-                        {t("subscriptions.database")}
+                        {t("subscriptions.account")}
                       </label>
                       <div className="form-input w-full bg-gray-100 dark:bg-gray-800 text-gray-600 dark:text-gray-400 cursor-not-allowed">
-                        {state.subscription?.databaseName || currentDb?.name || "—"}
+                        {state.subscription?.databaseName || currentAccount?.name || "—"}
                       </div>
                     </div>
 

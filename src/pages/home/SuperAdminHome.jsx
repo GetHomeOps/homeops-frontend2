@@ -75,10 +75,10 @@ function SuperAdminHome() {
 
   const [summary, setSummary] = useState(null);
   const [dailyMetrics, setDailyMetrics] = useState([]);
-  const [growthDb, setGrowthDb] = useState([]);
+  const [growthAccounts, setGrowthAccounts] = useState([]);
   const [growthProps, setGrowthProps] = useState([]);
   const [growthUsers, setGrowthUsers] = useState([]);
-  const [databaseAnalytics, setDatabaseAnalytics] = useState([]);
+  const [accountAnalytics, setAccountAnalytics] = useState([]);
   const [engagementCounts, setEngagementCounts] = useState([]);
   const [engagementTrend, setEngagementTrend] = useState([]);
   const [analyticsLoading, setAnalyticsLoading] = useState(true);
@@ -98,7 +98,7 @@ function SuperAdminHome() {
     currentUser?.name?.split(" ")[0] ||
     "Admin";
 
-  const databases = currentUser?.databases || [];
+  const accounts = currentUser?.accounts || [];
 
   // ─── Fetch platform analytics (real data from backend views) ───────
   useEffect(() => {
@@ -114,20 +114,20 @@ function SuperAdminHome() {
     Promise.all([
       AppApi.getAnalyticsSummary().catch((e) => (cancelled ? null : (setAnalyticsError(e?.messages?.[0] || "Summary failed"), null))),
       AppApi.getAnalyticsDaily({ startDate: startStr, endDate: endStr }).then((m) => (cancelled ? [] : m || [])).catch(() => []),
-      AppApi.getAnalyticsGrowth("databases", 8).then((g) => (cancelled ? [] : g || [])).catch(() => []),
+      AppApi.getAnalyticsGrowth("accounts", 8).then((g) => (cancelled ? [] : g || [])).catch(() => []),
       AppApi.getAnalyticsGrowth("properties", 8).then((g) => (cancelled ? [] : g || [])).catch(() => []),
       AppApi.getAnalyticsGrowth("users", 8).then((g) => (cancelled ? [] : g || [])).catch(() => []),
-      AppApi.getAnalyticsDatabases().then((a) => (cancelled ? [] : a || [])).catch(() => []),
+      AppApi.getAnalyticsAccounts().then((a) => (cancelled ? [] : a || [])).catch(() => []),
       AppApi.getEngagementCounts({ startDate: startStr, endDate: endStr }).then((c) => (cancelled ? [] : c || [])).catch(() => []),
       AppApi.getEngagementTrend({ startDate: startStr, endDate: endStr }).then((tr) => (cancelled ? [] : tr || [])).catch(() => []),
-    ]).then(([s, daily, gDb, gProps, gUsers, dbAnalytics, counts, trend]) => {
+    ]).then(([s, daily, gAccounts, gProps, gUsers, acctAnalytics, counts, trend]) => {
       if (cancelled) return;
       if (s) setSummary(s);
       setDailyMetrics(Array.isArray(daily) ? daily : []);
-      setGrowthDb(Array.isArray(gDb) ? gDb : []);
+      setGrowthAccounts(Array.isArray(gAccounts) ? gAccounts : []);
       setGrowthProps(Array.isArray(gProps) ? gProps : []);
       setGrowthUsers(Array.isArray(gUsers) ? gUsers : []);
-      setDatabaseAnalytics(Array.isArray(dbAnalytics) ? dbAnalytics : []);
+      setAccountAnalytics(Array.isArray(acctAnalytics) ? acctAnalytics : []);
       setEngagementCounts(Array.isArray(counts) ? counts : []);
       setEngagementTrend(Array.isArray(trend) ? trend : []);
       setAnalyticsLoading(false);
@@ -136,7 +136,7 @@ function SuperAdminHome() {
   }, [timeframeDays]);
 
   // Use summary for platform totals when available; fallback to context
-  const totalDatabases = summary?.totalDatabases ?? databases.length;
+  const totalAccounts = summary?.totalAccounts ?? accounts.length;
   const totalProperties = summary?.totalProperties ?? properties?.length ?? 0;
   const totalUsers = summary?.totalUsers ?? users?.length ?? 0;
 
@@ -174,10 +174,10 @@ function SuperAdminHome() {
         color: status?.toLowerCase() === "active" ? "#456564" : "#94a3b8",
       }));
       const paid = summary.subscriptionsByStatus.reduce((s, { count }) => s + count, 0) || 0;
-      return { paid, free: Math.max(0, totalDatabases - paid), segments };
+      return { paid, free: Math.max(0, totalAccounts - paid), segments };
     }
-    const paid = Math.max(0, summary?.totalSubscriptions ?? Math.round(totalDatabases * 0.35));
-    const free = Math.max(0, totalDatabases - paid);
+    const paid = Math.max(0, summary?.totalSubscriptions ?? Math.round(totalAccounts * 0.35));
+    const free = Math.max(0, totalAccounts - paid);
     return {
       paid,
       free,
@@ -186,13 +186,13 @@ function SuperAdminHome() {
         { label: t("superAdminHome.freePlans") || "Free", value: free, color: "#d1d5db" },
       ],
     };
-  }, [summary, totalDatabases, t]);
+  }, [summary, totalAccounts, t]);
 
   // Growth chart data from API (month, count)
-  const databaseGrowth = useMemo(() => {
-    if (!growthDb?.length) return [];
-    return growthDb.map(({ month, count }) => ({ label: formatMonth(month), value: count }));
-  }, [growthDb]);
+  const accountGrowth = useMemo(() => {
+    if (!growthAccounts?.length) return [];
+    return growthAccounts.map(({ month, count }) => ({ label: formatMonth(month), value: count }));
+  }, [growthAccounts]);
   const propertyGrowth = useMemo(() => {
     if (!growthProps?.length) return [];
     return growthProps.map(({ month, count }) => ({ label: formatMonth(month), value: count }));
@@ -205,20 +205,20 @@ function SuperAdminHome() {
   // Platform KPIs from summary or computed
   const platformKpis = useMemo(() => {
     return {
-      avgPropertiesPerDb: summary
-        ? String(summary.avgPropertiesPerDatabase ?? 0)
-        : (totalDatabases > 0 ? (totalProperties / totalDatabases).toFixed(1) : "0"),
-      avgUsersPerDb: summary
-        ? String(summary.avgUsersPerDatabase ?? 0)
-        : (totalDatabases > 0 ? (totalUsers / totalDatabases).toFixed(1) : "0"),
+      avgPropertiesPerAccount: summary
+        ? String(summary.avgPropertiesPerAccount ?? 0)
+        : (totalAccounts > 0 ? (totalProperties / totalAccounts).toFixed(1) : "0"),
+      avgUsersPerAccount: summary
+        ? String(summary.avgUsersPerAccount ?? 0)
+        : (totalAccounts > 0 ? (totalUsers / totalAccounts).toFixed(1) : "0"),
       avgHealthScore: summary?.avgHpsScore ?? (properties?.length
         ? Math.round(
             properties.reduce((sum, p) => sum + (p.hps_score ?? p.hpsScore ?? p.health ?? 0), 0) / properties.length,
           )
         : 0),
-      activeDatabases: totalDatabases,
+      activeAccounts: totalAccounts,
     };
-  }, [summary, totalDatabases, totalProperties, totalUsers, properties]);
+  }, [summary, totalAccounts, totalProperties, totalUsers, properties]);
 
   const roleBarData = useMemo(() => [
     { label: "HO", value: roleDistribution.homeowners },
@@ -271,7 +271,7 @@ function SuperAdminHome() {
         </h1>
         <p className="text-gray-500 dark:text-gray-400 mt-1 text-sm">
           {t("superAdminHome.subtitle") ||
-            "Platform-level overview of databases, properties, users, and engagement."}
+            "Platform-level overview of accounts, properties, users, and engagement."}
         </p>
       </div>
 
@@ -280,7 +280,7 @@ function SuperAdminHome() {
       {/* ============================================ */}
       <SuperAdminHomeStats
         t={t}
-        totalDatabases={totalDatabases}
+        totalAccounts={totalAccounts}
         totalProperties={totalProperties}
         totalUsers={totalUsers}
         subscriptionData={subscriptionData}
@@ -295,16 +295,16 @@ function SuperAdminHome() {
         setTimeframeDays={setTimeframeDays}
         TIMEFRAME_OPTIONS={TIMEFRAME_OPTIONS}
         chartOptions={chartOptions}
-        databaseGrowth={databaseGrowth}
+        accountGrowth={accountGrowth}
         propertyGrowth={propertyGrowth}
         userGrowth={userGrowth}
         analyticsLoading={analyticsLoading}
-        databaseAnalytics={databaseAnalytics}
+        accountAnalytics={accountAnalytics}
         subscriptionData={subscriptionData}
         roleDistribution={roleDistribution}
         roleBarData={roleBarData}
         platformKpis={platformKpis}
-        totalDatabases={totalDatabases}
+        totalAccounts={totalAccounts}
         engagementTrend={engagementTrend}
         engagementCounts={engagementCounts}
         summary={summary}

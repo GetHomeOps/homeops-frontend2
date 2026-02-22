@@ -10,7 +10,7 @@ import {
 } from "../../data/propertyImportSchema";
 import Sidebar from "../../partials/Sidebar";
 import Header from "../../partials/Header";
-import useCurrentDb from "../../hooks/useCurrentDb";
+import useCurrentAccount from "../../hooks/useCurrentAccount";
 import AppApi from "../../api/api";
 import propertyContext from "../../context/PropertyContext";
 import {
@@ -160,9 +160,9 @@ const STEPS = [
 
 function PropertiesImport() {
   const navigate = useNavigate();
-  const { currentDb } = useCurrentDb();
+  const { currentAccount } = useCurrentAccount();
   const { refreshProperties } = useContext(propertyContext);
-  const dbUrl = currentDb?.url || "";
+  const accountUrl = currentAccount?.url || "";
 
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [pendingFile, setPendingFile] = useState(null);
@@ -375,7 +375,7 @@ function PropertiesImport() {
               <button
                 type="button"
                 onClick={() =>
-                  navigate(dbUrl ? `/${dbUrl}/properties` : "/properties")
+                  navigate(accountUrl ? `/${accountUrl}/properties` : "/properties")
                 }
                 className="flex items-center gap-2 text-base text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white transition-colors py-1"
               >
@@ -748,7 +748,7 @@ function PropertiesImport() {
                           {importSuccessCount} propert{importSuccessCount !== 1 ? "ies" : "y"} created.
                           <button
                             type="button"
-                            onClick={() => navigate(dbUrl ? `/${dbUrl}/properties` : "/properties")}
+                            onClick={() => navigate(accountUrl ? `/${accountUrl}/properties` : "/properties")}
                             className="underline hover:no-underline"
                           >
                             View properties

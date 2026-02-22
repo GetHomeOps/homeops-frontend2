@@ -233,7 +233,7 @@ function HomeownerHome() {
     getPropertyById,
     getSystemsByPropertyId,
     getMaintenanceRecordsByPropertyId,
-    currentDb,
+    currentAccount,
   } = useContext(PropertyContext);
   const {users} = useContext(UserContext);
 
@@ -248,7 +248,7 @@ function HomeownerHome() {
   const [remindersModalOpen, setRemindersModalOpen] = useState(false);
   const [reminderFilter, setReminderFilter] = useState("all");
 
-  const dbUrl = currentDb?.url || currentDb?.name || "";
+  const accountUrl = currentAccount?.url || currentAccount?.name || "";
   const homeownerName =
     currentUser?.fullName?.split(" ")[0] ||
     currentUser?.name?.split(" ")[0] ||
@@ -443,7 +443,7 @@ function HomeownerHome() {
   const goToProperty = () => {
     if (!activeProperty) return;
     const uid = activeProperty.property_uid ?? activeProperty.id;
-    navigate(`/${dbUrl}/properties/${uid}`);
+    navigate(`/${accountUrl}/properties/${uid}`);
   };
 
   // ─── Computed values for active property ─────────────────────────────────────
@@ -496,7 +496,7 @@ function HomeownerHome() {
                   </p>
                   <button
                     type="button"
-                    onClick={() => navigate(dbUrl ? `/${dbUrl}/properties` : "/")}
+                    onClick={() => navigate(accountUrl ? `/${accountUrl}/properties` : "/")}
                     className="inline-flex items-center gap-2 px-4 py-2 rounded-xl bg-white/10 text-white text-sm font-medium hover:bg-white/20 transition-colors"
                   >
                     View properties

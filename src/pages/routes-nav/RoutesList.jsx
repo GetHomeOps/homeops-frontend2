@@ -4,8 +4,9 @@ import {Routes, Route, Navigate} from "react-router-dom";
 import "../../css/style.css";
 
 import {useAuth} from "../../context/AuthContext";
-import useCurrentDb from "../../hooks/useCurrentDb";
+import useCurrentAccount from "../../hooks/useCurrentAccount";
 import ProtectedRoute from "./ProtectedRoute";
+import AdminRoute from "./AdminRoute";
 import PublicRoute from "./PublicRoute";
 
 // Public pages (no sidebar/navbar for unauthenticated users)
@@ -40,10 +41,18 @@ import ProfessionalProfile from "../professionals/ProfessionalProfile";
 import ProfessionalFormContainer from "../professionals/ProfessionalFormContainer";
 import CategoriesList from "../professionals/categories/CategoriesList";
 import CategoryFormContainer from "../professionals/categories/CategoryFormContainer";
+import DashboardOverview from "../dashboard/DashboardOverview";
+import AccountAnalytics from "../dashboard/AccountAnalytics";
+import CostAnalytics from "../dashboard/CostAnalytics";
+import EngagementDashboard from "../dashboard/EngagementDashboard";
+import GrowthDashboard from "../dashboard/GrowthDashboard";
+import InvitationsList from "../invitations/InvitationsList";
+import BillingPage from "../settings/BillingPage";
+import ConfigurationPage from "../settings/ConfigurationPage";
 
 function RoutesList() {
   const {currentUser, isLoading} = useAuth();
-  const {currentDb} = useCurrentDb();
+  const {currentAccount} = useCurrentAccount();
 
   // Show nothing while checking authentication
   if (isLoading) {
@@ -88,7 +97,7 @@ function RoutesList() {
         }
       />
       <Route
-        path="/settings/databases"
+        path="/settings/accounts"
         element={
           <ProtectedRoute>
             <Databases />
@@ -96,15 +105,23 @@ function RoutesList() {
         }
       />
       <Route
-        path="/:dbUrl/home"
+        path="/:accountUrl/home"
         element={
           <ProtectedRoute>
             <Main />
           </ProtectedRoute>
         }
       />
+      <Route path="/:accountUrl/dashboard" element={<ProtectedRoute><DashboardOverview /></ProtectedRoute>} />
+      <Route path="/:accountUrl/dashboard/accounts" element={<ProtectedRoute><AccountAnalytics /></ProtectedRoute>} />
+      <Route path="/:accountUrl/dashboard/costs" element={<ProtectedRoute><CostAnalytics /></ProtectedRoute>} />
+      <Route path="/:accountUrl/dashboard/engagement" element={<ProtectedRoute><EngagementDashboard /></ProtectedRoute>} />
+      <Route path="/:accountUrl/dashboard/growth" element={<ProtectedRoute><GrowthDashboard /></ProtectedRoute>} />
+      <Route path="/:accountUrl/invitations" element={<ProtectedRoute><InvitationsList /></ProtectedRoute>} />
+      <Route path="/:accountUrl/settings/billing" element={<ProtectedRoute><BillingPage /></ProtectedRoute>} />
+      <Route path="/:accountUrl/settings/configuration" element={<ProtectedRoute><ConfigurationPage /></ProtectedRoute>} />
       <Route
-        path="/:dbUrl/contacts"
+        path="/:accountUrl/contacts"
         element={
           <ProtectedRoute>
             <ContactList />
@@ -112,7 +129,7 @@ function RoutesList() {
         }
       />
       <Route
-        path="/:dbUrl/contacts/import"
+        path="/:accountUrl/contacts/import"
         element={
           <ProtectedRoute>
             <ContactsImport />
@@ -120,7 +137,7 @@ function RoutesList() {
         }
       />
       <Route
-        path="/:dbUrl/contacts/new"
+        path="/:accountUrl/contacts/new"
         element={
           <ProtectedRoute>
             <Contact />
@@ -128,7 +145,7 @@ function RoutesList() {
         }
       />
       <Route
-        path="/:dbUrl/contacts/:id"
+        path="/:accountUrl/contacts/:id"
         element={
           <ProtectedRoute>
             <Contact />
@@ -136,31 +153,31 @@ function RoutesList() {
         }
       />
       <Route
-        path="/:dbUrl/users"
+        path="/:accountUrl/users"
         element={
-          <ProtectedRoute>
+          <AdminRoute>
             <UsersList />
-          </ProtectedRoute>
+          </AdminRoute>
         }
       />
       <Route
-        path="/:dbUrl/users/import"
+        path="/:accountUrl/users/import"
         element={
-          <ProtectedRoute>
+          <AdminRoute>
             <UsersImport />
-          </ProtectedRoute>
+          </AdminRoute>
         }
       />
       <Route
-        path="/:dbUrl/users/:id"
+        path="/:accountUrl/users/:id"
         element={
-          <ProtectedRoute>
+          <AdminRoute>
             <User />
-          </ProtectedRoute>
+          </AdminRoute>
         }
       />
       <Route
-        path="/:dbUrl/properties"
+        path="/:accountUrl/properties"
         element={
           <ProtectedRoute>
             <PropertiesList />
@@ -168,7 +185,7 @@ function RoutesList() {
         }
       />
       <Route
-        path="/:dbUrl/properties/import"
+        path="/:accountUrl/properties/import"
         element={
           <ProtectedRoute>
             <PropertiesImport />
@@ -176,7 +193,7 @@ function RoutesList() {
         }
       />
       <Route
-        path="/:dbUrl/properties/:uid"
+        path="/:accountUrl/properties/:uid"
         element={
           <ProtectedRoute>
             <Property />
@@ -184,7 +201,7 @@ function RoutesList() {
         }
       />
       <Route
-        path="/:dbUrl/properties/:uid/maintenance/:systemId/:recordId"
+        path="/:accountUrl/properties/:uid/maintenance/:systemId/:recordId"
         element={
           <ProtectedRoute>
             <MaintenanceRecordPage />
@@ -192,7 +209,7 @@ function RoutesList() {
         }
       />
       <Route
-        path="/:dbUrl/professionals"
+        path="/:accountUrl/professionals"
         element={
           <ProtectedRoute>
             <ProfessionalDirectory />
@@ -200,7 +217,7 @@ function RoutesList() {
         }
       />
       <Route
-        path="/:dbUrl/professionals/search"
+        path="/:accountUrl/professionals/search"
         element={
           <ProtectedRoute>
             <CategoryDirectoryPage />
@@ -208,7 +225,7 @@ function RoutesList() {
         }
       />
       <Route
-        path="/:dbUrl/professionals/manage"
+        path="/:accountUrl/professionals/manage"
         element={
           <ProtectedRoute>
             <ProfessionalFormContainer />
@@ -216,7 +233,7 @@ function RoutesList() {
         }
       />
       <Route
-        path="/:dbUrl/professionals/categories"
+        path="/:accountUrl/professionals/categories"
         element={
           <ProtectedRoute>
             <CategoriesList />
@@ -224,7 +241,7 @@ function RoutesList() {
         }
       />
       <Route
-        path="/:dbUrl/professionals/categories/:categoryId"
+        path="/:accountUrl/professionals/categories/:categoryId"
         element={
           <ProtectedRoute>
             <CategoryFormContainer />
@@ -232,7 +249,7 @@ function RoutesList() {
         }
       />
       <Route
-        path="/:dbUrl/professionals/:proId"
+        path="/:accountUrl/professionals/:proId"
         element={
           <ProtectedRoute>
             <ProfessionalProfile />
@@ -240,7 +257,7 @@ function RoutesList() {
         }
       />
       <Route
-        path="/:dbUrl/my-professionals"
+        path="/:accountUrl/my-professionals"
         element={
           <ProtectedRoute>
             <MyProfessionals />
@@ -248,7 +265,7 @@ function RoutesList() {
         }
       />
       <Route
-        path="/:dbUrl/subscriptions"
+        path="/:accountUrl/subscriptions"
         element={
           <ProtectedRoute>
             <SubscriptionsList />
@@ -256,7 +273,7 @@ function RoutesList() {
         }
       />
       <Route
-        path="/:dbUrl/subscriptions/new"
+        path="/:accountUrl/subscriptions/new"
         element={
           <ProtectedRoute>
             <Subscription />
@@ -264,7 +281,7 @@ function RoutesList() {
         }
       />
       <Route
-        path="/:dbUrl/subscriptions/:id"
+        path="/:accountUrl/subscriptions/:id"
         element={
           <ProtectedRoute>
             <Subscription />
@@ -272,7 +289,7 @@ function RoutesList() {
         }
       />
       <Route
-        path="/:dbUrl/subscription-products"
+        path="/:accountUrl/subscription-products"
         element={
           <ProtectedRoute>
             <SubscriptionProductsList />
@@ -280,7 +297,7 @@ function RoutesList() {
         }
       />
       <Route
-        path="/:dbUrl/subscription-products/new"
+        path="/:accountUrl/subscription-products/new"
         element={
           <ProtectedRoute>
             <SubscriptionProduct />
@@ -288,7 +305,7 @@ function RoutesList() {
         }
       />
       <Route
-        path="/:dbUrl/subscription-products/:id"
+        path="/:accountUrl/subscription-products/:id"
         element={
           <ProtectedRoute>
             <SubscriptionProduct />
@@ -296,7 +313,7 @@ function RoutesList() {
         }
       />
       <Route
-        path="/:dbUrl/invite/:invitation"
+        path="/:accountUrl/invite/:invitation"
         element={
           <ProtectedRoute>
             <UserConfirmationEmail />
@@ -304,7 +321,7 @@ function RoutesList() {
         }
       />
       <Route
-        path="/:dbUrl/pdfexample"
+        path="/:accountUrl/pdfexample"
         element={
           <ProtectedRoute>
             <PdfFileExample />
@@ -320,14 +337,13 @@ function RoutesList() {
         path="/"
         element={
           currentUser ? (
-            currentDb?.url ? (
-              <Navigate to={`/${currentDb.url}/home`} replace />
+            currentAccount?.url ? (
+              <Navigate to={`/${currentAccount.url}/home`} replace />
             ) : (
-              // Handle no DB: show picker or error instead of loop/blank
               <div>
-                <h1>No database selected!</h1>
+                <h1>No account selected!</h1>
                 <p>
-                  Choose one from <a href="/settings/databases">Databases</a> or
+                  Choose one from <a href="/settings/accounts">Accounts</a> or
                   create new.
                 </p>
               </div>

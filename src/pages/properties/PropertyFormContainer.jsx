@@ -305,10 +305,10 @@ function PropertyFormContainer() {
   const [state, dispatch] = useReducer(reducer, initialState);
   const navigate = useNavigate();
   const location = useLocation();
-  const {uid, dbUrl: dbUrlParam} = useParams(); // dbUrl from route, uid is property_uid
+  const {uid, accountUrl: accountUrlParam} = useParams();
   const {t} = useTranslation();
   const {
-    currentDb,
+    currentAccount,
     createProperty,
     createSystemsForProperty,
     properties,
@@ -330,7 +330,7 @@ function PropertyFormContainer() {
   const {users} = useContext(UserContext);
   const {contacts} = useContext(ContactContext);
   const {currentUser} = useAuth();
-  const dbUrl = dbUrlParam || currentDb?.url || currentDb?.name || "";
+  const accountUrl = accountUrlParam || currentAccount?.url || currentAccount?.name || "";
   const [homeopsTeam, setHomeopsTeam] = useState([]);
   const [systemsSetupModalOpen, setSystemsSetupModalOpen] = useState(false);
   const [actionsDropdownOpen, setActionsDropdownOpen] = useState(false);
@@ -747,6 +747,7 @@ function PropertyFormContainer() {
       const merged = mergeFormDataFromTabs(state.formData);
       merged.hpsScore = computeHpsScore(merged);
       const propertyData = preparePropertyValues(merged);
+      propertyData.account_id = currentAccount?.id;
       const res = await createProperty(propertyData);
       if (res) {
         const propertyId = res.id;
@@ -812,7 +813,7 @@ function PropertyFormContainer() {
           maintenanceRecords: maintenanceRecordsFromCreate ?? [],
         };
 
-        navigate(`/${dbUrl}/properties/${newUid}`, {
+        navigate(`/${accountUrl}/properties/${newUid}`, {
           replace: true,
           state: {
             createdProperty: preloadedPayload,
@@ -860,8 +861,8 @@ function PropertyFormContainer() {
     }
   }
 
-  const handleBackToProperties = () => navigate(`/${dbUrl}/properties`);
-  const handleNewProperty = () => navigate(`/${dbUrl}/properties/new`);
+  const handleBackToProperties = () => navigate(`/${accountUrl}/properties`);
+  const handleNewProperty = () => navigate(`/${accountUrl}/properties/new`);
 
   const handleTeamChange = (team) => {
     setHomeopsTeam(team);
@@ -874,7 +875,7 @@ function PropertyFormContainer() {
       dispatch({type: "SET_FORM_CHANGED", payload: false});
     } else {
       dispatch({type: "SET_PROPERTY", payload: null});
-      navigate(`/${dbUrl}/properties`);
+      navigate(`/${accountUrl}/properties`);
     }
   };
 
@@ -933,7 +934,7 @@ function PropertyFormContainer() {
                 );
           if (!stillOnTeam) {
             dispatch({type: "SET_SUBMITTING", payload: false});
-            navigate(`/${dbUrl}/properties`);
+            navigate(`/${accountUrl}/properties`);
             return;
           }
         }
@@ -1405,7 +1406,7 @@ function PropertyFormContainer() {
                           navState.visiblePropertyIds[prevIndex];
                         const prevNavState =
                           buildNavigationState(prevPropertyId);
-                        navigate(`/${dbUrl}/properties/${prevPropertyId}`, {
+                        navigate(`/${accountUrl}/properties/${prevPropertyId}`, {
                           state: prevNavState || {
                             ...navState,
                             currentIndex: navState.currentIndex - 1,
@@ -1444,7 +1445,7 @@ function PropertyFormContainer() {
                           navState.visiblePropertyIds[nextIndex];
                         const nextNavState =
                           buildNavigationState(nextPropertyId);
-                        navigate(`/${dbUrl}/properties/${nextPropertyId}`, {
+                        navigate(`/${accountUrl}/properties/${nextPropertyId}`, {
                           state: nextNavState || {
                             ...navState,
                             currentIndex: navState.currentIndex + 1,
@@ -1736,7 +1737,7 @@ function PropertyFormContainer() {
         <HomeOpsTeam
           teamMembers={homeopsTeam}
           propertyId={state.formData.identity?.id ?? uid ?? "new"}
-          dbUrl={dbUrl}
+          accountUrl={accountUrl}
           onTeamChange={handleTeamChange}
           creatorId={uid === "new" ? currentUser?.id : undefined}
           canEditAgent={currentUser?.role?.toLowerCase() !== "homeowner"}

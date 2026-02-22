@@ -4,7 +4,7 @@ import {ArrowLeft, SlidersHorizontal, X, Search} from "lucide-react";
 
 import Sidebar from "../../partials/Sidebar";
 import Header from "../../partials/Header";
-import useCurrentDb from "../../hooks/useCurrentDb";
+import useCurrentAccount from "../../hooks/useCurrentAccount";
 import {LocationBar, ProfessionalCard, FiltersSidebar} from "./components";
 import {MOCK_PROFESSIONALS, SERVICE_CATEGORIES} from "./data/mockData";
 
@@ -24,8 +24,8 @@ function CategoryDirectoryPage() {
   const [mobileFiltersOpen, setMobileFiltersOpen] = useState(false);
   const [searchParams] = useSearchParams();
   const navigate = useNavigate();
-  const {currentDb} = useCurrentDb();
-  const dbUrl = currentDb?.url || "";
+  const {currentAccount} = useCurrentAccount();
+  const accountUrl = currentAccount?.url || "";
 
   const categoryParam = searchParams.get("category");
   const cityParam = searchParams.get("city");
@@ -125,7 +125,7 @@ function CategoryDirectoryPage() {
               <button
                 type="button"
                 onClick={() =>
-                  navigate(dbUrl ? `/${dbUrl}/professionals` : "/professionals")
+                  navigate(accountUrl ? `/${accountUrl}/professionals` : "/professionals")
                 }
                 className="inline-flex items-center gap-2 text-sm font-medium text-[#456564] dark:text-[#7aa3a2] hover:text-[#34514f] dark:hover:text-[#9ec5c4] transition-colors mb-3"
               >

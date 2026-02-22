@@ -1,7 +1,7 @@
 import React from "react";
 import {Navigate} from "react-router-dom";
 import {useAuth} from "../../context/AuthContext";
-import useCurrentDb from "../../hooks/useCurrentDb";
+import useCurrentAccount from "../../hooks/useCurrentAccount";
 
 /**
  * Wraps public-only routes (e.g. signin, signup).
@@ -10,7 +10,7 @@ import useCurrentDb from "../../hooks/useCurrentDb";
  */
 function PublicRoute({children}) {
   const {currentUser, isLoading} = useAuth();
-  const {currentDb} = useCurrentDb();
+  const {currentAccount} = useCurrentAccount();
 
   if (isLoading) {
     return (
@@ -22,7 +22,7 @@ function PublicRoute({children}) {
 
   if (currentUser) {
     const target =
-      currentDb?.url ? `/${currentDb.url}/home` : "/settings/account";
+      currentAccount?.url ? `/${currentAccount.url}/home` : "/settings/account";
     return <Navigate to={target} replace />;
   }
 

@@ -1,7 +1,7 @@
 import React, {useContext, useState} from "react";
 import {useTranslation} from "react-i18next";
 import {useNavigate} from "react-router-dom";
-import useCurrentDb from "../../hooks/useCurrentDb";
+import useCurrentAccount from "../../hooks/useCurrentAccount";
 import AuthContext from "../../context/AuthContext";
 
 function DatabasesPanel() {
@@ -14,10 +14,10 @@ function DatabasesPanel() {
 
   const {t, i18n} = useTranslation();
 
-  const {setSelectedDb} = useCurrentDb();
+  const {setSelectedAccount} = useCurrentAccount();
 
   function handleConnect(db) {
-    setSelectedDb(db.id);
+    setSelectedAccount(db.id);
     navigate(`/${db.name}`);
   }
 
@@ -33,14 +33,14 @@ function DatabasesPanel() {
         <section>
           <div className="flex items-center ml-1 mb-4">
             <h3 className="text-xl leading-snug text-gray-800 dark:text-gray-100 font-bold">
-              My Databases
+              My Accounts
             </h3>
             <button className="btn bg-gray-900 text-gray-100 hover:bg-gray-800 dark:bg-gray-100 dark:text-gray-800 dark:hover:bg-white ml-3 cursor-pointer">
               {t("create")}
             </button>
           </div>
           <ul>
-            {currentUser.databases.map((db, index) => (
+            {currentUser.accounts.map((db, index) => (
               <li
                 key={db.id}
                 className="flex justify-between items-center py-3 border-b border-gray-200 dark:border-gray-700/60"

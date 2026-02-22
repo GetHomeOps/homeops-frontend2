@@ -28,7 +28,7 @@ function isPropertyNotFoundError(err) {
  * Standalone page for viewing/editing a single maintenance record.
  * Opened via "Open in New Tab" functionality from MaintenanceTab.
  *
- * Route: /:dbUrl/properties/:uid/maintenance/:systemId/:recordId
+ * Route: /:accountUrl/properties/:uid/maintenance/:systemId/:recordId
  *
  * This allows users to:
  * - Keep reference materials open alongside the form
@@ -37,7 +37,7 @@ function isPropertyNotFoundError(err) {
  */
 function MaintenanceRecordPage() {
   const [sidebarOpen, setSidebarOpen] = useState(false);
-  const {dbUrl, uid: propertyId, systemId, recordId} = useParams();
+  const {accountUrl, uid: propertyId, systemId, recordId} = useParams();
   const navigate = useNavigate();
 
   const {getPropertyById, updateProperty} = useContext(PropertyContext);
@@ -165,7 +165,7 @@ function MaintenanceRecordPage() {
       }
 
       // Navigate back to property after deletion
-      navigate(`/${dbUrl}/properties/${propertyId}`);
+      navigate(`/${accountUrl}/properties/${propertyId}`);
     } catch (err) {
       console.error("Error deleting record:", err);
       setSaveMessage({
@@ -178,7 +178,7 @@ function MaintenanceRecordPage() {
 
   // Handle navigation back
   const handleBack = () => {
-    navigate(`/${dbUrl}/properties/${propertyId}`);
+    navigate(`/${accountUrl}/properties/${propertyId}`);
   };
 
   if (loading) {

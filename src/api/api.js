@@ -1,7 +1,9 @@
 const BASE_URL =
   import.meta.env.VITE_BASE_URL || "http://localhost:3000";
 
-/** Thrown by API request() on non-ok response. Preserves status for 403/401 handling. */
+const TOKEN_STORAGE_KEY = "app-token";
+const REFRESH_TOKEN_STORAGE_KEY = "app-refresh-token";
+
 export class ApiError extends Error {
   constructor(messages, status = 500) {
     const msg = Array.isArray(messages) ? messages[0] : messages;
@@ -11,48 +13,90 @@ export class ApiError extends Error {
   }
 }
 
-/** API Class.
- *
- * Static class tying together methods used to get/send to the API.
- * There shouldn't be any frontend-specific stuff here, and there shouldn't
- * be any API-aware stuff elsewhere in the frontend.
- *
- *
- */
 class AppApi {
-  // the token for interactive with the API will be stored here.
   static token;
+  static _refreshPromise = null;
+
+  static async refreshAccessToken() {
+    if (AppApi._refreshPromise) return AppApi._refreshPromise;
+
+    AppApi._refreshPromise = (async () => {
+      try {
+        const refreshToken = localStorage.getItem(REFRESH_TOKEN_STORAGE_KEY);
+        if (!refreshToken) throw new Error("No refresh token");
+
+        const resp = await fetch(`${BASE_URL}/auth/refresh`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ refreshToken }),
+        });
+
+        if (!resp.ok) throw new Error("Refresh failed");
+
+        const data = await resp.json();
+        AppApi.token = data.accessToken;
+        localStorage.setItem(TOKEN_STORAGE_KEY, data.accessToken);
+        localStorage.setItem(REFRESH_TOKEN_STORAGE_KEY, data.refreshToken);
+        return data.accessToken;
+      } catch (err) {
+        localStorage.removeItem(TOKEN_STORAGE_KEY);
+        localStorage.removeItem(REFRESH_TOKEN_STORAGE_KEY);
+        AppApi.token = null;
+        window.location.href = "/signin";
+        throw err;
+      } finally {
+        AppApi._refreshPromise = null;
+      }
+    })();
+
+    return AppApi._refreshPromise;
+  }
 
   static async request(endpoint, data = {}, method = "GET", customHeaders = {}) {
     const url = new URL(`${BASE_URL}/${endpoint}`);
     const headers = {
       Authorization: `Bearer ${AppApi.token}`, "Content-Type": "application/json", ...customHeaders
     };
-
     url.search = (method === "GET") ? new URLSearchParams(data) : "";
-
-    // set to undefined since the body property cannot exist on a GET method
     const body = (method !== "GET") ? JSON.stringify(data) : undefined;
 
-    const resp = await fetch(url, { method, body, headers });
+    let resp = await fetch(url, { method, body, headers });
+
+    if (resp.status === 401 && !endpoint.startsWith("auth/")) {
+      try {
+        await AppApi.refreshAccessToken();
+        headers.Authorization = `Bearer ${AppApi.token}`;
+        resp = await fetch(url, { method, body, headers });
+      } catch {
+        throw new ApiError(["Session expired. Please sign in again."], 401);
+      }
+    }
 
     if (!resp.ok) {
       console.error("API Error:", resp.statusText, resp.status);
-      const body = await resp.json().catch(() => ({}));
-      const message = body?.error?.message ?? resp.statusText;
+      const errBody = await resp.json().catch(() => ({}));
+      const message = errBody?.error?.message ?? resp.statusText;
       const messages = Array.isArray(message) ? message : [message];
       throw new ApiError(messages, resp.status);
     }
-
     return await resp.json();
   }
 
-  /** Request with FormData body (no Content-Type; browser sets multipart boundary). */
   static async requestFormData(endpoint, formData, method = "POST") {
     const url = new URL(`${BASE_URL}/${endpoint}`);
     const headers = { Authorization: `Bearer ${AppApi.token}` };
 
-    const resp = await fetch(url, { method, body: formData, headers });
+    let resp = await fetch(url, { method, body: formData, headers });
+
+    if (resp.status === 401 && !endpoint.startsWith("auth/")) {
+      try {
+        await AppApi.refreshAccessToken();
+        headers.Authorization = `Bearer ${AppApi.token}`;
+        resp = await fetch(url, { method, body: formData, headers });
+      } catch {
+        throw new ApiError(["Session expired. Please sign in again."], 401);
+      }
+    }
 
     if (!resp.ok) {
       console.error("API Error:", resp.statusText, resp.status);
@@ -61,125 +105,143 @@ class AppApi {
       const messages = Array.isArray(message) ? message : [message];
       throw new ApiError(messages, resp.status);
     }
-
     return await resp.json();
   }
 
-  // Individual API routes
-
   /* --------- Users --------- */
 
-  /** Get the current user. */
   static async getCurrentUser(username) {
     let res = await this.request(`users/${username}`);
     return res.user;
   }
 
-  /** Get token for login from username, password. */
   static async login(data) {
     let res = await this.request(`auth/token`, data, "POST");
-    return res.token;
+    return { accessToken: res.accessToken, refreshToken: res.refreshToken };
   }
 
-  /** Signup for site. */
   static async signup(data) {
     let res = await this.request(`auth/register`, data, "POST");
     return res;
   }
 
-  /** Save user profile page. */
   static async saveProfile(username, data) {
     let res = await this.request(`users/${username}`, data, "PATCH");
     return res.user;
   }
 
-  /** Get all users */
   static async getAllUsers() {
     let res = await this.request(`users`);
     return res.users;
   }
 
-  /** Get users by database ID */
-  static async getUsersByDatabaseId(databaseId) {
-    let res = await this.request(`users/db/${databaseId}`);
+  static async getUsersByAccountId(accountId) {
+    let res = await this.request(`users/account/${accountId}`);
     return res.users;
   }
 
-  /* Get by Agent Id */
   static async getUsersByAgentId(agentId) {
-    console.log("Agent ID: ", agentId);
     let res = await this.request(`users/agent/${agentId}`);
     return res.users;
   }
 
-  /* Update a user */
   static async updateUser(id, data) {
     let res = await this.request(`users/${id}`, data, 'PATCH');
     return res.user;
   }
 
-  /** Delete a user */
+  static async adminCreateUser(data) {
+    let res = await this.request(`users`, data, "POST");
+    return res.user;
+  }
+
   static async deleteUser(id) {
     let res = await this.request(`users/${id}`, {}, 'DELETE');
     return res;
   }
 
-  /** Add user to database */
-  static async addUserToDatabase(data) {
-    let res = await this.request(`user_databases`, data, "POST");
-    return res.userDatabase || res.user_database;
-  }
-
-  /* Activate a user */
   static async activateUser(data) {
     let res = await this.request(`users/activate/${data.userId}`, data, 'POST');
     return res;
   }
 
+  /* --------- Accounts --------- */
 
-  /* --- User Invitation --- */
+  static async createAccount(data) {
+    let res = await this.request(`accounts`, data, "POST");
+    return res.account;
+  }
 
-  /* New User Confirmation */
-  static async createUserConfirmationToken(data) {
-    let res = await this.request(`users/invite`, data, 'POST');
+  static async addUserToAccount(data) {
+    let res = await this.request(`accounts/account_users`, data, "POST");
+    return res.accountUser;
+  }
+
+  static async getUserAccounts(userId) {
+    let res = await this.request(`accounts/user/${userId}`);
+    return res.accounts;
+  }
+
+  /* --------- Invitations --------- */
+
+  static async createInvitation(data) {
+    let res = await this.request(`invitations`, data, "POST");
     return res;
   }
 
-  /* Find a valid user invitation token by user ID */
-  static async findInvitationToken(userId) {
-    let res = await this.request(`users/invite/${userId}`);
-    return res.result;
+  static async acceptInvitation(id, data) {
+    let res = await this.request(`invitations/${id}/accept`, data, "POST");
+    return res;
   }
 
-  /* Confirm a user invitation */
+  static async declineInvitation(id) {
+    let res = await this.request(`invitations/${id}/decline`, {}, "POST");
+    return res;
+  }
+
+  static async revokeInvitation(id) {
+    let res = await this.request(`invitations/${id}/revoke`, {}, "POST");
+    return res;
+  }
+
+  static async getSentInvitations() {
+    let res = await this.request(`invitations/sent`);
+    return res.invitations;
+  }
+
+  static async getPropertyInvitations(propertyId, params = {}) {
+    let res = await this.request(`invitations/property/${propertyId}`, params);
+    return res.invitations;
+  }
+
+  static async getAccountInvitations(accountId, params = {}) {
+    let res = await this.request(`invitations/account/${accountId}`, params);
+    return res.invitations;
+  }
+
   static async confirmInvitation(data) {
     let res = await this.request(`auth/confirm`, data, 'POST');
     return res;
   }
 
-  /* --------- Databases --------- */
-
-  /** Create a new database */
-  static async createDatabase(data) {
-    let res = await this.request(`databases`, data, "POST");
-    return res.database;
+  static async changePassword(currentPassword, newPassword) {
+    return this.request(`auth/change-password`, { currentPassword, newPassword }, "POST");
   }
 
-  /** Create a user_database record (link user to database) */
-  static async addUserToDatabase(data) {
-    let res = await this.request(`databases/user_databases`, data, "POST");
-    return res.user_database;
-  }
-
-  /** Get all databases associated with a user ID. */
-  static async getUserDatabases(userId) {
-    let res = await this.request(`databases/user/${userId}`);
-    return res.databases;
+  static async revokeRefreshToken(refreshToken) {
+    try {
+      await fetch(`${BASE_URL}/auth/logout`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ refreshToken }),
+      });
+    } catch {
+      // Don't block logout on backend failure
+    }
   }
 
   /* --------- Contacts --------- */
 
-  /* Get all contacts */
   static async getAllContacts() {
     try {
       let res = await this.request(`contacts/`);
@@ -190,39 +252,30 @@ class AppApi {
     }
   }
 
-  /* Get all contacts by database ID */
-  static async getContactsByDbId(dbId) {
-    let res = await this.request(`contacts/db/${dbId}`);
+  static async getContactsByAccountId(accountId) {
+    let res = await this.request(`contacts/account/${accountId}`);
     return res.contacts;
   }
 
-  /* Get a contact by ID */
   static async getContact(id) {
     let res = await this.request(`contacts/${id}`);
     return res.contact;
   }
 
-  /* Update an existing contact */
   static async updateContact(id, data) {
     let res = await this.request(`contacts/${id}`, data, 'PATCH');
     return res.contact;
   }
 
-  /* Delete a contact */
   static async deleteContact(id) {
     let res = await this.request(`contacts/${id}`, {}, 'DELETE');
     return res;
   }
 
-  /* Create a new contact */
   static async createContact(data) {
     try {
-      console.log("Creating contact with data:", data);
       let res = await this.request(`contacts`, data, 'POST');
-      console.log("Create contact response:", res);
-
       if (!res || !res.contact) {
-        console.error("Invalid response format:", res);
         throw new Error("Invalid response from server");
       }
       return res.contact;
@@ -234,77 +287,63 @@ class AppApi {
 
   /* --------- Properties --------- */
 
-  /* Create a new property */
   static async createProperty(data) {
     let res = await this.request(`properties`, data, 'POST');
     return res.property;
   }
 
-  /*  Get all properties */
   static async getAllProperties() {
     let res = await this.request(`properties`);
     return res.properties;
   }
 
-  /* Get a property by the property_uid ID */
   static async getPropertyById(uid) {
     let res = await this.request(`properties/${uid}`);
     return res.property;
   }
 
-  /* Get all properties by user ID */
   static async getPropertiesByUserId(userId) {
     let res = await this.request(`properties/user/${userId}`);
     return res.properties;
   }
 
-  /* Get property team */
   static async getPropertyTeam(uid) {
     let res = await this.request(`properties/team/${uid}`);
-    console.log("res: ", res);
     return res;
   }
 
-  /* Get Property agent by database ID */
-  static async getAgentByDbId(dbId) {
-    let res = await this.request(`properties/agent/db/${dbId}`);
-    return res.agent;
+  static async getAgentByAccountId(accountId) {
+    let res = await this.request(`properties/agent/account/${accountId}`);
+    return res.users;
   }
 
-  /* Add user to property */
   static async addUsersToProperty(propertyId, users) {
-    let res = await this.request(`properties/${propertyId}/users`,
-      users, 'POST');
+    let res = await this.request(`properties/${propertyId}/users`, users, 'POST');
     return res.property;
   }
 
-  /* Update a property */
   static async updateProperty(propertyId, data) {
-    console.log("Updating property with data:", data);
     let res = await this.request(`properties/${propertyId}`, data, 'PATCH');
     return res.property;
   }
 
-  /* Update a property team */
   static async updatePropertyTeam(propertyId, team) {
     let res = await this.request(`properties/${propertyId}/team`, team, 'PATCH');
     return res.property;
   }
 
   /* --------- Systems --------- */
-  /* Create a new system */
+
   static async createSystem(data) {
     let res = await this.request(`systems/${data.property_id}`, data, 'POST');
     return res.system;
   }
 
-  /* Update a system */
   static async updateSystem(systemId, data) {
     let res = await this.request(`systems/${systemId}`, data, 'PATCH');
     return res.system;
   }
 
-  /* Get all systems by property ID */
   static async getSystemsByPropertyId(propertyId) {
     let res = await this.request(`systems/${propertyId}`);
     return res.systems;
@@ -312,55 +351,38 @@ class AppApi {
 
   /* --------- Maintenance Records --------- */
 
-  /* Create multiple maintenance records (batch) */
   static async createMaintenanceRecords(propertyId, records) {
-    const res = await this.request(
-      `maintenance/${propertyId}`,
-      { maintenanceRecords: records },
-      "POST",
-    );
+    const res = await this.request(`maintenance/${propertyId}`, { maintenanceRecords: records }, "POST");
     return res.maintenanceRecords;
   }
 
-  /* Create a new maintenance record */
   static async createMaintenanceRecord(data) {
-    console.log("Creating maintenance record with data: ", data);
     let res = await this.request(`maintenance/record/${data.property_id}`, data, 'POST');
-    console.log("Res from createMaintenanceRecord: ", res);
     return res.maintenance;
   }
 
-  /* Update a maintenance record */
   static async updateMaintenanceRecord(id, data) {
     const res = await this.request(`maintenance/${id}`, data, "PATCH");
     return res.maintenance;
   }
 
-  /* Delete a maintenance record */
   static async deleteMaintenanceRecord(id) {
     await this.request(`maintenance/${id}`, {}, "DELETE");
   }
 
-  /* Get all maintenance records by property ID */
   static async getMaintenanceRecordsByPropertyId(propertyId) {
-    console.log("Getting maintenance records by property ID: ", propertyId);
     let res = await this.request(`maintenance/${propertyId}`);
-    console.log("Res from Api: ", res);
     return res.maintenanceRecords;
   }
 
   /* --------- Documents --------- */
 
-  /** Get a temporary presigned URL for document preview. Valid ~5 minutes. */
   static async getPresignedPreviewUrl(key) {
-    if (!key) {
-      throw ["Document key is required"];
-    }
+    if (!key) throw ["Document key is required"];
     let res = await this.request("documents/presigned-preview", { key }, "GET");
     return res.url;
   }
 
-  /** Upload a document (e.g. PDF, image) to S3. Returns { key, url } from the response. */
   static async uploadDocument(file) {
     const formData = new FormData();
     formData.append("file", file);
@@ -370,96 +392,90 @@ class AppApi {
 
   /* --------- Property Documents --------- */
 
-  /** Create a property document. Sends document_key (S3 path) like contacts/users photos. */
   static async createPropertyDocument(data) {
     const res = await this.request("propertyDocuments", data, "POST");
     return res.document;
   }
 
-  /** Get all documents for a property. */
   static async getPropertyDocuments(propertyId) {
-    const res = await this.request(
-      `propertyDocuments/property/${propertyId}`,
-    );
+    const res = await this.request(`propertyDocuments/property/${propertyId}`);
     return res.documents ?? [];
   }
 
-  /** Get a single property document. */
   static async getPropertyDocument(id) {
     const res = await this.request(`propertyDocuments/${id}`);
     return res.document;
   }
 
-  /** Delete a property document. */
   static async deletePropertyDocument(id) {
     await this.request(`propertyDocuments/${id}`, {}, "DELETE");
   }
 
   /* --------- Subscriptions --------- */
 
-  /** Get all subscriptions (super_admin). Supports optional filters: status, type, userId. */
   static async getAllSubscriptions(filters = {}) {
     let res = await this.request(`subscriptions`, filters);
     return res.subscriptions;
   }
 
-  /** Get a single subscription by id. */
   static async getSubscription(id) {
     let res = await this.request(`subscriptions/${id}`);
     return res.subscription;
   }
 
-  /** Create a new subscription. */
+  static async getSubscriptionsByAccountId(accountId) {
+    let res = await this.request(`subscriptions/account/${accountId}`);
+    return res.subscriptions;
+  }
+
   static async createSubscription(data) {
     let res = await this.request(`subscriptions`, data, "POST");
     return res.subscription;
   }
 
-  /** Update a subscription. */
+  /** Create subscription for own account (agents/homeowners) */
+  static async createAccountSubscription(data) {
+    let res = await this.request(`subscriptions/account`, data, "POST");
+    return res.subscription;
+  }
+
   static async updateSubscription(id, data) {
     let res = await this.request(`subscriptions/${id}`, data, "PATCH");
     return res.subscription;
   }
 
-  /** Delete a subscription. */
   static async deleteSubscription(id) {
     let res = await this.request(`subscriptions/${id}`, {}, "DELETE");
     return res;
   }
 
-  /** Get all subscription products (for form dropdowns). */
-  static async getSubscriptionProducts() {
-    let res = await this.request(`subscriptions/products`);
-    return res.products;
-  }
+  /* --------- Subscription Products --------- */
 
-  /* --------- Subscription Products (CRUD) --------- */
-
-  /** Get all subscription products (full CRUD list). */
   static async getAllSubscriptionProducts() {
     let res = await this.request(`subscription-products`);
     return res.products;
   }
 
-  /** Get a single subscription product by id. */
+  static async getSubscriptionProductsByRole(role) {
+    let res = await this.request(`subscription-products/for-role/${role}`);
+    return res.products || [];
+  }
+
   static async getSubscriptionProduct(id) {
     let res = await this.request(`subscription-products/${id}`);
     return res.product;
   }
 
-  /** Create a new subscription product. */
   static async createSubscriptionProduct(data) {
     let res = await this.request(`subscription-products`, data, "POST");
     return res.product;
   }
 
-  /** Update a subscription product. */
   static async updateSubscriptionProduct(id, data) {
     let res = await this.request(`subscription-products/${id}`, data, "PATCH");
     return res.product;
   }
 
-  /** Delete a subscription product. */
   static async deleteSubscriptionProduct(id) {
     let res = await this.request(`subscription-products/${id}`, {}, "DELETE");
     return res;
@@ -467,65 +483,67 @@ class AppApi {
 
   /* --------- Property Prediction (OpenAI) --------- */
 
-  /** Predict all identity-section fields using AI from property info. Returns { prediction, usage }. */
   static async predictPropertyDetails(propertyInfo) {
     let res = await this.request("predict/property-details", propertyInfo, "POST");
     return res;
   }
 
-  /** Get the current user's monthly AI usage/budget. Returns { allowed, spent, remaining, cap }. */
   static async getAiUsage() {
     let res = await this.request("predict/usage");
     return res.usage;
   }
 
-  /* --------- Platform Analytics (super_admin) --------- */
+  /* --------- Platform Analytics --------- */
 
-  /** GET /analytics/summary — platform summary (totals, growth, averages). */
   static async getAnalyticsSummary() {
     let res = await this.request("analytics/summary");
     return res.summary;
   }
 
-  /** GET /analytics/daily — daily platform metrics from view. */
   static async getAnalyticsDaily(params = {}) {
     let res = await this.request("analytics/daily", params);
     return res.metrics;
   }
 
-  /** GET /analytics/growth/:entity — monthly growth (users|databases|properties|subscriptions). */
   static async getAnalyticsGrowth(entity, months = 12) {
     let res = await this.request("analytics/growth/" + entity, { months });
     return res.growth;
   }
 
-  /** GET /analytics/databases — all databases analytics from database_analytics view. */
-  static async getAnalyticsDatabases() {
-    let res = await this.request("analytics/databases");
+  static async getAnalyticsAccounts() {
+    let res = await this.request("analytics/accounts");
     return res.analytics;
   }
 
-  /** GET /analytics/databases/:id — single database analytics. */
-  static async getAnalyticsDatabaseById(databaseId) {
-    let res = await this.request(`analytics/databases/${databaseId}`);
+  static async getAnalyticsAccountById(accountId) {
+    let res = await this.request(`analytics/accounts/${accountId}`);
     return res.analytics;
   }
 
-  /* --------- Platform Engagement (super_admin) --------- */
+  /* --------- Cost Analytics (Dashboard) --------- */
 
-  /** GET /engagement/counts — event counts by type. */
+  static async getCostSummary(params = {}) {
+    let res = await this.request("analytics/costs/summary", params);
+    return res.summary;
+  }
+
+  static async getCostPerAccount(params = {}) {
+    let res = await this.request("analytics/costs/per-account", params);
+    return res.accounts;
+  }
+
+  /* --------- Platform Engagement --------- */
+
   static async getEngagementCounts(params = {}) {
     let res = await this.request("engagement/counts", params);
     return res.counts;
   }
 
-  /** GET /engagement/trend — daily event trend. */
   static async getEngagementTrend(params = {}) {
     let res = await this.request("engagement/trend", params);
     return res.trend;
   }
 
-  /** POST /engagement — log an engagement event (eventType, eventData). Uses current user. */
   static async logEngagementEvent(eventType, eventData = {}) {
     await this.request("engagement", { eventType, eventData }, "POST");
   }

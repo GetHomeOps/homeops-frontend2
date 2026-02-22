@@ -7,7 +7,7 @@ import HomeOpsTeamModal from "./HomeOpsTeamModal";
 function HomeOpsTeam({
   teamMembers = [],
   propertyId,
-  dbUrl,
+  accountUrl,
   onTeamChange,
   creatorId,
   canEditAgent = true,
@@ -29,7 +29,7 @@ function HomeOpsTeam({
         setModalOpen={setModalOpen}
         teamMembers={teamMembers}
         users={users}
-        dbUrl={dbUrl}
+        accountUrl={accountUrl}
         propertyId={propertyId}
         onSave={onTeamChange}
         creatorId={creatorId}

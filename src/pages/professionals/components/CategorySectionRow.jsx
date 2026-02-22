@@ -1,13 +1,13 @@
 import React, { useRef } from "react";
 import { useNavigate } from "react-router-dom";
 import { ChevronRight } from "lucide-react";
-import useCurrentDb from "../../../hooks/useCurrentDb";
+import useCurrentAccount from "../../../hooks/useCurrentAccount";
 
 function CategorySectionRow({ title, categories, location }) {
   const scrollRef = useRef(null);
   const navigate = useNavigate();
-  const { currentDb } = useCurrentDb();
-  const dbUrl = currentDb?.url || "";
+  const { currentAccount } = useCurrentAccount();
+  const accountUrl = currentAccount?.url || "";
 
   const scroll = (dir) => {
     if (!scrollRef.current) return;
@@ -20,7 +20,7 @@ function CategorySectionRow({ title, categories, location }) {
     params.set("category", category.id);
     if (location?.city) params.set("city", location.city);
     if (location?.state) params.set("state", location.state);
-    const base = dbUrl ? `/${dbUrl}/professionals/search` : "/professionals/search";
+    const base = accountUrl ? `/${accountUrl}/professionals/search` : "/professionals/search";
     navigate(`${base}?${params.toString()}`);
   };
 

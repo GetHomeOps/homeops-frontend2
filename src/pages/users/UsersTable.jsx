@@ -17,7 +17,7 @@ function UsersTable({
 }) {
   const {t} = useTranslation();
   const navigate = useNavigate();
-  const {dbUrl} = useParams();
+  const {accountUrl} = useParams();
 
   // Get current page items
   const currentUsers = useMemo(() => {

@@ -12,7 +12,7 @@ import {useAuth} from "./AuthContext";
 import {useTranslation} from "react-i18next";
 import useUniqueIdentifiers from "../hooks/useUniqueIdentifiers";
 import useLocalStorage from "../hooks/useLocalStorage";
-import useCurrentDb from "../hooks/useCurrentDb";
+import useCurrentAccount from "../hooks/useCurrentAccount";
 
 const ContactContext = createContext();
 
@@ -40,7 +40,7 @@ export function ContactProvider({children}) {
     itemType: "contact",
   });
 
-  const {currentDb} = useCurrentDb();
+  const {currentAccount} = useCurrentAccount();
 
   const customListComparators = {
     // Generic comparator that works for any field
@@ -68,8 +68,8 @@ export function ContactProvider({children}) {
     try {
       let fetchedContacts = [];
 
-      if (currentDb?.id) {
-        fetchedContacts = await AppApi.getContactsByDbId(currentDb.id);
+      if (currentAccount?.id) {
+        fetchedContacts = await AppApi.getContactsByAccountId(currentAccount.id);
       }
 
       setContacts(fetchedContacts || []);
@@ -77,7 +77,7 @@ export function ContactProvider({children}) {
       console.error("There was an error retrieving contacts:", err);
       setContacts([]);
     }
-  }, [isLoading, currentUser, currentDb?.id]);
+  }, [isLoading, currentUser, currentAccount?.id]);
 
   useEffect(() => {
     fetchContacts();
@@ -102,15 +102,15 @@ export function ContactProvider({children}) {
     return contacts;
   }, [contacts]);
 
-  // Add contact to database
-  const addContactToDatabase = async (data) => {
+  // Add contact to account
+  const addContactToAccount = async (data) => {
     try {
-      await AppApi.addContactToDatabase(data);
+      await AppApi.addContactToAccount(data);
       console.log(
-        `Contact ${data.contactId} successfully added to database ${data.databaseId}`,
+        `Contact ${data.contactId} successfully added to account ${data.accountId}`,
       );
     } catch (error) {
-      console.error("Error adding contact to database:", error);
+      console.error("Error adding contact to account:", error);
       // Don't throw error here - allow caller to handle it if needed
       throw error;
     }
@@ -119,12 +119,12 @@ export function ContactProvider({children}) {
   // Create a new contact
   const createContact = async (contactData) => {
     try {
-      // Include databaseId in the request so backend can handle both operations atomically
-      const dataWithDatabase = currentDb?.id
-        ? {...contactData, databaseId: currentDb.id}
+      // Include accountId in the request so backend can handle both operations atomically
+      const dataWithAccount = currentAccount?.id
+        ? {...contactData, accountId: currentAccount.id}
         : contactData;
 
-      const res = await AppApi.createContact(dataWithDatabase);
+      const res = await AppApi.createContact(dataWithAccount);
       if (res) {
         setContacts((prevContacts) => [...prevContacts, res]);
         return res;
@@ -280,7 +280,7 @@ export function ContactProvider({children}) {
       getGroupViewContacts,
       handleToggleSelection,
       listSortedItems: listSortedItems || [],
-      currentDb,
+      currentAccount,
       testVariable,
       handleTestVariableChange,
     }),
@@ -290,7 +290,7 @@ export function ContactProvider({children}) {
       listSortConfig,
       listSortedItems,
       viewMode,
-      currentDb,
+      currentAccount,
       handleListSort,
       refreshContacts,
       testVariable,

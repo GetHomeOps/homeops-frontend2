@@ -9,7 +9,7 @@ import Banner from "../../partials/containers/Banner";
 import ModalBlank from "../../components/ModalBlank";
 import DataTable from "../../components/DataTable";
 import DataTableItem from "../../components/DataTableItem";
-import useCurrentDb from "../../hooks/useCurrentDb";
+import useCurrentAccount from "../../hooks/useCurrentAccount";
 import AppApi from "../../api/api";
 
 const PAGE_STORAGE_KEY = "subscription_products_list_page";
@@ -69,8 +69,8 @@ function SubscriptionProductsList() {
 
   const navigate = useNavigate();
   const {t} = useTranslation();
-  const {currentDb} = useCurrentDb();
-  const dbUrl = currentDb?.url || currentDb?.name || "";
+  const {currentAccount} = useCurrentAccount();
+  const accountUrl = currentAccount?.url || currentAccount?.name || "";
 
   // Sort state
   const [sortConfig, setSortConfig] = useState({key: null, direction: null});
@@ -230,7 +230,7 @@ function SubscriptionProductsList() {
 
   // Navigate to product detail
   function handleProductClick(product) {
-    navigate(`/${dbUrl}/subscription-products/${product.id}`);
+    navigate(`/${accountUrl}/subscription-products/${product.id}`);
   }
 
   // Delete handlers
@@ -489,7 +489,7 @@ function SubscriptionProductsList() {
                 <button
                   className="btn bg-gray-900 text-gray-100 hover:bg-gray-800 dark:bg-gray-100 dark:text-gray-800 dark:hover:bg-white"
                   onClick={() =>
-                    navigate(`/${dbUrl}/subscription-products/new`)
+                    navigate(`/${accountUrl}/subscription-products/new`)
                   }
                 >
                   <svg

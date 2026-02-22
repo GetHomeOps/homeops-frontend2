@@ -2,7 +2,7 @@ import React, {createContext, useState, useContext, useEffect} from "react";
 import {useTableSort} from "../hooks/useTableSort";
 import AppApi from "../api/api";
 import {useAuth} from "./AuthContext";
-import useCurrentDb from "../hooks/useCurrentDb";
+import useCurrentAccount from "../hooks/useCurrentAccount";
 
 const UserContext = createContext();
 
@@ -11,7 +11,7 @@ export function UserProvider({children}) {
   const [users, setUsers] = useState([]);
   const [selectedItems, setSelectedItems] = useState([]);
   const {currentUser, isLoading} = useAuth();
-  const {currentDb} = useCurrentDb();
+  const {currentAccount} = useCurrentAccount();
 
   const customListComparators = {
     // Generic comparator that works for any field
@@ -39,16 +39,11 @@ export function UserProvider({children}) {
     try {
       let fetchedUsers;
 
-      // If user is superAdmin, get all users
       if (currentUser.role === "super_admin") {
         fetchedUsers = await AppApi.getAllUsers();
-      }
-      // Otherwise, only get users for the current database (requires database ID)
-      else if (currentDb?.id) {
-        fetchedUsers = await AppApi.getUsersByAgentId(currentUser.id);
-      }
-      // If no database is available, don't fetch users
-      else {
+      } else if (currentUser.role === "admin" && currentAccount?.id) {
+        fetchedUsers = await AppApi.getUsersByAccountId(currentAccount.id);
+      } else {
         fetchedUsers = [];
       }
 
@@ -60,7 +55,7 @@ export function UserProvider({children}) {
 
   useEffect(() => {
     fetchUsers();
-  }, [isLoading, currentUser, currentDb]);
+  }, [isLoading, currentUser, currentAccount]);
 
   /* Handle selection state */
   const handleToggleSelection = (ids, isSelected) => {
@@ -87,86 +82,55 @@ export function UserProvider({children}) {
     }
   };
 
-  // Create a new user
+  // Create a new user (admin-created, pending until invitation is accepted)
   const createUser = async (userData) => {
     try {
-      // Include current user and database context for backend to handle linking
-      const signupData = {
-        userData: {
-          ...userData,
-        },
-        createdBy: currentUser?.id,
-        createdByRole: currentUser?.role,
-        databaseId: currentDb?.id,
-      };
-      const res = await AppApi.signup(signupData);
-
-      if (res && res.user) {
-        // Add user to context immediately (like ContactContext does)
-        setUsers((prevUsers) => [...prevUsers, res.user]);
-        return res.user;
+      const user = await AppApi.adminCreateUser(userData);
+      if (user && user.id) {
+        setUsers((prevUsers) => [...prevUsers, user]);
+        return user;
       }
-      // If user not in response, refresh users list and find by email
-      if (res) {
-        await fetchUsers();
-        // Wait a moment for state to update, then get fresh users
-        let freshUsers;
-        if (currentUser?.role === "super_admin") {
-          freshUsers = await AppApi.getAllUsers();
-        } else if (currentUser?.id) {
-          freshUsers = await AppApi.getUsersByAgentId(currentUser.id);
-        } else {
-          freshUsers = [];
-        }
-        setUsers(freshUsers);
-        const newUser = freshUsers.find((u) => u.email === userData.email);
-        if (newUser) {
-          return newUser;
-        }
-      }
-      throw new Error("Could not retrieve users:" + res.message);
+      throw new Error("Could not create user");
     } catch (error) {
       console.error("Error creating user:", error);
       throw error;
     }
   };
 
-  // Create a new user confirmation token and add it to the user object
-  // The backend returns the token which should be stored on the user
-  const createUserConfirmationToken = async (userId) => {
+  const createUserInvitation = async ({ inviteeEmail, accountId, propertyId, intendedRole, type = 'account' }) => {
     try {
-      // Request backend to create invitation token for the user
-      const res = await AppApi.createUserConfirmationToken({
-        userId,
+      const res = await AppApi.createInvitation({
+        type,
+        inviteeEmail,
+        accountId,
+        propertyId,
+        intendedRole,
       });
 
-      // Extract token from response (backend should return it)
-      const token = res?.token || res?.result?.token || res?.result;
+      const token = res?.token;
 
-      // Update the user in context with the confirmation token
-      if (token) {
+      if (token && inviteeEmail) {
         setUsers((prevUsers) =>
           prevUsers.map((user) =>
-            user.id === userId ? {...user, confirmationToken: token} : user,
+            user.email === inviteeEmail ? { ...user, confirmationToken: token } : user,
           ),
         );
-        return token;
+        return { token, invitation: res.invitation };
       }
 
       throw new Error("Token not returned from backend");
     } catch (error) {
-      console.error("Error creating user confirmation token:", error);
+      console.error("Error creating invitation:", error);
       throw error;
     }
   };
 
-  // Validate a user invitation token and confirm user
-  const validateUserInvitationToken = async (data) => {
+  const confirmInvitation = async (data) => {
     try {
-      const res = await AppApi.validateUserInvitationToken(data);
+      const res = await AppApi.confirmInvitation(data);
       return res;
     } catch (error) {
-      console.error("Error validating user invitation token:", error);
+      console.error("Error confirming invitation:", error);
       throw error;
     }
   };
@@ -300,8 +264,8 @@ export function UserProvider({children}) {
         deleteUser,
         duplicateUser,
         bulkDuplicateUsers,
-        createUserConfirmationToken,
-        validateUserInvitationToken,
+        createUserInvitation,
+        confirmInvitation,
         sortedUsers: listSortedItems,
         sortConfig: listSortConfig,
         handleSort: handleListSort,

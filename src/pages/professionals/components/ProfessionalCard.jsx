@@ -11,7 +11,7 @@ import {
   Shield,
   Award,
 } from "lucide-react";
-import useCurrentDb from "../../../hooks/useCurrentDb";
+import useCurrentAccount from "../../../hooks/useCurrentAccount";
 
 function ProjectImageCarousel({photos}) {
   const [current, setCurrent] = useState(0);
@@ -95,13 +95,13 @@ function ProfessionalCard({
   variant,
 }) {
   const navigate = useNavigate();
-  const {currentDb} = useCurrentDb();
-  const dbUrl = currentDb?.url || "";
+  const {currentAccount} = useCurrentAccount();
+  const accountUrl = currentAccount?.url || "";
 
   const goToProfile = () => {
     navigate(
-      dbUrl
-        ? `/${dbUrl}/professionals/${professional.id}`
+      accountUrl
+        ? `/${accountUrl}/professionals/${professional.id}`
         : `/professionals/${professional.id}`,
     );
   };
@@ -118,9 +118,9 @@ function ProfessionalCard({
     return (
       <div
         onClick={goToProfile}
-        className="bg-white dark:bg-gray-800 rounded-lg border border-gray-200/70 dark:border-gray-700/50 shadow-sm overflow-hidden cursor-pointer group hover:shadow-md hover:border-[#456564]/30 dark:hover:border-[#7aa3a2]/40 transition-all duration-200"
+        className="flex items-center gap-3 p-2.5 rounded-xl border border-gray-200/60 dark:border-gray-700/50 bg-gray-50/80 dark:bg-gray-800/60 shadow-sm cursor-pointer group hover:bg-gray-100/90 dark:hover:bg-gray-800/90 hover:border-[#456564]/25 dark:hover:border-[#7aa3a2]/30 hover:shadow-md transition-all duration-200"
       >
-        <div className="aspect-square w-full overflow-hidden bg-gray-100 dark:bg-gray-700">
+        <div className="shrink-0 w-12 h-12 rounded-lg overflow-hidden bg-gray-200 dark:bg-gray-700 ring-1 ring-gray-200/80 dark:ring-gray-600/50">
           <img
             src={mainImage}
             alt=""
@@ -128,14 +128,14 @@ function ProfessionalCard({
             loading="lazy"
           />
         </div>
-        <div className="p-2.5">
-          <p className="text-xs font-semibold text-gray-900 dark:text-white truncate leading-tight">
+        <div className="flex-1 min-w-0">
+          <p className="text-sm font-semibold text-gray-900 dark:text-white truncate leading-tight">
             {professional.companyName}
           </p>
-          <p className="text-[10px] text-gray-500 dark:text-gray-400 mt-0.5 truncate">
+          <p className="text-[11px] text-gray-500 dark:text-gray-400 truncate">
             {professional.categoryName}
           </p>
-          <div className="flex items-center gap-1 mt-1.5">
+          <div className="flex items-center gap-1 mt-1">
             {stars.slice(0, 5).map((s) => (
               <Star
                 key={s.key}

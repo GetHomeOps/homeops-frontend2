@@ -10,7 +10,7 @@ import {
 } from "../../data/userImportSchema";
 import Sidebar from "../../partials/Sidebar";
 import Header from "../../partials/Header";
-import useCurrentDb from "../../hooks/useCurrentDb";
+import useCurrentAccount from "../../hooks/useCurrentAccount";
 import UserContext from "../../context/UserContext";
 import {
   Download,
@@ -146,9 +146,9 @@ const STEPS = [
 
 function UsersImport() {
   const navigate = useNavigate();
-  const { currentDb } = useCurrentDb();
+  const { currentAccount } = useCurrentAccount();
   const { createUser } = useContext(UserContext);
-  const dbUrl = currentDb?.url || "";
+  const accountUrl = currentAccount?.url || "";
 
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [pendingFile, setPendingFile] = useState(null);
@@ -372,7 +372,7 @@ function UsersImport() {
               <button
                 type="button"
                 onClick={() =>
-                  navigate(dbUrl ? `/${dbUrl}/users` : "/users")
+                  navigate(accountUrl ? `/${accountUrl}/users` : "/users")
                 }
                 className="flex items-center gap-2 text-base text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white transition-colors py-1"
               >
@@ -745,7 +745,7 @@ function UsersImport() {
                           {importSuccessCount} user{importSuccessCount !== 1 ? "s" : ""} created.
                           <button
                             type="button"
-                            onClick={() => navigate(dbUrl ? `/${dbUrl}/users` : "/users")}
+                            onClick={() => navigate(accountUrl ? `/${accountUrl}/users` : "/users")}
                             className="underline hover:no-underline"
                           >
                             View users

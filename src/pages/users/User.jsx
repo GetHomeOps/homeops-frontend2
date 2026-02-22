@@ -9,10 +9,10 @@ import ContactFormContainer from "./UserFormContainer";
 function UserContainer() {
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const navigate = useNavigate();
-  const {dbUrl} = useParams();
+  const {accountUrl} = useParams();
 
   const handleReturn = () => {
-    navigate(`/${dbUrl}/users`);
+    navigate(`/${accountUrl}/users`);
   };
 
   return (

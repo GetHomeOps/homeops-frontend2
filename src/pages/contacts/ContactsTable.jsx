@@ -16,7 +16,7 @@ function ContactsTable({
 }) {
   const {t} = useTranslation();
   const navigate = useNavigate();
-  const {dbUrl} = useParams();
+  const {accountUrl} = useParams();
 
   // Get current page items
   const currentContacts = useMemo(() => {
@@ -81,7 +81,7 @@ function ContactsTable({
       columns={columns}
       onItemClick={(contact) => {
         const currentIndex = contacts.findIndex((c) => c.id === contact.id);
-        navigate(`/${dbUrl}/contacts/${contact.id}`, {
+        navigate(`/${accountUrl}/contacts/${contact.id}`, {
           state: {
             currentIndex: currentIndex + 1,
             totalItems: contacts.length,

@@ -33,7 +33,7 @@ function MaintenanceTab({
   onMaintenanceRecordAdded,
   contacts = [],
 }) {
-  const {uid: propertyId, dbUrl} = useParams();
+  const {uid: propertyId, accountUrl} = useParams();
 
   const [selectedRecord, setSelectedRecord] = useState(null);
   const [selectedSystemId, setSelectedSystemId] = useState(null);
@@ -211,27 +211,27 @@ function MaintenanceTab({
     setMaintenanceRecords,
   ]);
 
-  // Handle "Open in New Tab" - opens maintenance record at /:dbUrl/properties/:uid/maintenance/:systemId/:recordId
+  // Handle "Open in New Tab" - opens maintenance record at /:accountUrl/properties/:uid/maintenance/:systemId/:recordId
   const handleOpenInNewTab = useCallback(
     (data) => {
-      const dbUrlPath = dbUrl || propertyData.dbUrl || "";
+      const accountUrlPath = accountUrl || propertyData.accountUrl || "";
       const uid = data?.propertyId ?? propertyId;
       const sysId = data?.systemId ?? selectedSystemId;
       const recId =
         data?.record?.id ?? data?.record?.recordId ?? selectedRecord?.id;
       if (sysId && recId) {
-        const path = `/${dbUrlPath}/properties/${uid}/maintenance/${encodeURIComponent(sysId)}/${encodeURIComponent(recId)}`;
+        const path = `/${accountUrlPath}/properties/${uid}/maintenance/${encodeURIComponent(sysId)}/${encodeURIComponent(recId)}`;
         const url = `${window.location.origin}/#${path}`;
         window.open(url, "_blank");
       } else {
-        const path = `/${dbUrlPath}/properties/${uid}`;
+        const path = `/${accountUrlPath}/properties/${uid}`;
         const url = `${window.location.origin}/#${path}`;
         window.open(url, "_blank");
       }
     },
     [
-      dbUrl,
-      propertyData.dbUrl,
+      accountUrl,
+      propertyData.accountUrl,
       propertyId,
       selectedSystemId,
       selectedRecord?.id,

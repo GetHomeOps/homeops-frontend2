@@ -43,11 +43,11 @@ function Signin() {
         !from.startsWith("//");
       if (isInternalPath && from !== "/signin" && from !== "/signup") {
         navigate(from, {replace: true});
-      } else if (currentUser.databases && currentUser.databases.length > 0) {
-        const dbUrl =
-          currentUser.databases[0].url?.replace(/^\/+/, "") ||
-          currentUser.databases[0].name;
-        navigate(`/${dbUrl}/home`, {replace: true});
+      } else if (currentUser.accounts && currentUser.accounts.length > 0) {
+        const accountUrl =
+          currentUser.accounts[0].url?.replace(/^\/+/, "") ||
+          currentUser.accounts[0].name;
+        navigate(`/${accountUrl}/home`, {replace: true});
       } else {
         navigate("/signin", {replace: true});
       }

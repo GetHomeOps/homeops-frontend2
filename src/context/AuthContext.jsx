@@ -3,8 +3,8 @@ import useLocalStorage from "../hooks/useLocalStorage";
 import AppApi from "../api/api";
 import {jwtDecode as decode} from "jwt-decode";
 
-// Key name for storing token in localStorage for "remember me" re-login
 export const TOKEN_STORAGE_ID = "app-token";
+export const REFRESH_TOKEN_STORAGE_ID = "app-refresh-token";
 
 /* Context for Authentication */
 const AuthContext = createContext();
@@ -30,7 +30,6 @@ export function AuthProvider({children}) {
   /* Get the current user */
   useEffect(() => {
     async function getCurrentUser() {
-      // Skip if we're in the middle of signup - signup() will handle user state
       if (isSigningUp) {
         return;
       }
@@ -38,7 +37,6 @@ export function AuthProvider({children}) {
       if (token) {
         try {
           let {email} = decode(token);
-          // put the token on the Api class so it can use it to call the API.
           AppApi.token = token;
 
           let currentUser = await AppApi.getCurrentUser(email);
@@ -52,12 +50,11 @@ export function AuthProvider({children}) {
             return;
           }
 
-          // Use safe method that handles 404 for new users without databases
-          let userDatabases = await getUserDatabases(currentUser.id);
+          let userAccounts = await getUserAccounts(currentUser.id);
 
           setCurrentUser({
             isLoading: false,
-            data: {...currentUser, databases: userDatabases || []},
+            data: {...currentUser, accounts: userAccounts || []},
           });
         } catch (err) {
           console.error("App loadUserInfo: problem loading", err);
@@ -79,56 +76,58 @@ export function AuthProvider({children}) {
   /** Handles site-wide login */
   async function login(loginData) {
     try {
-      let token = await AppApi.login(loginData);
-      setToken(token);
+      const {accessToken, refreshToken} = await AppApi.login(loginData);
+      setToken(accessToken);
+      localStorage.setItem(REFRESH_TOKEN_STORAGE_ID, refreshToken);
 
-      // Wait for user data to be loaded
-      const {email} = decode(token);
-      AppApi.token = token;
+      const {email} = decode(accessToken);
+      AppApi.token = accessToken;
       const currentUser = await AppApi.getCurrentUser(email);
 
-      // Use safe method that handles 404 for new users without databases
-      const userDatabases = await getUserDatabases(currentUser.id);
+      const userAccounts = await getUserAccounts(currentUser.id);
 
       setCurrentUser({
         isLoading: false,
-        data: {...currentUser, databases: userDatabases || []},
+        data: {...currentUser, accounts: userAccounts || []},
       });
 
-      // Clear previous database selection - useCurrentDb hook will set the first database
-      localStorage.removeItem("current-db");
+      localStorage.removeItem("current-account");
 
-      return token;
+      return accessToken;
     } catch (error) {
       console.error("Login error:", error);
       throw error;
     }
   }
 
-  // Helper: Extract token and user from signup response
   function extractTokenFromSignupResponse(signupResponse) {
-    if (signupResponse?.token) {
+    if (signupResponse?.accessToken) {
       return {
-        token: signupResponse.token,
+        accessToken: signupResponse.accessToken,
+        refreshToken: signupResponse.refreshToken || null,
+        user: signupResponse.user || null,
+      };
+    } else if (signupResponse?.token) {
+      return {
+        accessToken: signupResponse.token,
+        refreshToken: null,
         user: signupResponse.user || null,
       };
     } else if (typeof signupResponse === "string") {
-      // Fallback: if response is just a string token (backward compatibility)
-      return {token: signupResponse, user: null};
+      return {accessToken: signupResponse, refreshToken: null, user: null};
     } else {
       throw new Error(
-        `Invalid signup response format. Expected object with 'token' property or a string, but received: ${typeof signupResponse}`
+        `Invalid signup response format. Expected object with 'accessToken' property or a string, but received: ${typeof signupResponse}`,
       );
     }
   }
 
-  // Helper: Get user from signup response or fetch from API
-  async function fetchUser(signupUser, token) {
+  async function fetchUser(signupUser, accessToken) {
     if (signupUser) {
       return signupUser;
     }
 
-    const decodedToken = decode(token);
+    const decodedToken = decode(accessToken);
     const {email} = decodedToken;
     const currentUser = await AppApi.getCurrentUser(email);
 
@@ -139,7 +138,6 @@ export function AuthProvider({children}) {
     return currentUser;
   }
 
-  // Helper: Extract and validate user ID from user object or token
   function extractUserId(currentUser, decodedToken) {
     const tokenUserId =
       decodedToken.user_id || decodedToken.userId || decodedToken.id;
@@ -150,20 +148,18 @@ export function AuthProvider({children}) {
       console.error("Token payload:", decodedToken);
       throw new Error(
         `Failed to retrieve user ID after signup. User object: ${JSON.stringify(
-          currentUser
-        )}, Token: ${JSON.stringify(decodedToken)}`
+          currentUser,
+        )}, Token: ${JSON.stringify(decodedToken)}`,
       );
     }
 
     return userId;
   }
 
-  // Helper: Get user databases with error handling for new users
-  async function getUserDatabases(userId) {
+  async function getUserAccounts(userId) {
     try {
-      return await AppApi.getUserDatabases(userId);
+      return await AppApi.getUserAccounts(userId);
     } catch (error) {
-      // Return empty array for 404s (new users don't have databases yet)
       const errorMessage = Array.isArray(error)
         ? error.join(" ")
         : error.message || error.toString() || "";
@@ -174,24 +170,22 @@ export function AuthProvider({children}) {
     }
   }
 
-  // Helper: Create default database for new user
-  async function createDatabase({currentUser, userId}) {
-    console.log("createDatabase", currentUser);
-    let newDatabase = null;
+  async function createAccount({currentUser, userId}) {
+    console.log("createAccount", currentUser);
+    let newAccount = null;
 
     try {
-      console.log("Creating database for new user:", {
+      console.log("Creating account for new user:", {
         name: currentUser.name,
         userId: userId,
       });
       console.log("currentUser", currentUser);
 
-      // Backend handles database naming based on user's name
-      newDatabase = await AppApi.createDatabase({
+      newAccount = await AppApi.createAccount({
         name: currentUser.name,
+        ownerUserId: userId,
       });
     } catch (error) {
-      // If URL conflict, try once with sequential number
       const errorMessage = Array.isArray(error)
         ? error.join(" ")
         : error.message || error.toString() || "";
@@ -204,81 +198,64 @@ export function AuthProvider({children}) {
 
       if (isConflictError) {
         console.log("URL conflict, trying with sequential number");
-        // Backend will handle conflict resolution with sequential numbers
-        newDatabase = await AppApi.createDatabase({
+        newAccount = await AppApi.createAccount({
           name: currentUser.name,
+          ownerUserId: userId,
         });
       } else {
-        // Re-throw if it's a different error
         throw error;
       }
     }
 
-    if (!newDatabase?.id) {
+    if (!newAccount?.id) {
       throw new Error(
-        `Database creation failed: database ID is missing. Database object: ${JSON.stringify(
-          newDatabase
-        )}`
+        `Account creation failed: account ID is missing. Account object: ${JSON.stringify(
+          newAccount,
+        )}`,
       );
     }
 
-    console.log("Database created successfully:", newDatabase);
+    console.log("Account created successfully:", newAccount);
 
-    // Create user_database record to link user to database
-    console.log("Creating user-database link with:", {
-      userId: userId,
-      databaseId: newDatabase.id,
-      role: "admin",
-    });
-
-    await AppApi.addUserToDatabase({
-      userId: userId,
-      databaseId: newDatabase.id,
-      role: "admin",
-    });
-
-    console.log("User-database link created successfully");
-
-    // Return the newly created database directly (no need to fetch again)
-    return [newDatabase];
+    return [newAccount];
   }
 
-  // Helper: Initialize authentication (set token and decode)
-  function initializeAuthentication(token) {
-    setToken(token);
-    AppApi.token = token;
-    return decode(token);
+  function initializeAuthentication(accessToken, refreshToken) {
+    setToken(accessToken);
+    if (refreshToken) {
+      localStorage.setItem(REFRESH_TOKEN_STORAGE_ID, refreshToken);
+    }
+    AppApi.token = accessToken;
+    return decode(accessToken);
   }
 
-  // Helper: Ensure user has at least one database (create if needed)
-  async function ensureUserHasDatabase(userId, currentUser, email) {
-    let userDatabases = await getUserDatabases(userId);
+  async function ensureUserHasAccount(userId, currentUser, email) {
+    let userAccounts = await getUserAccounts(userId);
 
-    if (!userDatabases || userDatabases.length === 0) {
+    if (!userAccounts || userAccounts.length === 0) {
       try {
-        userDatabases = await createDefaultDatabase(userId, currentUser, email);
-        console.log("User databases after creation:", userDatabases);
+        userAccounts = await createDefaultAccount(userId, currentUser, email);
+        console.log("User accounts after creation:", userAccounts);
       } catch (createError) {
         console.error(
-          "Error creating database or user-database link:",
-          createError
+          "Error creating account or user-account link:",
+          createError,
         );
         const errorMessage = Array.isArray(createError)
           ? createError.join(" ")
           : createError.message || createError.toString() || "Unknown error";
-        throw new Error(`Failed to create database: ${errorMessage}`);
+        throw new Error(`Failed to create account: ${errorMessage}`);
       }
     }
 
-    return userDatabases;
+    return userAccounts;
   }
 
-  // Helper: Update user state and clear previous database selection
-  function finalizeUserSignup(currentUser, userId, userDatabases) {
+  function finalizeUserSignup(currentUser, userId, userAccounts) {
     const userWithId = {
       ...currentUser,
       id: userId,
-      databases: userDatabases,
+      accounts: userAccounts,
     };
 
     setCurrentUser({
@@ -286,9 +263,7 @@ export function AuthProvider({children}) {
       data: userWithId,
     });
 
-    // Clear previous user's database selection to ensure fresh start
-    // The useCurrentDb hook will automatically set the first database from userDatabases
-    localStorage.removeItem("current-db");
+    localStorage.removeItem("current-account");
 
     return userWithId;
   }
@@ -297,34 +272,25 @@ export function AuthProvider({children}) {
   async function signup(signupData) {
     setIsSigningUp(true);
     try {
-      // Step 1: Sign up and extract token/user from response
       const signupResponse = await AppApi.signup(signupData);
-      const {token, user: signupUser} =
+      const {accessToken, refreshToken, user: signupUser} =
         extractTokenFromSignupResponse(signupResponse);
 
-      // Step 2: Initialize authentication
-      const decodedToken = initializeAuthentication(token);
+      const decodedToken = initializeAuthentication(accessToken, refreshToken);
       const {email} = decodedToken;
 
-      // Step 3: Get or fetch user
-      const currentUser = await fetchUser(signupUser, token);
+      const currentUser = await fetchUser(signupUser, accessToken);
 
-      // Step 4: Extract and validate user ID
       const userId = extractUserId(currentUser, decodedToken);
 
-      // Step 5: Create database for user
-      const userDatabases = await createDatabase({currentUser, userId});
+      const userAccounts = await getUserAccounts(userId);
 
-      // Step 6: Activate user
-      await AppApi.activateUser({userId});
-
-      // Step 7: Finalize signup (update state and clear previous database selection)
-      const userWithId = finalizeUserSignup(currentUser, userId, userDatabases);
+      const userWithId = finalizeUserSignup(currentUser, userId, userAccounts);
 
       setIsSigningUp(false);
       return {
         user: userWithId,
-        token,
+        token: accessToken,
       };
     } catch (error) {
       console.error("Signup error:", error);
@@ -335,20 +301,22 @@ export function AuthProvider({children}) {
 
   /** Handle user logout */
   function logout() {
-    // Clear the token from storage and API
+    const refreshToken = localStorage.getItem(REFRESH_TOKEN_STORAGE_ID);
+    if (refreshToken) {
+      AppApi.revokeRefreshToken(refreshToken);
+    }
+
     localStorage.removeItem(TOKEN_STORAGE_ID);
+    localStorage.removeItem(REFRESH_TOKEN_STORAGE_ID);
     AppApi.token = null;
 
-    // Clear all app-related localStorage items
     const keysToRemove = [
-      TOKEN_STORAGE_ID,
-      "current-db", // Current database selection
-      "contacts_list_page", // Contacts list page state
+      "current-account",
+      "contacts_list_page",
     ];
 
     keysToRemove.forEach((key) => localStorage.removeItem(key));
 
-    // Reset user state
     setCurrentUser({
       isLoading: false,
       data: null,

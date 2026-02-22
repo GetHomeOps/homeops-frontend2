@@ -1,8 +1,10 @@
 import React, {useEffect, useMemo, useState} from "react";
-import {UserPlus, X, UserCog, Home, Users} from "lucide-react";
+import {UserPlus, X, UserCog, Home, Users, Mail, Send, Check, AlertCircle} from "lucide-react";
 import ModalBlank from "../../../components/ModalBlank";
 import SelectDropdown from "../../contacts/SelectDropdown";
 import {useTranslation} from "react-i18next";
+import useCurrentAccount from "../../../hooks/useCurrentAccount";
+import AppApi from "../../../api/api";
 
 const MEMBER_ROLES = [
   {id: "Mortgage Partner", name: "Mortgage Partner"},
@@ -23,6 +25,7 @@ function HomeOpsTeamModal({
   setModalOpen,
   teamMembers = [],
   users = [],
+  propertyId,
   onSave,
   creatorId,
   canEditAgent = true,
@@ -31,6 +34,14 @@ function HomeOpsTeamModal({
   const [homeownerSlots, setHomeownerSlots] = useState([""]);
   const [additionalMembers, setAdditionalMembers] = useState([]);
 
+  const [inviteEmail, setInviteEmail] = useState("");
+  const [inviteRole, setInviteRole] = useState("editor");
+  const [inviteSending, setInviteSending] = useState(false);
+  const [inviteSuccess, setInviteSuccess] = useState(null);
+  const [inviteError, setInviteError] = useState(null);
+  const [pendingInvitations, setPendingInvitations] = useState([]);
+
+  const {currentAccount} = useCurrentAccount();
   const {t} = useTranslation();
 
   /* Current agent from team (for read-only display when homeowner has no user list access) */
@@ -159,7 +170,42 @@ function HomeOpsTeamModal({
     );
   }, [modalOpen, teamMembers]);
 
-  /* Sets the selected homeowner when the homeowner row is changed */
+  useEffect(() => {
+    if (!modalOpen) return;
+    setInviteEmail("");
+    setInviteSuccess(null);
+    setInviteError(null);
+    if (propertyId) {
+      AppApi.getPropertyInvitations(propertyId)
+        .then((invs) => setPendingInvitations((invs || []).filter((i) => i.status === "pending")))
+        .catch(() => setPendingInvitations([]));
+    }
+  }, [modalOpen, propertyId]);
+
+  const handleSendInvite = async () => {
+    if (!inviteEmail || !propertyId || !currentAccount?.id) return;
+    setInviteSending(true);
+    setInviteSuccess(null);
+    setInviteError(null);
+    try {
+      await AppApi.createInvitation({
+        type: "property",
+        inviteeEmail: inviteEmail,
+        accountId: currentAccount.id,
+        propertyId,
+        intendedRole: inviteRole,
+      });
+      setInviteSuccess(inviteEmail);
+      setInviteEmail("");
+      const invs = await AppApi.getPropertyInvitations(propertyId);
+      setPendingInvitations((invs || []).filter((i) => i.status === "pending"));
+    } catch (err) {
+      setInviteError(err?.message || "Failed to send invitation");
+    } finally {
+      setInviteSending(false);
+    }
+  };
+
   const setHomeownerSlot = (idx, value) => {
     setHomeownerSlots((prev) => {
       const next = [...prev];
@@ -354,6 +400,80 @@ function HomeOpsTeamModal({
             </div>
           </div>
         </div>
+
+        {/* Invite new member by email */}
+        {propertyId && (
+          <div className="mt-6 pt-6 border-t border-gray-200 dark:border-gray-700">
+            <label className="flex items-center gap-2 text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+              <Mail className="w-4 h-4 text-[#456654]" />
+              Invite new member
+            </label>
+            <div className="flex gap-2 items-start flex-wrap">
+              <div className="flex-1 min-w-[200px]">
+                <input
+                  type="email"
+                  value={inviteEmail}
+                  onChange={(e) => setInviteEmail(e.target.value)}
+                  placeholder="Enter email address"
+                  className="form-input w-full text-sm"
+                />
+              </div>
+              <div className="w-32 shrink-0">
+                <select
+                  value={inviteRole}
+                  onChange={(e) => setInviteRole(e.target.value)}
+                  className="form-select w-full text-sm"
+                >
+                  <option value="editor">Editor</option>
+                  <option value="viewer">Viewer</option>
+                </select>
+              </div>
+              <button
+                type="button"
+                onClick={handleSendInvite}
+                disabled={inviteSending || !inviteEmail}
+                className="btn-sm bg-[#456654] hover:bg-[#34514f] text-white transition-colors inline-flex items-center gap-1.5 disabled:opacity-50"
+              >
+                <Send className="w-4 h-4" />
+                {inviteSending ? "Sending..." : "Invite"}
+              </button>
+            </div>
+            {inviteSuccess && (
+              <div className="flex items-center gap-1.5 mt-2 text-xs text-emerald-600 dark:text-emerald-400">
+                <Check className="w-3.5 h-3.5" />
+                Invitation sent to {inviteSuccess}
+              </div>
+            )}
+            {inviteError && (
+              <div className="flex items-center gap-1.5 mt-2 text-xs text-red-600 dark:text-red-400">
+                <AlertCircle className="w-3.5 h-3.5" />
+                {inviteError}
+              </div>
+            )}
+            {pendingInvitations.length > 0 && (
+              <div className="mt-3">
+                <p className="text-xs font-medium text-gray-500 dark:text-gray-400 mb-1.5">
+                  Pending invitations
+                </p>
+                <div className="space-y-1">
+                  {pendingInvitations.map((inv) => (
+                    <div
+                      key={inv.id}
+                      className="flex items-center justify-between py-1.5 px-2 bg-gray-50 dark:bg-gray-800 rounded text-xs"
+                    >
+                      <span className="text-gray-700 dark:text-gray-300 truncate">
+                        {inv.invitee_email || inv.inviteeEmail}
+                      </span>
+                      <span className="text-gray-400 dark:text-gray-500 ml-2 shrink-0">
+                        {inv.intended_role || inv.intendedRole || "editor"}
+                      </span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+          </div>
+        )}
 
         <div className="flex justify-end gap-3 mt-8 pt-6 border-t border-gray-200 dark:border-gray-700">
           <button

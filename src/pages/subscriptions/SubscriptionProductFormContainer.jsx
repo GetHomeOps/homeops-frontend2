@@ -4,7 +4,7 @@ import {AlertCircle, Package, DollarSign} from "lucide-react";
 import Banner from "../../partials/containers/Banner";
 import ModalBlank from "../../components/ModalBlank";
 import {useTranslation} from "react-i18next";
-import useCurrentDb from "../../hooks/useCurrentDb";
+import useCurrentAccount from "../../hooks/useCurrentAccount";
 import {useAutoCloseBanner} from "../../hooks/useAutoCloseBanner";
 import AppApi from "../../api/api";
 
@@ -88,8 +88,8 @@ function SubscriptionProductFormContainer() {
   const {id} = useParams();
   const {t} = useTranslation();
   const navigate = useNavigate();
-  const {currentDb} = useCurrentDb();
-  const dbUrl = currentDb?.url || currentDb?.name || "";
+  const {currentAccount} = useCurrentAccount();
+  const accountUrl = currentAccount?.url || currentAccount?.name || "";
 
   const isNew = !id || id === "new";
 
@@ -190,7 +190,7 @@ function SubscriptionProductFormContainer() {
       const res = await AppApi.createSubscriptionProduct(data);
 
       if (res && res.id) {
-        navigate(`/${dbUrl}/subscription-products/${res.id}`);
+        navigate(`/${accountUrl}/subscription-products/${res.id}`);
         setTimeout(() => {
           dispatch({
             type: "SET_BANNER",
@@ -264,7 +264,7 @@ function SubscriptionProductFormContainer() {
     try {
       dispatch({type: "SET_DANGER_MODAL", payload: false});
       await AppApi.deleteSubscriptionProduct(Number(id));
-      navigate(`/${dbUrl}/subscription-products`);
+      navigate(`/${accountUrl}/subscription-products`);
     } catch (error) {
       dispatch({
         type: "SET_BANNER",
@@ -287,12 +287,12 @@ function SubscriptionProductFormContainer() {
       dispatch({type: "SET_FORM_CHANGED", payload: false});
       dispatch({type: "SET_ERRORS", payload: {}});
     } else {
-      navigate(`/${dbUrl}/subscription-products`);
+      navigate(`/${accountUrl}/subscription-products`);
     }
   }
 
   function handleBackClick() {
-    navigate(`/${dbUrl}/subscription-products`);
+    navigate(`/${accountUrl}/subscription-products`);
   }
 
   function getPageTitle() {
@@ -454,7 +454,7 @@ function SubscriptionProductFormContainer() {
             )}
             <button
               className="btn bg-[#456564] hover:bg-[#34514f] text-white transition-colors duration-200 shadow-sm"
-              onClick={() => navigate(`/${dbUrl}/subscription-products/new`)}
+              onClick={() => navigate(`/${accountUrl}/subscription-products/new`)}
             >
               {t("new")}
             </button>

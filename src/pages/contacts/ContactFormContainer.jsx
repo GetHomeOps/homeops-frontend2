@@ -25,7 +25,7 @@ import ModalBlank from "../../components/ModalBlank";
 import {useTranslation} from "react-i18next";
 import DropdownFilter from "../../components/DropdownFilter";
 import contactContext from "../../context/ContactContext";
-import useCurrentDb from "../../hooks/useCurrentDb";
+import useCurrentAccount from "../../hooks/useCurrentAccount";
 import {useAutoCloseBanner} from "../../hooks/useAutoCloseBanner";
 import {countries} from "../../data/countries";
 import {usStates} from "../../data/states";
@@ -165,8 +165,8 @@ function ContactsFormContainer() {
   const navigate = useNavigate();
   const location = useLocation();
   const controls = useAnimationControls();
-  const {currentDb} = useCurrentDb();
-  const dbUrl = currentDb?.url || currentDb?.name || "";
+  const {currentAccount} = useCurrentAccount();
+  const accountUrl = currentAccount?.url || currentAccount?.name || "";
 
   // Define tabs here where t is available
   const tabs = [
@@ -360,7 +360,7 @@ function ContactsFormContainer() {
           sortedContacts.findIndex((contact) => contact.id === res.id) + 1;
 
         // Navigate to the new contact with navigation state
-        navigate(`/${dbUrl}/contacts/${res.id}`, {
+        navigate(`/${accountUrl}/contacts/${res.id}`, {
           state: {
             currentIndex: newContactIndex,
             totalItems: sortedContacts.length,
@@ -479,7 +479,7 @@ function ContactsFormContainer() {
 
   /* Navigates to contacts list */
   function handleBackClick() {
-    navigate(`/${dbUrl}/contacts`);
+    navigate(`/${accountUrl}/contacts`);
   }
 
   /* If editing a contact -> return the contact's name
@@ -527,7 +527,7 @@ function ContactsFormContainer() {
     dispatch({type: "SET_CONTACT", payload: null});
     dispatch({type: "SET_FORM_DATA", payload: initialFormData});
     dispatch({type: "SET_ERRORS", payload: {}});
-    navigate(`/${dbUrl}/contacts/new`, {state: navigationState});
+    navigate(`/${accountUrl}/contacts/new`, {state: navigationState});
   }
 
   /* Handles delete button */
@@ -567,7 +567,7 @@ function ContactsFormContainer() {
           sortedContacts.findIndex((contact) => contact.id === res.id) + 1;
 
         // Navigate to the duplicated contact with navigation state
-        navigate(`/${dbUrl}/contacts/${res.id}`, {
+        navigate(`/${accountUrl}/contacts/${res.id}`, {
           state: {
             currentIndex: newContactIndex,
             totalItems: sortedContacts.length,
@@ -618,11 +618,11 @@ function ContactsFormContainer() {
       // Navigate first based on remaining contacts
       if (contacts.length <= 1) {
         // If this was the last contact, go to contacts list
-        navigate(`/${dbUrl}/contacts`);
+        navigate(`/${accountUrl}/contacts`);
       } else if (contactIndex === contacts.length - 1) {
         // If this was the last contact in the list, go to previous contact
         const prevId = contacts[contactIndex - 1].id;
-        navigate(`/${dbUrl}/contacts/${prevId}`, {
+        navigate(`/${accountUrl}/contacts/${prevId}`, {
           state: {
             currentIndex: contactIndex,
             totalItems: contacts.length - 1,
@@ -634,7 +634,7 @@ function ContactsFormContainer() {
       } else {
         // Otherwise go to next contact
         const nextId = contacts[contactIndex + 1].id;
-        navigate(`/${dbUrl}/contacts/${nextId}`, {
+        navigate(`/${accountUrl}/contacts/${nextId}`, {
           state: {
             currentIndex: contactIndex + 1,
             totalItems: contacts.length - 1,
@@ -817,7 +817,7 @@ function ContactsFormContainer() {
       });
       dispatch({type: "SET_FORM_CHANGED", payload: false});
       dispatch({type: "SET_ERRORS", payload: {}});
-      navigate(`/${dbUrl}/contacts`);
+      navigate(`/${accountUrl}/contacts`);
     }
   }
 
@@ -1248,7 +1248,7 @@ function ContactsFormContainer() {
                             navState.visibleContactIds[prevIndex];
                           const prevNavState =
                             buildNavigationState(prevContactId);
-                          navigate(`/${dbUrl}/contacts/${prevContactId}`, {
+                          navigate(`/${accountUrl}/contacts/${prevContactId}`, {
                             state: prevNavState || {
                               ...navState,
                               currentIndex: navState.currentIndex - 1,
@@ -1287,7 +1287,7 @@ function ContactsFormContainer() {
                             navState.visibleContactIds[nextIndex];
                           const nextNavState =
                             buildNavigationState(nextContactId);
-                          navigate(`/${dbUrl}/contacts/${nextContactId}`, {
+                          navigate(`/${accountUrl}/contacts/${nextContactId}`, {
                             state: nextNavState || {
                               ...navState,
                               currentIndex: navState.currentIndex + 1,

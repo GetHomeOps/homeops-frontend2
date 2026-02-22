@@ -4,7 +4,7 @@ import {
   Hammer, Trees, PaintBucket, Plug, Wrench, Ruler,
   Armchair, Droplets, Home, Wind, CookingPot, Pencil,
 } from "lucide-react";
-import useCurrentDb from "../../../hooks/useCurrentDb";
+import useCurrentAccount from "../../../hooks/useCurrentAccount";
 
 const CATEGORY_ICONS = {
   cabinets: Armchair,
@@ -38,8 +38,8 @@ const CATEGORY_COLORS = {
 
 function CategoryGrid({ categories, location }) {
   const navigate = useNavigate();
-  const { currentDb } = useCurrentDb();
-  const dbUrl = currentDb?.url || "";
+  const { currentAccount } = useCurrentAccount();
+  const accountUrl = currentAccount?.url || "";
 
   const handleClick = (category) => {
     const params = new URLSearchParams();
@@ -47,8 +47,8 @@ function CategoryGrid({ categories, location }) {
     if (location?.city) params.set("city", location.city);
     if (location?.state) params.set("state", location.state);
 
-    const base = dbUrl
-      ? `/${dbUrl}/professionals/search`
+    const base = accountUrl
+      ? `/${accountUrl}/professionals/search`
       : "/professionals/search";
     navigate(`${base}?${params.toString()}`);
   };

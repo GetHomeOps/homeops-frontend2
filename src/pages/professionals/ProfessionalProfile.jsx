@@ -25,7 +25,7 @@ import {
 
 import Sidebar from "../../partials/Sidebar";
 import Header from "../../partials/Header";
-import useCurrentDb from "../../hooks/useCurrentDb";
+import useCurrentAccount from "../../hooks/useCurrentAccount";
 import {MOCK_PROFESSIONALS} from "./data/mockData";
 
 const TABS = [
@@ -40,8 +40,8 @@ function ProfessionalProfile() {
   const navigate = useNavigate();
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [activeTab, setActiveTab] = useState("about");
-  const {currentDb} = useCurrentDb();
-  const dbUrl = currentDb?.url || "";
+  const {currentAccount} = useCurrentAccount();
+  const accountUrl = currentAccount?.url || "";
 
   const professional = useMemo(
     () => MOCK_PROFESSIONALS.find((p) => p.id === proId),
@@ -135,7 +135,7 @@ function ProfessionalProfile() {
               <button
                 type="button"
                 onClick={() =>
-                  navigate(dbUrl ? `/${dbUrl}/professionals` : "/professionals")
+                  navigate(accountUrl ? `/${accountUrl}/professionals` : "/professionals")
                 }
                 className="text-sm font-medium text-[#456564] hover:text-[#34514f] transition-colors"
               >

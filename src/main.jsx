@@ -22,6 +22,10 @@ import ThemeProvider from "./utils/ThemeContext";
 import App from "./App";
 import "./i18n";
 
+if (localStorage.getItem("sidebar-expanded") === "true") {
+  document.body.classList.add("sidebar-expanded");
+}
+
 ReactDOM.createRoot(document.getElementById("root")).render(
   <React.StrictMode>
     <HashRouter>
@@ -29,5 +33,5 @@ ReactDOM.createRoot(document.getElementById("root")).render(
         <App />
       </ThemeProvider>
     </HashRouter>
-  </React.StrictMode>
+  </React.StrictMode>,
 );

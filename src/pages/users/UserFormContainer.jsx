@@ -14,7 +14,7 @@ import {useTranslation} from "react-i18next";
 import DropdownFilter from "../../components/DropdownFilter";
 import UserContext from "../../context/UserContext";
 import contactContext from "../../context/ContactContext";
-import useCurrentDb from "../../hooks/useCurrentDb";
+import useCurrentAccount from "../../hooks/useCurrentAccount";
 import {useAutoCloseBanner} from "../../hooks/useAutoCloseBanner";
 import {useAuth} from "../../context/AuthContext";
 import AppApi from "../../api/api";
@@ -107,12 +107,12 @@ function UsersFormContainer() {
   const navigate = useNavigate();
   const location = useLocation();
   const {t} = useTranslation();
-  const {users, createUser, deleteUser, createUserConfirmationToken, setUsers} =
+  const {users, createUser, deleteUser, createUserInvitation, setUsers} =
     useContext(UserContext);
   const {contacts} = useContext(contactContext);
   const {currentUser} = useAuth();
-  const {currentDb} = useCurrentDb();
-  const dbUrl = currentDb?.url || currentDb?.name || "";
+  const {currentAccount} = useCurrentAccount();
+  const accountUrl = currentAccount?.url || currentAccount?.name || "";
   const userPhotoInputRef = useRef(null);
 
   const {
@@ -269,31 +269,28 @@ function UsersFormContainer() {
     }
   };
 
-  /* Fetches a new user confirmation token */
-  async function fetchUserConfirmationToken(userId) {
-    let userData = {
-      userId: userId,
-    };
+  async function sendUserInvitation(user) {
     try {
-      const token = await AppApi.createUserConfirmationToken(userData);
-      console.log("token:", token);
+      const result = await createUserInvitation({
+        inviteeEmail: user?.email || state.user?.email || state.formData?.email,
+        accountId: currentAccount?.id,
+        intendedRole: 'member',
+        type: 'account',
+      });
 
-      // Open invitation route in new tab with token result
-      // UserConfirmationEmail expects email, name, and token as query parameters
-      // Using HashRouter, so URL needs # prefix
-      if (token?.result && state.user) {
+      if (result?.token && (user || state.user)) {
         const email = encodeURIComponent(
-          state.user.email || state.formData.email || "",
+          user?.email || state.user?.email || state.formData?.email || "",
         );
         const name = encodeURIComponent(
-          state.user.name || state.formData.name || "",
+          user?.name || state.user?.name || state.formData?.name || "",
         );
-        const tokenValue = encodeURIComponent(token.result);
-        const url = `/#/${dbUrl}/invite/confirm?token=${tokenValue}&email=${email}&name=${name}`;
+        const tokenValue = encodeURIComponent(result.token);
+        const url = `/#/${accountUrl}/invite/confirm?token=${tokenValue}&email=${email}&name=${name}`;
         window.open(url, "_blank", "noopener,noreferrer");
       }
     } catch (error) {
-      console.error("Error fetching user confirmation token:", error);
+      console.error("Error sending user invitation:", error);
       return null;
     }
   }
@@ -340,7 +337,7 @@ function UsersFormContainer() {
         dispatch({type: "SET_USER", payload: res});
 
         // Navigate to the new user with navigation state
-        navigate(`/${dbUrl}/users/${res.id}`, {
+        navigate(`/${accountUrl}/users/${res.id}`, {
           state: {
             currentIndex: users.length + 1,
             totalItems: users.length + 1,
@@ -464,7 +461,7 @@ function UsersFormContainer() {
 
   /* Navigates to users list */
   function handleBackClick() {
-    navigate(`/${dbUrl}/users`);
+    navigate(`/${accountUrl}/users`);
   }
 
   /* If editing a user -> return the user's name
@@ -497,7 +494,7 @@ function UsersFormContainer() {
     dispatch({type: "SET_USER", payload: null});
     dispatch({type: "SET_FORM_DATA", payload: initialFormData});
     dispatch({type: "SET_ERRORS", payload: {}});
-    navigate(`/${dbUrl}/users/new`);
+    navigate(`/${accountUrl}/users/new`);
   }
 
   /* Handles delete button */
@@ -523,11 +520,11 @@ function UsersFormContainer() {
 
       if (remainingUsers.length === 0) {
         // If this was the last user, go to users list
-        navigate(`/${dbUrl}/users`);
+        navigate(`/${accountUrl}/users`);
       } else if (userIndex === users.length - 1) {
         // If this was the last user in the list, go to previous user
         const prevId = remainingUsers[remainingUsers.length - 1].id;
-        navigate(`/${dbUrl}/users/${prevId}`, {
+        navigate(`/${accountUrl}/users/${prevId}`, {
           state: {
             currentIndex: remainingUsers.length,
             totalItems: remainingUsers.length,
@@ -540,7 +537,7 @@ function UsersFormContainer() {
         const prevId =
           remainingUsers[userIndex - 1]?.id || remainingUsers[0].id;
         const prevIndex = userIndex; // The previous user will be at the same index after deletion
-        navigate(`/${dbUrl}/users/${prevId}`, {
+        navigate(`/${accountUrl}/users/${prevId}`, {
           state: {
             currentIndex: prevIndex,
             totalItems: remainingUsers.length,
@@ -604,7 +601,7 @@ function UsersFormContainer() {
       });
       dispatch({type: "SET_FORM_CHANGED", payload: false});
       dispatch({type: "SET_ERRORS", payload: {}});
-      navigate(`/${dbUrl}/users/new`);
+      navigate(`/${accountUrl}/users/new`);
     }
   }
 
@@ -716,7 +713,7 @@ function UsersFormContainer() {
   // Handler for navigating to contact (for saved contact only)
   const handleNavigateToSavedContact = () => {
     if (savedContact) {
-      navigate(`/${dbUrl}/contacts/${savedContact.id}`);
+      navigate(`/${accountUrl}/contacts/${savedContact.id}`);
     }
   };
 
@@ -877,7 +874,7 @@ function UsersFormContainer() {
                 <a
                   onClick={(e) => {
                     e.preventDefault();
-                    fetchUserConfirmationToken(state.user.id);
+                    sendUserInvitation(state.user);
                   }}
                   className="flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-semibold transition-all duration-200 shadow-sm hover:shadow-md bg-[#fddddd] dark:bg-[#402431] text-[#e63939] dark:text-[#c23437] hover:bg-[#fccccc] dark:hover:bg-[#4d2a3a] cursor-pointer"
                 >
@@ -910,7 +907,7 @@ function UsersFormContainer() {
                       const prevIndex = location.state.currentIndex - 2;
                       const prevUserId =
                         location.state.visibleContactIds[prevIndex];
-                      navigate(`/${dbUrl}/users/${prevUserId}`, {
+                      navigate(`/${accountUrl}/users/${prevUserId}`, {
                         state: {
                           ...location.state,
                           currentIndex: location.state.currentIndex - 1,
@@ -951,7 +948,7 @@ function UsersFormContainer() {
                       const nextIndex = location.state.currentIndex;
                       const nextUserId =
                         location.state.visibleContactIds[nextIndex];
-                      navigate(`/${dbUrl}/users/${nextUserId}`, {
+                      navigate(`/${accountUrl}/users/${nextUserId}`, {
                         state: {
                           ...location.state,
                           currentIndex: location.state.currentIndex + 1,

@@ -13,7 +13,7 @@ import Sidebar from "../../partials/Sidebar";
 import Header from "../../partials/Header";
 import PaginationClassic from "../../components/PaginationClassic";
 import contactContext from "../../context/ContactContext";
-import useCurrentDb from "../../hooks/useCurrentDb";
+import useCurrentAccount from "../../hooks/useCurrentAccount";
 import ModalBlank from "../../components/ModalBlank";
 import Banner from "../../partials/containers/Banner";
 import ViewModeDropdown from "../../components/ViewModeDropdown";
@@ -110,8 +110,8 @@ function ContactsList() {
 
   const navigate = useNavigate();
   const {t, i18n} = useTranslation();
-  const {currentDb} = useCurrentDb();
-  const dbUrl = currentDb?.url || currentDb?.name || "";
+  const {currentAccount} = useCurrentAccount();
+  const accountUrl = currentAccount?.url || currentAccount?.name || "";
 
   // Initialize ContactsList when contacts change
   useEffect(() => {
@@ -165,7 +165,7 @@ function ContactsList() {
       visibleContactIds = reversedContacts.map((c) => c.id);
     }
 
-    navigate(`/${dbUrl}/contacts/${contactId}`, {
+    navigate(`/${accountUrl}/contacts/${contactId}`, {
       state: {
         currentIndex,
         totalItems,
@@ -176,7 +176,7 @@ function ContactsList() {
 
   // Handle navigation to new contact form
   const handleNewContact = () => {
-    navigate(`/${dbUrl}/contacts/new`);
+    navigate(`/${accountUrl}/contacts/new`);
   };
 
   // Memoize filtered contacts based on search term
@@ -556,7 +556,7 @@ function ContactsList() {
                 <ListDropdown
                   align="right"
                   hasSelection={selectedItems.length > 0}
-                  onImport={() => navigate(`/${dbUrl}/contacts/import`)}
+                  onImport={() => navigate(`/${accountUrl}/contacts/import`)}
                   onDelete={handleDeleteClick}
                   onDuplicate={handleDuplicate}
                 />

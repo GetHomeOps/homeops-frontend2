@@ -2,7 +2,7 @@ import React, {createContext, useState, useMemo, useEffect} from "react";
 import AppApi from "../api/api";
 import useLocalStorage from "../hooks/useLocalStorage";
 import {useAuth} from "./AuthContext";
-import useCurrentDb from "../hooks/useCurrentDb";
+import useCurrentAccount from "../hooks/useCurrentAccount";
 import {computeHpsScore} from "../pages/properties/helpers/computeHpsScore";
 import {mapPropertyFromBackend} from "../pages/properties/helpers/preparePropertyValues";
 
@@ -18,7 +18,7 @@ export function PropertyProvider({children}) {
     "grid",
   );
   const {currentUser, isLoading} = useAuth();
-  const {currentDb} = useCurrentDb();
+  const {currentAccount} = useCurrentAccount();
 
   /** Normalize property for list display - ensure health value from hps_score/hpsScore.
    *  When the backend has no persisted score, compute it from the property's identity data. */
@@ -46,7 +46,7 @@ export function PropertyProvider({children}) {
       if (currentUser.role === "super_admin") {
         fetchedProperties = await AppApi.getAllProperties();
       } else {
-        if (currentDb?.id) {
+        if (currentAccount?.id) {
           fetchedProperties = await AppApi.getPropertiesByUserId(
             currentUser.id,
           );
@@ -68,7 +68,7 @@ export function PropertyProvider({children}) {
 
   useEffect(() => {
     fetchProperties();
-  }, [isLoading, currentUser, currentDb]);
+  }, [isLoading, currentUser, currentAccount]);
 
   /* Get all properties by user ID */
   async function getPropertiesByUserId(userId) {
@@ -298,11 +298,11 @@ export function PropertyProvider({children}) {
     }
   }
 
-  useEffect(() => {}, [isLoading, currentUser, currentDb]);
+  useEffect(() => {}, [isLoading, currentUser, currentAccount]);
 
   const contextValue = useMemo(
     () => ({
-      currentDb,
+      currentAccount,
       properties,
       selectedItems,
       setSelectedItems,
@@ -327,7 +327,7 @@ export function PropertyProvider({children}) {
       createMaintenanceRecords,
       refreshProperties: fetchProperties,
     }),
-    [properties, currentDb, maintenanceRecords, viewMode],
+    [properties, currentAccount, maintenanceRecords, viewMode],
   );
 
   return (

@@ -18,7 +18,7 @@ import DataTableItem from "../../components/DataTableItem";
 import ModalBlank from "../../components/ModalBlank";
 import Banner from "../../partials/containers/Banner";
 import ListDropdown from "../../partials/buttons/ListDropdown";
-import useCurrentDb from "../../hooks/useCurrentDb";
+import useCurrentAccount from "../../hooks/useCurrentAccount";
 import propertyContext from "../../context/PropertyContext";
 import AppApi from "../../api/api";
 
@@ -394,8 +394,8 @@ const PropertyCard = ({property, onClick, isSelected, onSelect, getMainPhotoUrl,
 function PropertiesList() {
   const navigate = useNavigate();
   const {t} = useTranslation();
-  const {currentDb} = useCurrentDb();
-  const dbUrl = currentDb?.url || currentDb?.name || "";
+  const {currentAccount} = useCurrentAccount();
+  const accountUrl = currentAccount?.url || currentAccount?.name || "";
   const [selectedProperties, setSelectedProperties] = useState([]);
   const [sortConfig, setSortConfig] = useState({
     key: "passport_id",
@@ -611,12 +611,12 @@ function PropertiesList() {
     dispatch({type: "SET_CURRENT_PAGE", payload: page});
   };
 
-  const handleNewProperty = () => navigate(`/${dbUrl}/properties/new`);
+  const handleNewProperty = () => navigate(`/${accountUrl}/properties/new`);
   const handlePropertyClick = (property) => {
     const propertyIndex = sortedProperties.findIndex(
       (p) => (p.property_uid ?? p.id) === property.property_uid,
     );
-    navigate(`/${dbUrl}/properties/${property.property_uid}`, {
+    navigate(`/${accountUrl}/properties/${property.property_uid}`, {
       state: {
         currentIndex: propertyIndex + 1,
         totalItems: sortedProperties.length,
@@ -910,7 +910,7 @@ function PropertiesList() {
                 <ListDropdown
                   align="right"
                   hasSelection={selectedProperties.length > 0}
-                  onImport={() => navigate(`/${dbUrl}/properties/import`)}
+                  onImport={() => navigate(`/${accountUrl}/properties/import`)}
                   onDelete={handleDeleteClick}
                   onDuplicate={handleDuplicate}
                 />

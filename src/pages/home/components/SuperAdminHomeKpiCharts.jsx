@@ -25,7 +25,7 @@ import MetricRow from "./MetricRow";
 import "./chartConfig";
 
 /**
- * All KPI chart sections for the SuperAdmin dashboard: daily metrics, growth, database analytics,
+ * All KPI chart sections for the SuperAdmin dashboard: daily metrics, growth, account analytics,
  * subscriptions & users, platform engagement.
  */
 function SuperAdminHomeKpiCharts({
@@ -35,16 +35,16 @@ function SuperAdminHomeKpiCharts({
   setTimeframeDays,
   TIMEFRAME_OPTIONS,
   chartOptions,
-  databaseGrowth,
+  accountGrowth,
   propertyGrowth,
   userGrowth,
   analyticsLoading,
-  databaseAnalytics,
+  accountAnalytics,
   subscriptionData,
   roleDistribution,
   roleBarData,
   platformKpis,
-  totalDatabases,
+  totalAccounts,
   engagementTrend,
   engagementCounts,
   summary,
@@ -76,7 +76,7 @@ function SuperAdminHomeKpiCharts({
           </div>
           <div className="bg-white dark:bg-gray-800 rounded-xl border border-gray-200/60 dark:border-gray-700/50 p-5 shadow-sm">
             <p className="text-xs text-gray-500 dark:text-gray-400 mb-4">
-              Cumulative totals (users, databases, properties) over the last{" "}
+              Cumulative totals (users, accounts, properties) over the last{" "}
               {TIMEFRAME_OPTIONS.find((o) => o.value === timeframeDays)?.label?.toLowerCase() ||
                 `${timeframeDays} days`}{" "}
               from platform data.
@@ -95,8 +95,8 @@ function SuperAdminHomeKpiCharts({
                       tension: 0.3,
                     },
                     {
-                      label: "Databases",
-                      data: dailyMetrics.map((d) => d.total_databases ?? 0),
+                      label: "Accounts",
+                      data: dailyMetrics.map((d) => d.total_accounts ?? 0),
                       borderColor: "#456564",
                       backgroundColor: "rgba(69, 101, 100, 0.1)",
                       fill: true,
@@ -132,28 +132,28 @@ function SuperAdminHomeKpiCharts({
           <div className="bg-white dark:bg-gray-800 rounded-xl border border-gray-200/60 dark:border-gray-700/50 p-5 shadow-sm">
             <div className="flex items-center justify-between mb-1">
               <h3 className="text-sm font-semibold text-gray-900 dark:text-white">
-                {t("superAdminHome.databaseGrowth") || "Databases"}
+                {t("superAdminHome.accountGrowth") || "Accounts"}
               </h3>
               <span className="text-xs text-gray-400 dark:text-gray-500">
                 {t("superAdminHome.last8Months") || "Last 8 months"}
               </span>
             </div>
             <p className="text-xs text-gray-500 dark:text-gray-400 mb-4">
-              New databases created per month
+              New accounts created per month
             </p>
-            {analyticsLoading && !databaseGrowth.length ? (
+            {analyticsLoading && !accountGrowth.length ? (
               <div className="h-32 flex items-center justify-center text-gray-400 text-sm">
                 Loading...
               </div>
-            ) : databaseGrowth.length > 0 ? (
+            ) : accountGrowth.length > 0 ? (
               <div className="h-32">
                 <Bar
                   data={{
-                    labels: databaseGrowth.map((d) => d.label),
+                    labels: accountGrowth.map((d) => d.label),
                     datasets: [
                       {
-                        label: "Databases",
-                        data: databaseGrowth.map((d) => d.value),
+                        label: "Accounts",
+                        data: accountGrowth.map((d) => d.value),
                         backgroundColor: "#456564",
                       },
                     ],
@@ -162,7 +162,7 @@ function SuperAdminHomeKpiCharts({
                 />
               </div>
             ) : (
-              <MiniBarChart data={databaseGrowth} barColor="#456564" />
+              <MiniBarChart data={accountGrowth} barColor="#456564" />
             )}
           </div>
 
@@ -242,44 +242,44 @@ function SuperAdminHomeKpiCharts({
         </div>
       </section>
 
-      {/* Database Analytics */}
-      {databaseAnalytics?.length > 0 && (
+      {/* Account Analytics */}
+      {accountAnalytics?.length > 0 && (
         <section>
           <div className="flex items-center gap-2 mb-4">
             <Database className="w-5 h-5 text-gray-700 dark:text-gray-300" />
             <h2 className="text-lg font-semibold text-gray-900 dark:text-white">
-              {t("superAdminHome.databaseAnalytics") || "Database Analytics"}
+              {t("superAdminHome.accountAnalytics") || "Account Analytics"}
             </h2>
           </div>
           <div className="bg-white dark:bg-gray-800 rounded-xl border border-gray-200/60 dark:border-gray-700/50 p-5 shadow-sm overflow-x-auto">
             <p className="text-xs text-gray-500 dark:text-gray-400 mb-4">
-              Per-database rollup: properties, users, systems, maintenance
+              Per-account rollup: properties, users, systems, maintenance
               records, avg HPS score.
             </p>
             <div className="h-64 min-w-[400px]">
               <Bar
                 data={{
-                  labels: databaseAnalytics
+                  labels: accountAnalytics
                     .slice(0, 10)
-                    .map((d) => d.database_name || "DB " + d.database_id),
+                    .map((d) => d.account_name || "DB " + d.account_id),
                   datasets: [
                     {
                       label: "Properties",
-                      data: databaseAnalytics
+                      data: accountAnalytics
                         .slice(0, 10)
                         .map((d) => d.total_properties ?? 0),
                       backgroundColor: "#3b82f6",
                     },
                     {
                       label: "Users",
-                      data: databaseAnalytics
+                      data: accountAnalytics
                         .slice(0, 10)
                         .map((d) => d.total_users ?? 0),
                       backgroundColor: "#8b5cf6",
                     },
                     {
                       label: "Maintenance",
-                      data: databaseAnalytics
+                      data: accountAnalytics
                         .slice(0, 10)
                         .map((d) => d.total_maintenance_records ?? 0),
                       backgroundColor: "#f59e0b",
@@ -297,16 +297,16 @@ function SuperAdminHomeKpiCharts({
               />
             </div>
             <div className="mt-4 pt-4 border-t border-gray-100 dark:border-gray-700 space-y-2">
-              {databaseAnalytics.slice(0, 5).map((row) => (
+              {accountAnalytics.slice(0, 5).map((row) => (
                 <div
-                  key={row.database_id}
+                  key={row.account_id}
                   className="flex items-center justify-between text-sm"
                 >
                   <span
                     className="font-medium text-gray-900 dark:text-white truncate max-w-[200px]"
-                    title={row.database_name}
+                    title={row.account_name}
                   >
-                    {row.database_name}
+                    {row.account_name}
                   </span>
                   <span className="text-gray-500 dark:text-gray-400">
                     {row.total_properties ?? 0} props · {row.total_users ?? 0}{" "}
@@ -341,7 +341,7 @@ function SuperAdminHomeKpiCharts({
             </div>
             <p className="text-xs text-gray-500 dark:text-gray-400 mb-5">
               {t("superAdminHome.subscriptionDescription") ||
-                "Paid vs free plans across all databases"}
+                "Paid vs free plans across all accounts"}
             </p>
             <DonutChart segments={subscriptionData.segments} />
             <div className="flex justify-center gap-6 mt-5">
@@ -416,8 +416,8 @@ function SuperAdminHomeKpiCharts({
             <div className="space-y-0 divide-y divide-gray-100 dark:divide-gray-700">
               <MetricRow
                 label={
-                  t("superAdminHome.avgPropertiesPerDb") ||
-                  "Avg Properties / Database"
+                  t("superAdminHome.avgPropertiesPerAccount") ||
+                  "Avg Properties / Account"
                 }
                 value={platformKpis.avgPropertiesPerDb}
                 icon={Building2}
@@ -425,7 +425,7 @@ function SuperAdminHomeKpiCharts({
               />
               <MetricRow
                 label={
-                  t("superAdminHome.avgUsersPerDb") || "Avg Users / Database"
+                  t("superAdminHome.avgUsersPerAccount") || "Avg Users / Account"
                 }
                 value={platformKpis.avgUsersPerDb}
                 icon={Users}
@@ -445,9 +445,9 @@ function SuperAdminHomeKpiCharts({
               />
               <MetricRow
                 label={
-                  t("superAdminHome.activeDatabases") || "Active Databases"
+                  t("superAdminHome.activeAccounts") || "Active Accounts"
                 }
-                value={`${platformKpis.activeDatabases} / ${totalDatabases}`}
+                value={`${platformKpis.activeAccounts} / ${totalAccounts}`}
                 icon={Database}
                 color="text-[#456564]"
               />
@@ -455,7 +455,7 @@ function SuperAdminHomeKpiCharts({
                 label={
                   t("superAdminHome.paidConversionRate") || "Paid Conversion"
                 }
-                value={`${totalDatabases > 0 ? Math.round((subscriptionData.paid / totalDatabases) * 100) : 0}%`}
+                value={`${totalAccounts > 0 ? Math.round((subscriptionData.paid / totalAccounts) * 100) : 0}%`}
                 icon={CreditCard}
                 color="text-emerald-400"
               />
@@ -637,9 +637,9 @@ function SuperAdminHomeKpiCharts({
               },
               {
                 label:
-                  t("superAdminHome.newDatabasesLast30") ||
-                  "New databases (30d)",
-                value: summary?.newDatabasesLast30d ?? "—",
+                  t("superAdminHome.newAccountsLast30") ||
+                  "New accounts (30d)",
+                value: summary?.newAccountsLast30d ?? "—",
                 color: "bg-[#456564]",
                 icon: Database,
               },

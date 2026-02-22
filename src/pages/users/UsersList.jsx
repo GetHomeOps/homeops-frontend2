@@ -95,7 +95,7 @@ function UsersList() {
   } = useContext(userContext);
   const {t, i18n} = useTranslation();
   const navigate = useNavigate();
-  const {dbUrl} = useParams();
+  const {accountUrl} = useParams();
 
   // Set up component's initial state
   const [state, dispatch] = useReducer(reducer, {
@@ -157,7 +157,7 @@ function UsersList() {
     const totalItems = filteredUsers.length;
     const visibleUserIds = filteredUsers.map((c) => c.id);
 
-    navigate(`/${dbUrl}/users/${user.id}`, {
+    navigate(`/${accountUrl}/users/${user.id}`, {
       state: {
         currentIndex,
         totalItems,
@@ -179,7 +179,7 @@ function UsersList() {
   console.log("Users: ", users);
 
   function handleNewUserClick() {
-    navigate(`/${dbUrl}/users/new`);
+    navigate(`/${accountUrl}/users/new`);
     dispatch({type: "SET_SIDEBAR_OPEN", payload: false});
   }
 
@@ -433,7 +433,7 @@ function UsersList() {
                 <ListDropdown
                   align="right"
                   hasSelection={selectedItems.length > 0}
-                  onImport={() => navigate(`/${dbUrl}/users/import`)}
+                  onImport={() => navigate(`/${accountUrl}/users/import`)}
                   onDelete={handleDeleteClick}
                   onDuplicate={handleDuplicate}
                 />

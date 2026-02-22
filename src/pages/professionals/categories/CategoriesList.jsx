@@ -9,7 +9,7 @@ import PaginationClassic from "../../../components/PaginationClassic";
 import DataTable from "../../../components/DataTable";
 import ModalBlank from "../../../components/ModalBlank";
 import Banner from "../../../partials/containers/Banner";
-import useCurrentDb from "../../../hooks/useCurrentDb";
+import useCurrentAccount from "../../../hooks/useCurrentAccount";
 
 import {CATEGORY_HIERARCHY, CATEGORIES_FLAT} from "./categoryData";
 
@@ -80,8 +80,8 @@ const TypeBadge = ({type}) => {
 function CategoriesList() {
   const navigate = useNavigate();
   const {t} = useTranslation();
-  const {currentDb} = useCurrentDb();
-  const dbUrl = currentDb?.url || currentDb?.name || "";
+  const {currentAccount} = useCurrentAccount();
+  const accountUrl = currentAccount?.url || currentAccount?.name || "";
   const [selectedItems, setSelectedItems] = useState([]);
   const [expandedGroups, setExpandedGroups] = useState(
     () => CATEGORY_HIERARCHY.map((g) => g.id),
@@ -184,13 +184,13 @@ function CategoriesList() {
   };
 
   const handleNewCategory = () =>
-    navigate(`/${dbUrl}/professionals/categories/new`);
+    navigate(`/${accountUrl}/professionals/categories/new`);
 
   const handleCategoryClick = useCallback(
     (item) => {
-      navigate(`/${dbUrl}/professionals/categories/${item.id}`);
+      navigate(`/${accountUrl}/professionals/categories/${item.id}`);
     },
-    [navigate, dbUrl],
+    [navigate, accountUrl],
   );
 
   const handleSort = (columnKey) => {

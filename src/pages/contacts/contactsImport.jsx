@@ -10,7 +10,7 @@ import {
 } from "../../data/contactImportSchema";
 import Sidebar from "../../partials/Sidebar";
 import Header from "../../partials/Header";
-import useCurrentDb from "../../hooks/useCurrentDb";
+import useCurrentAccount from "../../hooks/useCurrentAccount";
 import AppApi from "../../api/api";
 import contactContext from "../../context/ContactContext";
 import {
@@ -33,8 +33,8 @@ const GOOGLE_SHEETS_TEMPLATE_URL =
 const PREVIEW_PAGE_SIZE = 50;
 const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
-/** Build API payload for POST /contacts from an import row. Backend accepts databaseId and contact fields. */
-function rowToContactPayload(row, databaseId) {
+/** Build API payload for POST /contacts from an import row. Backend accepts accountId and contact fields. */
+function rowToContactPayload(row, accountId) {
   const typeNum = row.type ? Number(row.type) : 1;
   const type = typeNum === 2 ? 2 : 1;
   const payload = {
@@ -54,7 +54,7 @@ function rowToContactPayload(row, databaseId) {
     notes: (row.notes || "").trim() || undefined,
     role: (row.role || "").trim() || undefined,
   };
-  if (databaseId) payload.databaseId = databaseId;
+  if (accountId) payload.accountId = accountId;
   return payload;
 }
 
@@ -165,9 +165,9 @@ const STEPS = [
 
 function ContactsImport() {
   const navigate = useNavigate();
-  const { currentDb } = useCurrentDb();
+  const { currentAccount } = useCurrentAccount();
   const { refreshContacts } = useContext(contactContext);
-  const dbUrl = currentDb?.url || "";
+  const accountUrl = currentAccount?.url || "";
 
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [pendingFile, setPendingFile] = useState(null);
@@ -355,8 +355,8 @@ function ContactsImport() {
     setImportError(null);
     setImportSuccessCount(null);
     setIsSubmitting(true);
-    const databaseId = currentDb?.id ?? null;
-    const payloads = validRows.map((row) => rowToContactPayload(row, databaseId));
+    const accountId = currentAccount?.id ?? null;
+    const payloads = validRows.map((row) => rowToContactPayload(row, accountId));
     try {
       const results = await Promise.all(
         payloads.map((payload) => AppApi.createContact(payload))
@@ -370,7 +370,7 @@ function ContactsImport() {
     } finally {
       setIsSubmitting(false);
     }
-  }, [validRows, currentDb?.id, isSubmitting, refreshContacts]);
+  }, [validRows, currentAccount?.id, isSubmitting, refreshContacts]);
 
   return (
     <div className="flex h-[100dvh] overflow-hidden">
@@ -384,7 +384,7 @@ function ContactsImport() {
               <button
                 type="button"
                 onClick={() =>
-                  navigate(dbUrl ? `/${dbUrl}/contacts` : "/contacts")
+                  navigate(accountUrl ? `/${accountUrl}/contacts` : "/contacts")
                 }
                 className="flex items-center gap-2 text-base text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white transition-colors py-1"
               >
@@ -769,7 +769,7 @@ function ContactsImport() {
                           {importSuccessCount} contact{importSuccessCount !== 1 ? "s" : ""} created.
                           <button
                             type="button"
-                            onClick={() => navigate(dbUrl ? `/${dbUrl}/contacts` : "/contacts")}
+                            onClick={() => navigate(accountUrl ? `/${accountUrl}/contacts` : "/contacts")}
                             className="underline hover:no-underline"
                           >
                             View contacts

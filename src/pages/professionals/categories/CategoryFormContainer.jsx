@@ -6,7 +6,7 @@ import {Layers, Tag} from "lucide-react";
 import Sidebar from "../../../partials/Sidebar";
 import Header from "../../../partials/Header";
 import Banner from "../../../partials/containers/Banner";
-import useCurrentDb from "../../../hooks/useCurrentDb";
+import useCurrentAccount from "../../../hooks/useCurrentAccount";
 
 import {CATEGORY_HIERARCHY, CATEGORIES_FLAT} from "./categoryData";
 import CategoryForm from "./CategoryForm";
@@ -62,8 +62,8 @@ function CategoryFormContainer() {
   const navigate = useNavigate();
   const {categoryId} = useParams();
   const {t} = useTranslation();
-  const {currentDb} = useCurrentDb();
-  const dbUrl = currentDb?.url || currentDb?.name || "";
+  const {currentAccount} = useCurrentAccount();
+  const accountUrl = currentAccount?.url || currentAccount?.name || "";
 
   const [state, dispatch] = useReducer(reducer, initialState);
 
@@ -180,8 +180,8 @@ function CategoryFormContainer() {
   }, [validate, isNew]);
 
   const handleBack = useCallback(() => {
-    navigate(`/${dbUrl}/professionals/categories`);
-  }, [navigate, dbUrl]);
+    navigate(`/${accountUrl}/professionals/categories`);
+  }, [navigate, accountUrl]);
 
   /* ─── Derive context for the form ──────────────────────────── */
 
@@ -276,7 +276,7 @@ function CategoryFormContainer() {
                   type="button"
                   className="btn bg-[#456564] hover:bg-[#34514f] text-white transition-colors duration-200 shadow-sm"
                   onClick={() =>
-                    navigate(`/${dbUrl}/professionals/categories/new`)
+                    navigate(`/${accountUrl}/professionals/categories/new`)
                   }
                 >
                   {t("new")}
