@@ -39,6 +39,7 @@ import CategoryDirectoryPage from "../professionals/CategoryDirectoryPage";
 import MyProfessionals from "../professionals/MyProfessionals";
 import ProfessionalProfile from "../professionals/ProfessionalProfile";
 import ProfessionalFormContainer from "../professionals/ProfessionalFormContainer";
+import ProfessionalsList from "../professionals/ProfessionalsList";
 import CategoriesList from "../professionals/categories/CategoriesList";
 import CategoryFormContainer from "../professionals/categories/CategoryFormContainer";
 import DashboardOverview from "../dashboard/DashboardOverview";
@@ -226,6 +227,22 @@ function RoutesList() {
       />
       <Route
         path="/:accountUrl/professionals/manage"
+        element={
+          <ProtectedRoute>
+            <ProfessionalsList />
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/:accountUrl/professionals/manage/new"
+        element={
+          <ProtectedRoute>
+            <ProfessionalFormContainer />
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/:accountUrl/professionals/manage/:professionalId"
         element={
           <ProtectedRoute>
             <ProfessionalFormContainer />

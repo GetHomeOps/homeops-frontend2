@@ -7,9 +7,9 @@ import {
   MapPin,
   Sparkles,
   Loader2,
-  Wand2,
+  Search,
   AlertCircle,
-  DollarSign,
+  Database,
 } from "lucide-react";
 import ModalBlank from "../../../components/ModalBlank";
 import {
@@ -19,7 +19,7 @@ import {
 import useGooglePlacesAutocomplete from "../../../hooks/useGooglePlacesAutocomplete";
 import AppApi from "../../../api/api";
 
-/** All AI-predictable identity fields keyed by display group. */
+/** Property detail fields populated from ATTOM public records, keyed by display group. */
 const AI_FIELD_GROUPS = [
   {
     label: "General",
@@ -121,8 +121,6 @@ function SystemsSetupModal({
   const [aiFields, setAiFields] = useState({});
   const [predicting, setPredicting] = useState(false);
   const [predictError, setPredictError] = useState(null);
-  const [predictConfidence, setPredictConfidence] = useState(null);
-  const [aiUsage, setAiUsage] = useState(null);
   const [hasPredicted, setHasPredicted] = useState(false);
 
   const handlePlaceSelected = useCallback((parsed) => {
@@ -175,12 +173,7 @@ function SystemsSetupModal({
     setShowSuccess(false);
     setPredicting(false);
     setPredictError(null);
-    setPredictConfidence(null);
     setHasPredicted(false);
-    // Fetch usage on open
-    AppApi.getAiUsage()
-      .then(setAiUsage)
-      .catch(() => {});
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [modalOpen, skipIdentityStep, isNewProperty]);
 
@@ -207,24 +200,18 @@ function SystemsSetupModal({
     setStep("systems");
   };
 
-  const handlePredictWithAI = async () => {
+  const handleLookupProperty = async () => {
     setPredicting(true);
     setPredictError(null);
-    setPredictConfidence(null);
     try {
       const propertyInfo = {
-        propertyName: identityFields.propertyName,
         address: identityFields.address,
         addressLine1: identityFields.addressLine1,
         city: identityFields.city,
         state: identityFields.state,
         zip: identityFields.zip,
-        county: identityFields.county,
-        propertyType: formData?.propertyType ?? "",
-        sqFtTotal: formData?.sqFtTotal ?? formData?.squareFeet ?? "",
-        yearBuilt: formData?.yearBuilt ?? "",
       };
-      const result = await AppApi.predictPropertyDetails(propertyInfo);
+      const result = await AppApi.lookupPropertyDetails(propertyInfo);
       if (result?.prediction) {
         const p = result.prediction;
         const newFields = {};
@@ -240,15 +227,11 @@ function SystemsSetupModal({
           }
         }
         setAiFields(newFields);
-        setPredictConfidence(p.confidence);
         setHasPredicted(true);
-      }
-      if (result?.usage) {
-        setAiUsage(result.usage);
       }
     } catch (err) {
       const msg =
-        err?.message || "Failed to predict. Please enter values manually.";
+        err?.message || "No property data found. Please enter values manually.";
       setPredictError(msg);
     } finally {
       setPredicting(false);
@@ -352,7 +335,7 @@ function SystemsSetupModal({
           </>
         )}
 
-        {/* Step 1: Identity & Address — property name + address only (details from OpenAI) */}
+        {/* Step 1: Identity & Address — property name + address only (details from ATTOM) */}
         {step === "identity" && isNewProperty && (
           <div className="space-y-10">
             {/* Centered header */}
@@ -367,8 +350,8 @@ function SystemsSetupModal({
                 Let's set up your property
               </h2>
               <p className="text-sm text-gray-500 dark:text-gray-400 max-w-sm mx-auto leading-relaxed">
-                Enter the name and address. Additional details will be filled in
-                by AI.
+                Enter the name and address. We'll look up property details from
+                public records.
               </p>
             </div>
 
@@ -438,50 +421,23 @@ function SystemsSetupModal({
           </div>
         )}
 
-        {/* Step 2: AI Autofill — predict all identity fields (new properties only) */}
+        {/* Step 2: Property Data Lookup — fetch details from ATTOM public records (new properties only) */}
         {step === "details" && isNewProperty && (
           <div className="space-y-6">
             <div className="text-center pb-2">
               <div className="inline-flex items-center justify-center w-16 h-16 rounded-2xl bg-gradient-to-br from-[#456564]/12 to-[#456564]/5 dark:from-[#456564]/20 dark:to-[#456564]/8 mb-4">
-                <Wand2 className="w-8 h-8 text-[#456564]" strokeWidth={1.5} />
+                <Database className="w-8 h-8 text-[#456564]" strokeWidth={1.5} />
               </div>
               <h2 className="text-2xl font-semibold text-gray-900 dark:text-white mb-2">
-                AI Property Autofill
+                Property Data Lookup
               </h2>
               <p className="text-sm text-gray-500 dark:text-gray-400 max-w-md mx-auto leading-relaxed">
-                Let AI populate property details based on the address you
-                provided. You can review and edit every field before saving.
+                Pull property details from public records based on the address
+                you provided. You can review and edit every field before saving.
               </p>
             </div>
 
-            {/* Budget indicator */}
-            {aiUsage && (
-              <div className="flex items-center justify-center gap-2">
-                <DollarSign className="w-3.5 h-3.5 text-gray-400" />
-                <div className="flex items-center gap-2">
-                  <div className="w-32 h-1.5 rounded-full bg-gray-200 dark:bg-gray-700 overflow-hidden">
-                    <div
-                      className={`h-full rounded-full transition-all duration-500 ${
-                        aiUsage.remaining <= 0
-                          ? "bg-red-500"
-                          : aiUsage.spent / aiUsage.cap > 0.8
-                            ? "bg-amber-500"
-                            : "bg-emerald-500"
-                      }`}
-                      style={{
-                        width: `${Math.min(100, (aiUsage.spent / aiUsage.cap) * 100)}%`,
-                      }}
-                    />
-                  </div>
-                  <span className="text-xs text-gray-500 dark:text-gray-400">
-                    ${aiUsage.spent.toFixed(2)} / ${aiUsage.cap.toFixed(2)} this
-                    month
-                  </span>
-                </div>
-              </div>
-            )}
-
-            {/* AI Prediction button */}
+            {/* Property lookup button */}
             {(() => {
               const hasAddress = !!(
                 identityFields.address?.trim() ||
@@ -491,44 +447,21 @@ function SystemsSetupModal({
                 <div className="flex flex-col items-center gap-3">
                   <button
                     type="button"
-                    disabled={
-                      predicting ||
-                      !hasAddress ||
-                      (aiUsage && aiUsage.remaining <= 0)
-                    }
-                    onClick={handlePredictWithAI}
+                    disabled={predicting || !hasAddress}
+                    onClick={handleLookupProperty}
                     className="btn bg-gradient-to-r from-[#456564] to-[#3a5548] hover:from-[#34514f] hover:to-[#2d4640] text-white shadow-sm inline-flex items-center gap-2 disabled:opacity-60"
                   >
                     {predicting ? (
                       <Loader2 className="w-4 h-4 animate-spin" />
                     ) : (
-                      <Wand2 className="w-4 h-4" />
+                      <Search className="w-4 h-4" />
                     )}
                     {predicting
-                      ? "Analyzing property..."
+                      ? "Looking up property..."
                       : hasPredicted
-                        ? "Re-run AI prediction"
-                        : "Populate with AI"}
+                        ? "Look up again"
+                        : "Look up property data"}
                   </button>
-                  {predictConfidence && (
-                    <span
-                      className={`text-xs font-medium px-2.5 py-1 rounded-full ${
-                        predictConfidence === "high"
-                          ? "bg-emerald-100 text-emerald-700 dark:bg-emerald-900/40 dark:text-emerald-400"
-                          : predictConfidence === "medium"
-                            ? "bg-amber-100 text-amber-700 dark:bg-amber-900/40 dark:text-amber-400"
-                            : "bg-gray-100 text-gray-600 dark:bg-gray-700 dark:text-gray-400"
-                      }`}
-                    >
-                      {predictConfidence} confidence
-                    </span>
-                  )}
-                  {aiUsage && aiUsage.remaining <= 0 && (
-                    <p className="text-xs text-red-500 dark:text-red-400">
-                      Monthly AI budget exhausted. Resets on the 1st of next
-                      month.
-                    </p>
-                  )}
                   {predictError && (
                     <div className="flex items-center gap-1.5 text-sm text-red-500 dark:text-red-400">
                       <AlertCircle className="w-4 h-4 flex-shrink-0" />
@@ -537,15 +470,15 @@ function SystemsSetupModal({
                   )}
                   {!hasAddress && (
                     <p className="text-xs text-amber-600 dark:text-amber-400">
-                      Enter an address on the previous step to use AI
-                      prediction.
+                      Enter an address on the previous step to look up property
+                      data.
                     </p>
                   )}
                 </div>
               );
             })()}
 
-            {/* AI-predicted fields (editable) */}
+            {/* Property data fields (editable) */}
             {hasPredicted && (
               <div className="rounded-2xl border border-gray-200 dark:border-gray-700 bg-gray-50/50 dark:bg-gray-800/30 p-5 md:p-6 space-y-5 max-h-[45vh] overflow-y-auto">
                 {AI_FIELD_GROUPS.map((group) => (

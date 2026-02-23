@@ -494,7 +494,7 @@ function SubscriptionFormContainer() {
         </ModalBlank>
       </div>
 
-      <div className="px-4 sm:px-6 lg:px-1">
+      <div>
         {/* Navigation */}
         <div className="flex justify-between items-center mb-2">
           <button

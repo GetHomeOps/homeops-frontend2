@@ -250,18 +250,26 @@ function Sidebar({sidebarOpen, setSidebarOpen, variant = "default"}) {
   const [professionalsOpen, setProfessionalsOpen] = useState(
     isProfessionalsActive,
   );
-  const isCollapsed = !sidebarExpanded;
-
-  // Tooltips only when sidebar can be collapsed: lg/xl viewport (1024–1535px).
-  // On mobile it's a drawer; on 2xl the sidebar is always full width.
+  const [is2xlViewport, setIs2xlViewport] = useState(false);
   const [isExpandableViewport, setIsExpandableViewport] = useState(false);
+
   useEffect(() => {
-    const mq = window.matchMedia("(min-width: 1024px) and (max-width: 1535px)");
-    const handler = () => setIsExpandableViewport(mq.matches);
+    const mqExpandable = window.matchMedia("(min-width: 1024px) and (max-width: 1535px)");
+    const mq2xl = window.matchMedia("(min-width: 1536px)");
+    const handler = () => {
+      setIsExpandableViewport(mqExpandable.matches);
+      setIs2xlViewport(mq2xl.matches);
+    };
     handler();
-    mq.addEventListener("change", handler);
-    return () => mq.removeEventListener("change", handler);
+    mqExpandable.addEventListener("change", handler);
+    mq2xl.addEventListener("change", handler);
+    return () => {
+      mqExpandable.removeEventListener("change", handler);
+      mq2xl.removeEventListener("change", handler);
+    };
   }, []);
+
+  const isCollapsed = !sidebarExpanded && !is2xlViewport;
   const showTooltip = isCollapsed && isExpandableViewport;
 
   useEffect(() => {
@@ -390,7 +398,7 @@ function Sidebar({sidebarOpen, setSidebarOpen, variant = "default"}) {
                       to={accountUrl ? `/${accountUrl}/home` : "/home"}
                       aria-label="Home"
                       className={({isActive}) =>
-                        `flex items-center pl-4 pr-3 py-2 rounded-lg transition-all duration-200 lg:justify-center lg:sidebar-expanded:justify-start ${
+                        `flex items-center pl-4 pr-3 py-2 rounded-lg transition-all duration-200 lg:justify-center lg:sidebar-expanded:justify-start 2xl:justify-start ${
                           isActive
                             ? "bg-white/15 text-white [&_svg]:text-white"
                             : "text-white/90 hover:bg-white/[0.08] hover:text-white [&_svg]:text-white/70"
@@ -406,7 +414,7 @@ function Sidebar({sidebarOpen, setSidebarOpen, variant = "default"}) {
                       >
                         <path d="M8 0L0 8h2v6a2 2 0 0 0 2 2h8a2 2 0 0 0 2-2V8h2L8 0z" />
                       </svg>
-                      <span className="text-sm font-medium ml-4 min-w-0 whitespace-nowrap lg:ml-0 lg:max-w-0 lg:overflow-hidden lg:opacity-0 lg:sidebar-expanded:ml-4 lg:sidebar-expanded:max-w-none lg:sidebar-expanded:overflow-visible lg:sidebar-expanded:opacity-100 2xl:ml-4 2xl:opacity-100 duration-200">
+                      <span className="text-sm font-medium ml-4 min-w-0 whitespace-nowrap lg:ml-0 lg:max-w-0 lg:overflow-hidden lg:opacity-0 lg:sidebar-expanded:ml-4 lg:sidebar-expanded:max-w-none lg:sidebar-expanded:overflow-visible lg:sidebar-expanded:opacity-100 2xl:ml-4 2xl:max-w-none 2xl:overflow-visible 2xl:opacity-100 duration-200">
                         Home
                       </span>
                     </NavLink>
@@ -528,7 +536,7 @@ function Sidebar({sidebarOpen, setSidebarOpen, variant = "default"}) {
                               fill="currentColor"
                             />
                           </svg>
-                          <span className="text-sm font-medium ml-4 min-w-0 whitespace-nowrap lg:ml-0 lg:max-w-0 lg:overflow-hidden lg:opacity-0 lg:sidebar-expanded:ml-4 lg:sidebar-expanded:max-w-none lg:sidebar-expanded:overflow-visible lg:sidebar-expanded:opacity-100 2xl:ml-4 2xl:opacity-100 duration-200">
+                          <span className="text-sm font-medium ml-4 min-w-0 whitespace-nowrap lg:ml-0 lg:max-w-0 lg:overflow-hidden lg:opacity-0 lg:sidebar-expanded:ml-4 lg:sidebar-expanded:max-w-none lg:sidebar-expanded:overflow-visible lg:sidebar-expanded:opacity-100 2xl:ml-4 2xl:max-w-none 2xl:overflow-visible 2xl:opacity-100 duration-200">
                             Professionals
                           </span>
                           <span
@@ -542,13 +550,13 @@ function Sidebar({sidebarOpen, setSidebarOpen, variant = "default"}) {
                       </SubmenuFlyout>
                       <div
                         className={`grid transition-[grid-template-rows] duration-300 ease-out ${
-                          professionalsOpen && !isCollapsed
+                          professionalsOpen && (!isCollapsed || sidebarOpen)
                             ? "grid-rows-[1fr]"
                             : "grid-rows-[0fr]"
                         }`}
                       >
                         <div className="overflow-hidden">
-                          <ul className={`py-1 ${isCollapsed ? "" : "ml-4"}`}>
+                          <ul className={`py-1 ${isCollapsed && !sidebarOpen ? "" : "ml-4"}`}>
                             <li>
                               <SidebarTooltip
                                 show={showTooltip}
@@ -563,7 +571,7 @@ function Sidebar({sidebarOpen, setSidebarOpen, variant = "default"}) {
                                   }
                                   aria-label="Professionals"
                                   className={({isActive}) =>
-                                    `flex items-center pl-4 pr-3 py-2 rounded-lg transition-all duration-200 lg:justify-center lg:sidebar-expanded:justify-start ${
+                                    `flex items-center pl-4 pr-3 py-2 rounded-lg transition-all duration-200 lg:justify-center lg:sidebar-expanded:justify-start 2xl:justify-start ${
                                       isActive
                                         ? "text-white [&_svg]:text-white"
                                         : "text-white/70 hover:text-white [&_svg]:text-white/50"
@@ -597,7 +605,7 @@ function Sidebar({sidebarOpen, setSidebarOpen, variant = "default"}) {
                                       fill="currentColor"
                                     />
                                   </svg>
-                                  <span className="text-sm font-medium ml-4 min-w-0 whitespace-nowrap lg:ml-0 lg:max-w-0 lg:overflow-hidden lg:opacity-0 lg:sidebar-expanded:ml-4 lg:sidebar-expanded:max-w-none lg:sidebar-expanded:overflow-visible lg:sidebar-expanded:opacity-100 2xl:ml-4 2xl:opacity-100 duration-200">
+                                  <span className="text-sm font-medium ml-4 min-w-0 whitespace-nowrap lg:ml-0 lg:max-w-0 lg:overflow-hidden lg:opacity-0 lg:sidebar-expanded:ml-4 lg:sidebar-expanded:max-w-none lg:sidebar-expanded:overflow-visible lg:sidebar-expanded:opacity-100 2xl:ml-4 2xl:max-w-none 2xl:overflow-visible 2xl:opacity-100 duration-200">
                                     Professionals
                                   </span>
                                 </NavLink>
@@ -614,7 +622,7 @@ function Sidebar({sidebarOpen, setSidebarOpen, variant = "default"}) {
                                   }
                                   aria-label="Professional Categories"
                                   className={({isActive}) =>
-                                    `flex items-center pl-4 pr-3 py-2 rounded-lg transition-all duration-200 lg:justify-center lg:sidebar-expanded:justify-start ${
+                                    `flex items-center pl-4 pr-3 py-2 rounded-lg transition-all duration-200 lg:justify-center lg:sidebar-expanded:justify-start 2xl:justify-start ${
                                       isActive
                                         ? "text-white [&_svg]:text-white"
                                         : "text-white/70 hover:text-white [&_svg]:text-white/50"
@@ -648,7 +656,7 @@ function Sidebar({sidebarOpen, setSidebarOpen, variant = "default"}) {
                                       fillOpacity="0.25"
                                     />
                                   </svg>
-                                  <span className="text-sm font-medium ml-4 min-w-0 whitespace-nowrap lg:ml-0 lg:max-w-0 lg:overflow-hidden lg:opacity-0 lg:sidebar-expanded:ml-4 lg:sidebar-expanded:max-w-none lg:sidebar-expanded:overflow-visible lg:sidebar-expanded:opacity-100 2xl:ml-4 2xl:opacity-100 duration-200">
+                                  <span className="text-sm font-medium ml-4 min-w-0 whitespace-nowrap lg:ml-0 lg:max-w-0 lg:overflow-hidden lg:opacity-0 lg:sidebar-expanded:ml-4 lg:sidebar-expanded:max-w-none lg:sidebar-expanded:overflow-visible lg:sidebar-expanded:opacity-100 2xl:ml-4 2xl:max-w-none 2xl:overflow-visible 2xl:opacity-100 duration-200">
                                     Categories
                                   </span>
                                 </NavLink>
@@ -665,7 +673,7 @@ function Sidebar({sidebarOpen, setSidebarOpen, variant = "default"}) {
                                   }
                                   aria-label="Manage Professionals"
                                   className={({isActive}) =>
-                                    `flex items-center pl-4 pr-3 py-2 rounded-lg transition-all duration-200 lg:justify-center lg:sidebar-expanded:justify-start ${
+                                    `flex items-center pl-4 pr-3 py-2 rounded-lg transition-all duration-200 lg:justify-center lg:sidebar-expanded:justify-start 2xl:justify-start ${
                                       isActive
                                         ? "text-white [&_svg]:text-white"
                                         : "text-white/70 hover:text-white [&_svg]:text-white/50"
@@ -699,7 +707,7 @@ function Sidebar({sidebarOpen, setSidebarOpen, variant = "default"}) {
                                       fill="currentColor"
                                     />
                                   </svg>
-                                  <span className="text-sm font-medium ml-4 min-w-0 whitespace-nowrap lg:ml-0 lg:max-w-0 lg:overflow-hidden lg:opacity-0 lg:sidebar-expanded:ml-4 lg:sidebar-expanded:max-w-none lg:sidebar-expanded:overflow-visible lg:sidebar-expanded:opacity-100 2xl:ml-4 2xl:opacity-100 duration-200">
+                                  <span className="text-sm font-medium ml-4 min-w-0 whitespace-nowrap lg:ml-0 lg:max-w-0 lg:overflow-hidden lg:opacity-0 lg:sidebar-expanded:ml-4 lg:sidebar-expanded:max-w-none lg:sidebar-expanded:overflow-visible lg:sidebar-expanded:opacity-100 2xl:ml-4 2xl:max-w-none 2xl:overflow-visible 2xl:opacity-100 duration-200">
                                     Manage
                                   </span>
                                 </NavLink>
@@ -719,7 +727,7 @@ function Sidebar({sidebarOpen, setSidebarOpen, variant = "default"}) {
                         }
                         aria-label="Professionals"
                         className={({isActive}) =>
-                          `flex items-center pl-4 pr-3 py-2 rounded-lg transition-all duration-200 lg:justify-center lg:sidebar-expanded:justify-start ${
+                          `flex items-center pl-4 pr-3 py-2 rounded-lg transition-all duration-200 lg:justify-center lg:sidebar-expanded:justify-start 2xl:justify-start ${
                             isActive ||
                             pathname.includes("professionals") ||
                             pathname.includes("my-professionals")
@@ -755,7 +763,7 @@ function Sidebar({sidebarOpen, setSidebarOpen, variant = "default"}) {
                             fill="currentColor"
                           />
                         </svg>
-                        <span className="text-sm font-medium ml-4 min-w-0 whitespace-nowrap lg:ml-0 lg:max-w-0 lg:overflow-hidden lg:opacity-0 lg:sidebar-expanded:ml-4 lg:sidebar-expanded:max-w-none lg:sidebar-expanded:overflow-visible lg:sidebar-expanded:opacity-100 2xl:ml-4 2xl:opacity-100 duration-200">
+                        <span className="text-sm font-medium ml-4 min-w-0 whitespace-nowrap lg:ml-0 lg:max-w-0 lg:overflow-hidden lg:opacity-0 lg:sidebar-expanded:ml-4 lg:sidebar-expanded:max-w-none lg:sidebar-expanded:overflow-visible lg:sidebar-expanded:opacity-100 2xl:ml-4 2xl:max-w-none 2xl:overflow-visible 2xl:opacity-100 duration-200">
                           Professionals
                         </span>
                       </NavLink>
@@ -770,7 +778,7 @@ function Sidebar({sidebarOpen, setSidebarOpen, variant = "default"}) {
                       to={accountUrl ? `/${accountUrl}/properties` : "/properties"}
                       aria-label="Properties"
                       className={({isActive}) =>
-                        `flex items-center pl-4 pr-3 py-2 rounded-lg transition-all duration-200 lg:justify-center lg:sidebar-expanded:justify-start ${
+                        `flex items-center pl-4 pr-3 py-2 rounded-lg transition-all duration-200 lg:justify-center lg:sidebar-expanded:justify-start 2xl:justify-start ${
                           isActive
                             ? "bg-white/15 text-white [&_svg]:text-white"
                             : "text-white/90 hover:bg-white/[0.08] hover:text-white [&_svg]:text-white/70"
@@ -813,7 +821,7 @@ function Sidebar({sidebarOpen, setSidebarOpen, variant = "default"}) {
                           fill="currentColor"
                         ></path>
                       </svg>
-                      <span className="text-sm font-medium ml-4 min-w-0 whitespace-nowrap lg:ml-0 lg:max-w-0 lg:overflow-hidden lg:opacity-0 lg:sidebar-expanded:ml-4 lg:sidebar-expanded:max-w-none lg:sidebar-expanded:overflow-visible lg:sidebar-expanded:opacity-100 2xl:ml-4 2xl:opacity-100 duration-200">
+                      <span className="text-sm font-medium ml-4 min-w-0 whitespace-nowrap lg:ml-0 lg:max-w-0 lg:overflow-hidden lg:opacity-0 lg:sidebar-expanded:ml-4 lg:sidebar-expanded:max-w-none lg:sidebar-expanded:overflow-visible lg:sidebar-expanded:opacity-100 2xl:ml-4 2xl:max-w-none 2xl:overflow-visible 2xl:opacity-100 duration-200">
                         Properties
                       </span>
                     </NavLink>
@@ -827,7 +835,7 @@ function Sidebar({sidebarOpen, setSidebarOpen, variant = "default"}) {
                       to={accountUrl ? `/${accountUrl}/contacts` : "/contacts"}
                       aria-label="My Contacts"
                       className={({isActive}) =>
-                        `flex items-center pl-4 pr-3 py-2 rounded-lg transition-all duration-200 lg:justify-center lg:sidebar-expanded:justify-start ${
+                        `flex items-center pl-4 pr-3 py-2 rounded-lg transition-all duration-200 lg:justify-center lg:sidebar-expanded:justify-start 2xl:justify-start ${
                           isActive
                             ? "bg-white/15 text-white [&_svg]:text-white"
                             : "text-white/90 hover:bg-white/[0.08] hover:text-white [&_svg]:text-white/70"
@@ -873,7 +881,7 @@ function Sidebar({sidebarOpen, setSidebarOpen, variant = "default"}) {
                           strokeLinejoin="round"
                         />
                       </svg>
-                      <span className="text-sm font-medium ml-4 min-w-0 whitespace-nowrap lg:ml-0 lg:max-w-0 lg:overflow-hidden lg:opacity-0 lg:sidebar-expanded:ml-4 lg:sidebar-expanded:max-w-none lg:sidebar-expanded:overflow-visible lg:sidebar-expanded:opacity-100 2xl:ml-4 2xl:opacity-100 duration-200">
+                      <span className="text-sm font-medium ml-4 min-w-0 whitespace-nowrap lg:ml-0 lg:max-w-0 lg:overflow-hidden lg:opacity-0 lg:sidebar-expanded:ml-4 lg:sidebar-expanded:max-w-none lg:sidebar-expanded:overflow-visible lg:sidebar-expanded:opacity-100 2xl:ml-4 2xl:max-w-none 2xl:overflow-visible 2xl:opacity-100 duration-200">
                         My Contacts
                       </span>
                     </NavLink>
@@ -965,7 +973,7 @@ function Sidebar({sidebarOpen, setSidebarOpen, variant = "default"}) {
                               strokeLinejoin="round"
                             />
                           </svg>
-                          <span className="text-sm font-medium ml-4 min-w-0 whitespace-nowrap lg:ml-0 lg:max-w-0 lg:overflow-hidden lg:opacity-0 lg:sidebar-expanded:ml-4 lg:sidebar-expanded:max-w-none lg:sidebar-expanded:overflow-visible lg:sidebar-expanded:opacity-100 2xl:ml-4 2xl:opacity-100 duration-200">
+                          <span className="text-sm font-medium ml-4 min-w-0 whitespace-nowrap lg:ml-0 lg:max-w-0 lg:overflow-hidden lg:opacity-0 lg:sidebar-expanded:ml-4 lg:sidebar-expanded:max-w-none lg:sidebar-expanded:overflow-visible lg:sidebar-expanded:opacity-100 2xl:ml-4 2xl:max-w-none 2xl:overflow-visible 2xl:opacity-100 duration-200">
                             Subscriptions
                           </span>
                           <span
@@ -979,13 +987,13 @@ function Sidebar({sidebarOpen, setSidebarOpen, variant = "default"}) {
                       </SubmenuFlyout>
                       <div
                         className={`grid transition-[grid-template-rows] duration-300 ease-out ${
-                          subscriptionsOpen && !isCollapsed
+                          subscriptionsOpen && (!isCollapsed || sidebarOpen)
                             ? "grid-rows-[1fr]"
                             : "grid-rows-[0fr]"
                         }`}
                       >
                         <div className="overflow-hidden">
-                          <ul className={`py-1 ${isCollapsed ? "" : "ml-4"}`}>
+                          <ul className={`py-1 ${isCollapsed && !sidebarOpen ? "" : "ml-4"}`}>
                             <li>
                               <SidebarTooltip
                                 show={showTooltip}
@@ -1000,7 +1008,7 @@ function Sidebar({sidebarOpen, setSidebarOpen, variant = "default"}) {
                                   }
                                   aria-label="Subscriptions"
                                   className={({isActive}) =>
-                                    `flex items-center pl-4 pr-3 py-2 rounded-lg transition-all duration-200 lg:justify-center lg:sidebar-expanded:justify-start ${
+                                    `flex items-center pl-4 pr-3 py-2 rounded-lg transition-all duration-200 lg:justify-center lg:sidebar-expanded:justify-start 2xl:justify-start ${
                                       isActive
                                         ? "text-white [&_svg]:text-white"
                                         : "text-white/70 hover:text-white [&_svg]:text-white/50"
@@ -1023,7 +1031,7 @@ function Sidebar({sidebarOpen, setSidebarOpen, variant = "default"}) {
                                       strokeLinejoin="round"
                                     />
                                   </svg>
-                                  <span className="text-sm font-medium ml-4 min-w-0 whitespace-nowrap lg:ml-0 lg:max-w-0 lg:overflow-hidden lg:opacity-0 lg:sidebar-expanded:ml-4 lg:sidebar-expanded:max-w-none lg:sidebar-expanded:overflow-visible lg:sidebar-expanded:opacity-100 2xl:ml-4 2xl:opacity-100 duration-200">
+                                  <span className="text-sm font-medium ml-4 min-w-0 whitespace-nowrap lg:ml-0 lg:max-w-0 lg:overflow-hidden lg:opacity-0 lg:sidebar-expanded:ml-4 lg:sidebar-expanded:max-w-none lg:sidebar-expanded:overflow-visible lg:sidebar-expanded:opacity-100 2xl:ml-4 2xl:max-w-none 2xl:overflow-visible 2xl:opacity-100 duration-200">
                                     Subscriptions
                                   </span>
                                 </NavLink>
@@ -1043,7 +1051,7 @@ function Sidebar({sidebarOpen, setSidebarOpen, variant = "default"}) {
                                   }
                                   aria-label="Subscription Products"
                                   className={({isActive}) =>
-                                    `flex items-center pl-4 pr-3 py-2 rounded-lg transition-all duration-200 lg:justify-center lg:sidebar-expanded:justify-start ${
+                                    `flex items-center pl-4 pr-3 py-2 rounded-lg transition-all duration-200 lg:justify-center lg:sidebar-expanded:justify-start 2xl:justify-start ${
                                       isActive
                                         ? "text-white [&_svg]:text-white"
                                         : "text-white/70 hover:text-white [&_svg]:text-white/50"
@@ -1066,7 +1074,7 @@ function Sidebar({sidebarOpen, setSidebarOpen, variant = "default"}) {
                                       strokeLinejoin="round"
                                     />
                                   </svg>
-                                  <span className="text-sm font-medium ml-4 min-w-0 whitespace-nowrap lg:ml-0 lg:max-w-0 lg:overflow-hidden lg:opacity-0 lg:sidebar-expanded:ml-4 lg:sidebar-expanded:max-w-none lg:sidebar-expanded:overflow-visible lg:sidebar-expanded:opacity-100 2xl:ml-4 2xl:opacity-100 duration-200">
+                                  <span className="text-sm font-medium ml-4 min-w-0 whitespace-nowrap lg:ml-0 lg:max-w-0 lg:overflow-hidden lg:opacity-0 lg:sidebar-expanded:ml-4 lg:sidebar-expanded:max-w-none lg:sidebar-expanded:overflow-visible lg:sidebar-expanded:opacity-100 2xl:ml-4 2xl:max-w-none 2xl:overflow-visible 2xl:opacity-100 duration-200">
                                     Products
                                   </span>
                                 </NavLink>
@@ -1182,11 +1190,11 @@ function Sidebar({sidebarOpen, setSidebarOpen, variant = "default"}) {
                         strokeLinejoin="round"
                       />
                     </svg>
-                    <span className="text-sm font-medium text-white ml-3 lg:max-w-0 lg:overflow-hidden lg:opacity-0 lg:sidebar-expanded:max-w-none lg:sidebar-expanded:overflow-visible lg:sidebar-expanded:opacity-100 2xl:opacity-100 duration-200">
+                    <span className="text-sm font-medium text-white ml-3 lg:max-w-0 lg:overflow-hidden lg:opacity-0 lg:sidebar-expanded:max-w-none lg:sidebar-expanded:overflow-visible lg:sidebar-expanded:opacity-100 2xl:max-w-none 2xl:overflow-visible 2xl:opacity-100 duration-200">
                       Settings
                     </span>
                     <span
-                      className={`ml-auto shrink-0 transition-transform duration-300 ease-out lg:max-w-0 lg:overflow-hidden lg:opacity-0 lg:sidebar-expanded:max-w-none lg:sidebar-expanded:overflow-visible lg:sidebar-expanded:opacity-100 2xl:opacity-100 ${
+                      className={`ml-auto shrink-0 transition-transform duration-300 ease-out lg:max-w-0 lg:overflow-hidden lg:opacity-0 lg:sidebar-expanded:max-w-none lg:sidebar-expanded:overflow-visible lg:sidebar-expanded:opacity-100 2xl:max-w-none 2xl:overflow-visible 2xl:opacity-100 ${
                         settingsOpen ? "rotate-0" : "-rotate-90"
                       }`}
                     >
@@ -1196,13 +1204,13 @@ function Sidebar({sidebarOpen, setSidebarOpen, variant = "default"}) {
                 </SubmenuFlyout>
                 <div
                   className={`grid transition-[grid-template-rows] duration-300 ease-out ${
-                    settingsOpen && !isCollapsed
+                    settingsOpen && (!isCollapsed || sidebarOpen)
                       ? "grid-rows-[1fr]"
                       : "grid-rows-[0fr]"
                   }`}
                 >
                   <div className="overflow-hidden">
-                    <ul className={`py-1 ${isCollapsed ? "" : "ml-4"}`}>
+                    <ul className={`py-1 ${isCollapsed && !sidebarOpen ? "" : "ml-4"}`}>
                       {!isSuperAdmin && (
                         <li>
                           <SidebarTooltip show={showTooltip} label="Billing">
@@ -1211,7 +1219,7 @@ function Sidebar({sidebarOpen, setSidebarOpen, variant = "default"}) {
                               to={accountUrl ? `/${accountUrl}/settings/billing` : "/settings/billing"}
                               aria-label="Billing"
                               className={({isActive}) =>
-                                `flex items-center pl-4 pr-3 py-2 rounded-lg transition-all duration-200 lg:justify-center lg:sidebar-expanded:justify-start ${
+                                `flex items-center pl-4 pr-3 py-2 rounded-lg transition-all duration-200 lg:justify-center lg:sidebar-expanded:justify-start 2xl:justify-start ${
                                   isActive
                                     ? "text-white [&_svg]:text-white"
                                     : "text-white/70 hover:text-white [&_svg]:text-white/50"
@@ -1221,7 +1229,7 @@ function Sidebar({sidebarOpen, setSidebarOpen, variant = "default"}) {
                               <svg className="shrink-0" width="16" height="16" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
                                 <path d="M3 10H21M7 15H13M12 3L12 5M18 3L18 5M6 21H18C19.6569 21 21 19.6569 21 18V8C21 6.34315 19.6569 5 18 5H6C4.34315 5 3 6.34315 3 8V18C3 19.6569 4.34315 21 6 21Z" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
                               </svg>
-                              <span className="text-sm font-medium ml-4 min-w-0 whitespace-nowrap lg:ml-0 lg:max-w-0 lg:overflow-hidden lg:opacity-0 lg:sidebar-expanded:ml-4 lg:sidebar-expanded:max-w-none lg:sidebar-expanded:overflow-visible lg:sidebar-expanded:opacity-100 2xl:ml-4 2xl:opacity-100 duration-200">
+                              <span className="text-sm font-medium ml-4 min-w-0 whitespace-nowrap lg:ml-0 lg:max-w-0 lg:overflow-hidden lg:opacity-0 lg:sidebar-expanded:ml-4 lg:sidebar-expanded:max-w-none lg:sidebar-expanded:overflow-visible lg:sidebar-expanded:opacity-100 2xl:ml-4 2xl:max-w-none 2xl:overflow-visible 2xl:opacity-100 duration-200">
                                 Billing
                               </span>
                             </NavLink>
@@ -1235,7 +1243,7 @@ function Sidebar({sidebarOpen, setSidebarOpen, variant = "default"}) {
                             to={accountUrl ? `/${accountUrl}/settings/configuration` : "/settings/configuration"}
                             aria-label="Configuration"
                             className={({isActive}) =>
-                              `flex items-center pl-4 pr-3 py-2 rounded-lg transition-all duration-200 lg:justify-center lg:sidebar-expanded:justify-start ${
+                              `flex items-center pl-4 pr-3 py-2 rounded-lg transition-all duration-200 lg:justify-center lg:sidebar-expanded:justify-start 2xl:justify-start ${
                                 isActive
                                   ? "text-white [&_svg]:text-white"
                                   : "text-white/70 hover:text-white [&_svg]:text-white/50"
@@ -1247,7 +1255,7 @@ function Sidebar({sidebarOpen, setSidebarOpen, variant = "default"}) {
                               <path d="M19.4 15C19.267 15.302 19.227 15.636 19.286 15.961C19.345 16.285 19.5 16.584 19.73 16.82L19.79 16.88C19.976 17.066 20.124 17.287 20.224 17.529C20.325 17.772 20.376 18.032 20.375 18.295C20.374 18.558 20.323 18.818 20.224 19.061C20.125 19.304 19.978 19.525 19.793 19.712C19.608 19.899 19.388 20.048 19.145 20.15C18.902 20.252 18.643 20.305 18.38 20.306C18.117 20.307 17.857 20.256 17.614 20.156C17.37 20.056 17.148 19.909 16.96 19.724L16.9 19.664C16.664 19.434 16.365 19.279 16.041 19.22C15.716 19.161 15.382 19.201 15.08 19.334C14.784 19.46 14.531 19.667 14.35 19.931C14.169 20.196 14.067 20.507 14.057 20.828L14.054 20.998C14.034 22.102 13.139 22.993 12.035 23.008H11.81C10.706 22.993 9.81 22.102 9.79 20.998L9.788 20.888C9.77 20.557 9.657 20.238 9.462 19.971C9.267 19.704 8.998 19.501 8.689 19.386C8.387 19.253 8.053 19.213 7.728 19.272C7.404 19.331 7.105 19.486 6.869 19.716L6.809 19.776C6.435 20.149 5.93 20.359 5.404 20.36C4.878 20.361 4.372 20.154 3.997 19.782C3.621 19.41 3.408 18.907 3.404 18.381C3.399 17.855 3.604 17.349 3.974 16.969L4.034 16.909C4.265 16.673 4.419 16.374 4.478 16.05C4.537 15.725 4.497 15.391 4.364 15.089C4.239 14.793 4.032 14.54 3.767 14.359C3.502 14.178 3.191 14.076 2.87 14.066L2.7 14.063C1.596 14.043 0.705 13.148 0.69 12.044V11.819C0.705 10.715 1.596 9.82 2.7 9.8L2.81 9.798C3.141 9.78 3.46 9.667 3.727 9.472C3.994 9.277 4.197 9.008 4.312 8.699C4.445 8.397 4.485 8.063 4.426 7.738C4.367 7.414 4.213 7.115 3.982 6.879L3.922 6.819C3.549 6.445 3.339 5.94 3.338 5.414C3.337 4.888 3.544 4.382 3.916 4.007C4.288 3.631 4.791 3.418 5.317 3.414C5.843 3.409 6.349 3.614 6.729 3.984L6.789 4.044C7.025 4.275 7.324 4.429 7.648 4.488C7.973 4.547 8.307 4.507 8.609 4.374H8.698C8.994 4.249 9.247 4.042 9.428 3.777C9.609 3.512 9.711 3.201 9.721 2.88L9.724 2.71C9.744 1.606 10.639 0.715 11.743 0.7H11.968C13.072 0.715 13.963 1.606 13.983 2.71L13.985 2.82C14.003 3.151 14.116 3.47 14.311 3.737C14.506 4.004 14.775 4.207 15.084 4.322C15.386 4.455 15.72 4.495 16.044 4.436C16.369 4.377 16.668 4.223 16.904 3.992L16.964 3.932C17.338 3.559 17.843 3.349 18.369 3.348C18.895 3.347 19.401 3.554 19.776 3.926C20.152 4.298 20.365 4.801 20.369 5.327C20.374 5.853 20.169 6.359 19.799 6.739L19.739 6.799C19.508 7.035 19.354 7.334 19.295 7.658C19.236 7.983 19.276 8.317 19.409 8.619V8.708C19.534 9.004 19.741 9.257 20.006 9.438C20.271 9.619 20.582 9.721 20.903 9.731L21.073 9.734C22.177 9.754 23.068 10.649 23.083 11.753V11.978C23.068 13.082 22.177 13.973 21.073 13.993L20.963 13.995C20.632 14.013 20.313 14.126 20.046 14.321C19.779 14.516 19.576 14.785 19.461 15.094"
                               stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
                             </svg>
-                            <span className="text-sm font-medium ml-4 min-w-0 whitespace-nowrap lg:ml-0 lg:max-w-0 lg:overflow-hidden lg:opacity-0 lg:sidebar-expanded:ml-4 lg:sidebar-expanded:max-w-none lg:sidebar-expanded:overflow-visible lg:sidebar-expanded:opacity-100 2xl:ml-4 2xl:opacity-100 duration-200">
+                            <span className="text-sm font-medium ml-4 min-w-0 whitespace-nowrap lg:ml-0 lg:max-w-0 lg:overflow-hidden lg:opacity-0 lg:sidebar-expanded:ml-4 lg:sidebar-expanded:max-w-none lg:sidebar-expanded:overflow-visible lg:sidebar-expanded:opacity-100 2xl:ml-4 2xl:max-w-none 2xl:overflow-visible 2xl:opacity-100 duration-200">
                               Configuration
                             </span>
                           </NavLink>
@@ -1261,7 +1269,7 @@ function Sidebar({sidebarOpen, setSidebarOpen, variant = "default"}) {
                               to={accountUrl ? `/${accountUrl}/users` : "/users"}
                               aria-label="Users"
                               className={({isActive}) =>
-                                `flex items-center pl-4 pr-3 py-2 rounded-lg transition-all duration-200 lg:justify-center lg:sidebar-expanded:justify-start ${
+                                `flex items-center pl-4 pr-3 py-2 rounded-lg transition-all duration-200 lg:justify-center lg:sidebar-expanded:justify-start 2xl:justify-start ${
                                   isActive
                                     ? "text-white [&_svg]:text-white"
                                     : "text-white/70 hover:text-white [&_svg]:text-white/50"
@@ -1291,7 +1299,7 @@ function Sidebar({sidebarOpen, setSidebarOpen, variant = "default"}) {
                                   fill="currentColor"
                                 ></path>
                               </svg>
-                              <span className="text-sm font-medium ml-4 min-w-0 whitespace-nowrap lg:ml-0 lg:max-w-0 lg:overflow-hidden lg:opacity-0 lg:sidebar-expanded:ml-4 lg:sidebar-expanded:max-w-none lg:sidebar-expanded:overflow-visible lg:sidebar-expanded:opacity-100 2xl:ml-4 2xl:opacity-100 duration-200">
+                              <span className="text-sm font-medium ml-4 min-w-0 whitespace-nowrap lg:ml-0 lg:max-w-0 lg:overflow-hidden lg:opacity-0 lg:sidebar-expanded:ml-4 lg:sidebar-expanded:max-w-none lg:sidebar-expanded:overflow-visible lg:sidebar-expanded:opacity-100 2xl:ml-4 2xl:max-w-none 2xl:overflow-visible 2xl:opacity-100 duration-200">
                                 Users
                               </span>
                             </NavLink>

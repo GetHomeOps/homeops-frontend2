@@ -124,7 +124,7 @@ function PdfFileExample() {
         <Header sidebarOpen={sidebarOpen} setSidebarOpen={setSidebarOpen} />
 
         <main className="grow">
-          <div className="px-4 sm:px-6 lg:px-8 py-8 w-full max-w-[96rem] mx-auto">
+          <div className="px-4 sm:px-6 py-8 w-full max-w-[96rem] mx-auto">
             <div className="max-w-2xl mx-auto">
               <h1 className="text-2xl font-semibold text-gray-900 dark:text-gray-100 mb-6">
                 Document Upload

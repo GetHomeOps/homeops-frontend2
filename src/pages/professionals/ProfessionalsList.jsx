@@ -1,40 +1,23 @@
-import React, {
-  useCallback,
-  useEffect,
-  useMemo,
-  useReducer,
-  useRef,
-  useState,
-  useContext,
-} from "react";
+import React, {useCallback, useMemo, useReducer, useState, useEffect, useRef} from "react";
 import {useNavigate} from "react-router-dom";
 import {useTranslation} from "react-i18next";
+import {Building2, MapPin, Shield} from "lucide-react";
 
 import Sidebar from "../../partials/Sidebar";
 import Header from "../../partials/Header";
 import PaginationClassic from "../../components/PaginationClassic";
-import DataTable from "../../components/DataTable";
-import DataTableItem from "../../components/DataTableItem";
 import ModalBlank from "../../components/ModalBlank";
 import Banner from "../../partials/containers/Banner";
-import ListDropdown from "../../partials/buttons/ListDropdown";
 import useCurrentAccount from "../../hooks/useCurrentAccount";
-import propertyContext from "../../context/PropertyContext";
 import AppApi from "../../api/api";
+import ProfessionalsTable from "./ProfessionalsTable";
 
-const PAGE_STORAGE_KEY = "properties_list_page";
+const PAGE_STORAGE_KEY = "professionals_list_page";
 
 const FILTER_CATEGORIES = [
-  {type: "city", labelKey: "city"},
-  {type: "state", labelKey: "state"},
-  {type: "health", labelKey: "healthStatus"},
-];
-
-const HEALTH_RANGES = [
-  {value: "healthy", labelKey: "healthy", min: 75, max: 100, color: "#22c55e"},
-  {value: "moderate", labelKey: "moderate", min: 40, max: 74, color: "#eab308"},
-  {value: "at_risk", labelKey: "atRisk", min: 25, max: 39, color: "#f97316"},
-  {value: "critical", labelKey: "critical", min: 0, max: 24, color: "#ef4444"},
+  {type: "category", label: "Category"},
+  {type: "city", label: "City"},
+  {type: "status", label: "Status"},
 ];
 
 const initialState = {
@@ -48,6 +31,8 @@ const initialState = {
   bannerOpen: false,
   bannerType: "success",
   bannerMessage: "",
+  professionals: [],
+  loading: true,
 };
 
 function reducer(state, action) {
@@ -57,7 +42,7 @@ function reducer(state, action) {
     case "SET_ITEMS_PER_PAGE":
       return {...state, itemsPerPage: action.payload};
     case "SET_SEARCH_TERM":
-      return {...state, searchTerm: action.payload};
+      return {...state, searchTerm: action.payload, currentPage: 1};
     case "ADD_FILTER": {
       const exists = state.activeFilters.some(
         (f) =>
@@ -76,7 +61,8 @@ function reducer(state, action) {
         activeFilters: state.activeFilters.filter(
           (f) =>
             !(
-              f.type === action.payload.type && f.value === action.payload.value
+              f.type === action.payload.type &&
+              f.value === action.payload.value
             ),
         ),
         currentPage: 1,
@@ -96,37 +82,18 @@ function reducer(state, action) {
         bannerType: action.payload.type,
         bannerMessage: action.payload.message,
       };
+    case "SET_PROFESSIONALS":
+      return {...state, professionals: action.payload, loading: false};
+    case "SET_LOADING":
+      return {...state, loading: action.payload};
     default:
       return state;
   }
 }
 
-/* ─── Shared tiny components ─────────────────────────────────── */
+/* ─── Filter Dropdown ─────────────────────────────────────────── */
 
-const getHealthColor = (value) => {
-  if (value >= 75) return "#22c55e";
-  if (value >= 40) return "#eab308";
-  if (value >= 25) return "#f97316";
-  return "#ef4444";
-};
-
-const HealthBar = ({value}) => (
-  <div className="flex items-center gap-3">
-    <div className="w-32 h-2 rounded-full bg-gray-200 dark:bg-gray-700/60">
-      <div
-        className="h-2 rounded-full transition-all duration-300"
-        style={{width: `${value}%`, backgroundColor: getHealthColor(value)}}
-      />
-    </div>
-    <span className="text-sm font-medium text-gray-600 dark:text-gray-300">
-      {value}%
-    </span>
-  </div>
-);
-
-/* ─── Odoo-style Filter Dropdown ─────────────────────────────── */
-
-function FilterDropdown({filterOptions, activeFilters, onAdd, onRemove, t}) {
+function FilterDropdown({filterOptions, activeFilters, onAdd, onRemove}) {
   const [open, setOpen] = useState(false);
   const [activeCategory, setActiveCategory] = useState(null);
   const dropdownRef = useRef(null);
@@ -176,7 +143,7 @@ function FilterDropdown({filterOptions, activeFilters, onAdd, onRemove, t}) {
             d="M3 4a1 1 0 011-1h16a1 1 0 011 1v2.586a1 1 0 01-.293.707l-6.414 6.414a1 1 0 00-.293.707V17l-4 4v-6.586a1 1 0 00-.293-.707L3.293 7.293A1 1 0 013 6.586V4z"
           />
         </svg>
-        {t("filter")}
+        Filter
         {activeFilters.length > 0 && (
           <span className="ml-0.5 inline-flex items-center justify-center w-5 h-5 text-xs font-bold rounded-full bg-violet-100 dark:bg-violet-500/20 text-violet-600 dark:text-violet-400">
             {activeFilters.length}
@@ -199,7 +166,7 @@ function FilterDropdown({filterOptions, activeFilters, onAdd, onRemove, t}) {
                       className="w-full flex items-center justify-between px-3 py-2.5 text-sm text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700/50 transition-colors"
                       onClick={() => setActiveCategory(cat.type)}
                     >
-                      <span>{t(cat.labelKey)}</span>
+                      <span>{cat.label}</span>
                       <span className="flex items-center gap-1 text-gray-400">
                         {count > 0 && (
                           <span className="inline-flex items-center justify-center w-5 h-5 text-xs font-semibold rounded-full bg-violet-100 dark:bg-violet-500/20 text-violet-600 dark:text-violet-400">
@@ -245,10 +212,8 @@ function FilterDropdown({filterOptions, activeFilters, onAdd, onRemove, t}) {
                     d="M15 19l-7-7 7-7"
                   />
                 </svg>
-                {t(
-                  FILTER_CATEGORIES.find((c) => c.type === activeCategory)
-                    ?.labelKey,
-                )}
+                {FILTER_CATEGORIES.find((c) => c.type === activeCategory)
+                  ?.label}
               </button>
               <ul className="py-1.5 max-h-64 overflow-y-auto">
                 {(filterOptions[activeCategory] ?? []).map((opt) => {
@@ -298,7 +263,7 @@ function FilterDropdown({filterOptions, activeFilters, onAdd, onRemove, t}) {
                 })}
                 {(filterOptions[activeCategory] ?? []).length === 0 && (
                   <li className="px-3 py-3 text-sm text-gray-400 dark:text-gray-500 text-center">
-                    {t("noItemsFound")}
+                    No options available
                   </li>
                 )}
               </ul>
@@ -310,39 +275,19 @@ function FilterDropdown({filterOptions, activeFilters, onAdd, onRemove, t}) {
   );
 }
 
-/* ─── Property Grid Card ─────────────────────────────────────── */
+/* ─── Professional Grid Card ─────────────────────────────────── */
 
-const PropertyCard = ({property, onClick, isSelected, onSelect, getMainPhotoUrl, t}) => {
-  const health = property.health ?? property.hps_score ?? property.hpsScore ?? 0;
-  const resolved = getMainPhotoUrl?.(property);
-  const photoUrl =
-    resolved ||
-    property.main_photo_url ||
-    property.mainPhotoUrl ||
-    null;
-
+const ProfessionalCard = ({professional, onClick, isSelected, onSelect}) => {
+  const pro = professional;
   return (
     <div
       role="button"
       tabIndex={0}
-      onClick={() => onClick(property)}
-      onKeyDown={(e) => e.key === "Enter" && onClick(property)}
+      onClick={() => onClick(pro)}
+      onKeyDown={(e) => e.key === "Enter" && onClick(pro)}
       className="group bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-200 dark:border-gray-700/60 overflow-hidden hover:border-gray-300 dark:hover:border-gray-600 hover:shadow-md transition-all cursor-pointer"
     >
-      <div className="relative aspect-[16/10] bg-gray-100 dark:bg-gray-700/40 overflow-hidden">
-        {photoUrl ? (
-          <img
-            src={photoUrl}
-            alt=""
-            className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
-          />
-        ) : (
-          <div className="w-full h-full flex items-center justify-center text-gray-300 dark:text-gray-600">
-            <svg className="w-12 h-12" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-4 0a1 1 0 01-1-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 01-1 1h-2z" />
-            </svg>
-          </div>
-        )}
+      <div className="relative h-20 bg-gradient-to-br from-[#456564] via-[#3a5857] to-[#2d4443]">
         <div
           className="absolute top-2.5 left-2.5"
           onClick={(e) => e.stopPropagation()}
@@ -353,34 +298,57 @@ const PropertyCard = ({property, onClick, isSelected, onSelect, getMainPhotoUrl,
               type="checkbox"
               className="form-checkbox rounded"
               checked={isSelected}
-              onChange={() => onSelect(property.id)}
+              onChange={() => onSelect(pro.id)}
             />
           </label>
         </div>
-        <div className="absolute bottom-0 inset-x-0 h-16 bg-gradient-to-t from-black/40 to-transparent pointer-events-none" />
-        <div className="absolute bottom-2.5 right-2.5">
-          <span
-            className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-semibold text-white"
-            style={{backgroundColor: getHealthColor(health)}}
-          >
-            {health}%
-          </span>
-        </div>
+        {pro.is_verified && (
+          <div className="absolute top-2.5 right-2.5">
+            <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium bg-emerald-500/90 text-white">
+              <Shield className="w-3 h-3" />
+              Verified
+            </span>
+          </div>
+        )}
       </div>
-      <div className="p-3.5">
+      <div className="relative px-4 -mt-8">
+        {pro.profile_photo_url ? (
+          <img
+            src={pro.profile_photo_url}
+            alt=""
+            className="w-14 h-14 rounded-xl object-cover border-2 border-white dark:border-gray-800 shadow-sm"
+          />
+        ) : (
+          <div className="w-14 h-14 rounded-xl bg-white dark:bg-gray-700 flex items-center justify-center border-2 border-white dark:border-gray-800 shadow-sm">
+            <span className="text-sm font-bold text-[#456564] dark:text-[#7aa3a2]">
+              {(pro.first_name?.[0] || "").toUpperCase()}
+              {(pro.last_name?.[0] || "").toUpperCase()}
+            </span>
+          </div>
+        )}
+      </div>
+      <div className="p-4 pt-2">
         <div className="text-sm font-semibold text-gray-800 dark:text-gray-100 truncate">
-          {property.passport_id || property.property_name || t("property")}
+          {pro.first_name} {pro.last_name}
         </div>
-        {(property.address || property.city) && (
-          <div className="flex items-center gap-1 text-xs text-gray-500 dark:text-gray-400 mt-1 truncate">
-            <svg className="w-3 h-3 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z" />
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 11a3 3 0 11-6 0 3 3 0 016 0z" />
-            </svg>
+        {pro.company_name && (
+          <div className="flex items-center gap-1 text-xs text-gray-500 dark:text-gray-400 mt-0.5 truncate">
+            <Building2 className="w-3 h-3 flex-shrink-0" />
+            <span className="truncate">{pro.company_name}</span>
+          </div>
+        )}
+        {pro.category_name && (
+          <div className="mt-2">
+            <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-400">
+              {pro.category_name}
+            </span>
+          </div>
+        )}
+        {(pro.city || pro.state) && (
+          <div className="flex items-center gap-1 text-xs text-gray-500 dark:text-gray-400 mt-2 truncate">
+            <MapPin className="w-3 h-3 flex-shrink-0" />
             <span className="truncate">
-              {[property.address, property.city, property.state]
-                .filter(Boolean)
-                .join(", ")}
+              {[pro.city, pro.state].filter(Boolean).join(", ")}
             </span>
           </div>
         )}
@@ -391,117 +359,49 @@ const PropertyCard = ({property, onClick, isSelected, onSelect, getMainPhotoUrl,
 
 /* ─── Main Component ─────────────────────────────────────────── */
 
-function PropertiesList() {
+function ProfessionalsList() {
   const navigate = useNavigate();
   const {t} = useTranslation();
   const {currentAccount} = useCurrentAccount();
   const accountUrl = currentAccount?.url || currentAccount?.name || "";
-  const [selectedProperties, setSelectedProperties] = useState([]);
+  const [selectedItems, setSelectedItems] = useState([]);
+  const [viewMode, setViewMode] = useState("list");
   const [sortConfig, setSortConfig] = useState({
-    key: "passport_id",
+    key: "company_name",
     direction: "asc",
   });
 
-  const [state, dispatch] = useReducer(reducer, initialState, (baseState) => ({
-    ...baseState,
+  const [state, dispatch] = useReducer(reducer, initialState, (base) => ({
+    ...base,
     currentPage:
-      Number(localStorage.getItem(PAGE_STORAGE_KEY)) || baseState.currentPage,
+      Number(localStorage.getItem(PAGE_STORAGE_KEY)) || base.currentPage,
   }));
 
-  const {
-    properties,
-    setProperties,
-    refreshProperties,
-    viewMode,
-    setViewMode,
-  } = useContext(propertyContext);
+  /* ─── Load Professionals from API ──────────────────────────── */
 
-  /* ─── Derive filter options from data ──────────────────────── */
-
-  const uniqueCities = useMemo(() => {
-    const cities = [
-      ...new Set(
-        properties.map((p) => (p.city || "").trim()).filter(Boolean),
-      ),
-    ];
-    return cities.sort((a, b) => a.localeCompare(b));
-  }, [properties]);
-
-  const uniqueStates = useMemo(() => {
-    const states = [
-      ...new Set(
-        properties.map((p) => (p.state || "").trim()).filter(Boolean),
-      ),
-    ];
-    return states.sort((a, b) => a.localeCompare(b));
-  }, [properties]);
-
-  const filterOptions = useMemo(
-    () => ({
-      city: uniqueCities.map((c) => ({value: c, label: c})),
-      state: uniqueStates.map((s) => ({value: s, label: s})),
-      health: HEALTH_RANGES.map((h) => ({
-        value: h.value,
-        label: t(h.labelKey),
-        dot: h.color,
-      })),
-    }),
-    [uniqueCities, uniqueStates, t],
-  );
-
-  /* ─── Presigned photo URLs ─────────────────────────────────── */
-
-  const [presignedUrls, setPresignedUrls] = useState({});
-  const fetchedKeysRef = useRef(new Set());
-
-  useEffect(() => {
-    if (!properties?.length) return;
-    properties.forEach((prop) => {
-      const key = prop.main_photo || prop.mainPhoto;
-      if (
-        !key ||
-        key.startsWith("http") ||
-        key.startsWith("blob:") ||
-        fetchedKeysRef.current.has(key)
-      )
-        return;
-      fetchedKeysRef.current.add(key);
-      AppApi.getPresignedPreviewUrl(key)
-        .then((url) => {
-          setPresignedUrls((prev) => ({...prev, [key]: url}));
-        })
-        .catch(() => {
-          fetchedKeysRef.current.delete(key);
-        });
-    });
-  }, [properties]);
-
-  const getMainPhotoUrl = useCallback(
-    (property) => {
-      if (!property) return null;
-      const key = property.main_photo || property.mainPhoto;
-      if (!key) return null;
-      if (key.startsWith("http") || key.startsWith("blob:")) return key;
-      return (
-        presignedUrls[key] ??
-        property.main_photo_url ??
-        property.mainPhotoUrl ??
-        null
-      );
-    },
-    [presignedUrls],
-  );
-
-  /* ─── Data fetch / lifecycle ───────────────────────────────── */
-
-  useEffect(() => {
-    refreshProperties?.();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+  const fetchProfessionals = useCallback(async () => {
+    try {
+      dispatch({type: "SET_LOADING", payload: true});
+      const pros = await AppApi.getAllProfessionals();
+      dispatch({type: "SET_PROFESSIONALS", payload: pros || []});
+    } catch (err) {
+      dispatch({
+        type: "SET_BANNER",
+        payload: {
+          open: true,
+          type: "error",
+          message: err?.message || "Failed to load professionals",
+        },
+      });
+      dispatch({type: "SET_LOADING", payload: false});
+    }
   }, []);
 
   useEffect(() => {
-    localStorage.setItem(PAGE_STORAGE_KEY, state.currentPage);
-  }, [state.currentPage]);
+    fetchProfessionals();
+  }, [fetchProfessionals]);
+
+  /* ─── Banner auto-close ──────────────────────────────────────── */
 
   useEffect(() => {
     if (state.bannerOpen) {
@@ -514,92 +414,138 @@ function PropertiesList() {
             message: state.bannerMessage,
           },
         });
-      }, 2000);
+      }, 3000);
       return () => clearTimeout(timer);
     }
   }, [state.bannerOpen, state.bannerType, state.bannerMessage]);
 
-  /* ─── Filtering (Odoo-style: OR within same type, AND across types) */
+  /* ─── Derive filter options from data ──────────────────────── */
 
-  const filteredProperties = useMemo(() => {
+  const uniqueCategories = useMemo(() => {
+    const cats = [
+      ...new Set(
+        state.professionals
+          .map((p) => (p.category_name || "").trim())
+          .filter(Boolean),
+      ),
+    ];
+    return cats.sort((a, b) => a.localeCompare(b));
+  }, [state.professionals]);
+
+  const uniqueCities = useMemo(() => {
+    const cities = [
+      ...new Set(
+        state.professionals
+          .map((p) => (p.city || "").trim())
+          .filter(Boolean),
+      ),
+    ];
+    return cities.sort((a, b) => a.localeCompare(b));
+  }, [state.professionals]);
+
+  const filterOptions = useMemo(
+    () => ({
+      category: uniqueCategories.map((c) => ({value: c, label: c})),
+      city: uniqueCities.map((c) => ({value: c, label: c})),
+      status: [
+        {value: "verified", label: "Verified", dot: "#22c55e"},
+        {value: "active", label: "Active", dot: "#2a9f52"},
+        {value: "inactive", label: "Inactive", dot: "#9ca3af"},
+      ],
+    }),
+    [uniqueCategories, uniqueCities],
+  );
+
+  /* ─── Filter & Sort ────────────────────────────────────────── */
+
+  const filteredProfessionals = useMemo(() => {
     const filtersByType = {};
     state.activeFilters.forEach((f) => {
       if (!filtersByType[f.type]) filtersByType[f.type] = [];
       filtersByType[f.type].push(f.value);
     });
 
-    return properties.filter((property) => {
-      const term = (state.searchTerm || "").toLowerCase();
+    const term = (state.searchTerm || "").toLowerCase();
+
+    return state.professionals.filter((pro) => {
       if (term) {
+        const name =
+          `${pro.first_name || ""} ${pro.last_name || ""}`.toLowerCase();
+        const company = (pro.company_name || "").toLowerCase();
+        const city = (pro.city || "").toLowerCase();
+        const cat = (pro.category_name || "").toLowerCase();
+        const email = (pro.email || "").toLowerCase();
         const matchesSearch =
-          (property.passport_id || "").toLowerCase().includes(term) ||
-          (property.address || "").toLowerCase().includes(term) ||
-          (property.city || "").toLowerCase().includes(term) ||
-          (property.state || "").toLowerCase().includes(term);
+          name.includes(term) ||
+          company.includes(term) ||
+          city.includes(term) ||
+          cat.includes(term) ||
+          email.includes(term);
         if (!matchesSearch) return false;
       }
 
+      if (filtersByType.category) {
+        const cat = (pro.category_name || "").trim();
+        if (!filtersByType.category.includes(cat)) return false;
+      }
+
       if (filtersByType.city) {
-        const city = (property.city || "").trim();
+        const city = (pro.city || "").trim();
         if (!filtersByType.city.includes(city)) return false;
       }
 
-      if (filtersByType.state) {
-        const st = (property.state || "").trim();
-        if (!filtersByType.state.includes(st)) return false;
-      }
-
-      if (filtersByType.health) {
-        const health =
-          property.health ?? property.hps_score ?? property.hpsScore ?? 0;
-        const matchesAny = filtersByType.health.some((hv) => {
-          const range = HEALTH_RANGES.find((r) => r.value === hv);
-          return range && health >= range.min && health <= range.max;
+      if (filtersByType.status) {
+        const matchesAny = filtersByType.status.some((sv) => {
+          if (sv === "verified") return pro.is_verified;
+          if (sv === "active") return pro.is_active !== false;
+          if (sv === "inactive") return pro.is_active === false;
+          return false;
         });
         if (!matchesAny) return false;
       }
 
       return true;
     });
-  }, [properties, state.searchTerm, state.activeFilters]);
+  }, [state.searchTerm, state.professionals, state.activeFilters]);
 
-  const sortedProperties = useMemo(() => {
-    const sortable = [...filteredProperties];
-    sortable.sort((a, b) => {
-      const {key, direction} = sortConfig;
-      const dirMultiplier = direction === "asc" ? 1 : -1;
-      const valueA = a[key];
-      const valueB = b[key];
-      if (valueA === valueB) return 0;
-      if (typeof valueA === "string" && typeof valueB === "string") {
-        return valueA.localeCompare(valueB) * dirMultiplier;
-      }
-      return (valueA > valueB ? 1 : -1) * dirMultiplier;
-    });
-    return sortable;
-  }, [filteredProperties, sortConfig]);
+  const sortedProfessionals = useMemo(() => {
+    const items = [...filteredProfessionals];
+    if (sortConfig.key) {
+      items.sort((a, b) => {
+        let aVal = a[sortConfig.key] ?? "";
+        let bVal = b[sortConfig.key] ?? "";
+        if (typeof aVal === "string") aVal = aVal.toLowerCase();
+        if (typeof bVal === "string") bVal = bVal.toLowerCase();
+        if (aVal < bVal) return sortConfig.direction === "asc" ? -1 : 1;
+        if (aVal > bVal) return sortConfig.direction === "asc" ? 1 : -1;
+        return 0;
+      });
+    }
+    return items;
+  }, [filteredProfessionals, sortConfig]);
 
-  const paginatedProperties = useMemo(() => {
-    const startIndex = (state.currentPage - 1) * state.itemsPerPage;
-    return sortedProperties.slice(startIndex, startIndex + state.itemsPerPage);
-  }, [sortedProperties, state.currentPage, state.itemsPerPage]);
+  const totalItems = sortedProfessionals.length;
+
+  const paginatedProfessionals = useMemo(() => {
+    const start = (state.currentPage - 1) * state.itemsPerPage;
+    return sortedProfessionals.slice(start, start + state.itemsPerPage);
+  }, [sortedProfessionals, state.currentPage, state.itemsPerPage]);
 
   useEffect(() => {
-    if (sortedProperties.length === 0) return;
+    if (sortedProfessionals.length === 0) return;
     const lastValidPage = Math.max(
       1,
-      Math.ceil(sortedProperties.length / state.itemsPerPage),
+      Math.ceil(sortedProfessionals.length / state.itemsPerPage),
     );
     if (state.currentPage > lastValidPage) {
       dispatch({type: "SET_CURRENT_PAGE", payload: 1});
     }
-  }, [sortedProperties.length, state.itemsPerPage, state.currentPage]);
+  }, [sortedProfessionals.length, state.itemsPerPage, state.currentPage]);
 
   /* ─── Handlers ─────────────────────────────────────────────── */
 
-  const handleSearchChange = (event) => {
-    dispatch({type: "SET_SEARCH_TERM", payload: event.target.value});
-    dispatch({type: "SET_CURRENT_PAGE", payload: 1});
+  const handleSearchChange = (e) => {
+    dispatch({type: "SET_SEARCH_TERM", payload: e.target.value});
   };
 
   const handleItemsPerPageChange = (value) => {
@@ -609,23 +555,18 @@ function PropertiesList() {
 
   const handlePageChange = (page) => {
     dispatch({type: "SET_CURRENT_PAGE", payload: page});
+    localStorage.setItem(PAGE_STORAGE_KEY, page);
   };
 
-  const handleNewProperty = () => navigate(`/${accountUrl}/properties/new`);
-  const handlePropertyClick = (property) => {
-    const propertyIndex = sortedProperties.findIndex(
-      (p) => (p.property_uid ?? p.id) === property.property_uid,
-    );
-    navigate(`/${accountUrl}/properties/${property.property_uid}`, {
-      state: {
-        currentIndex: propertyIndex + 1,
-        totalItems: sortedProperties.length,
-        visiblePropertyIds: sortedProperties.map(
-          (p) => p.property_uid ?? p.id,
-        ),
-      },
-    });
-  };
+  const handleNewProfessional = () =>
+    navigate(`/${accountUrl}/professionals/manage/new`);
+
+  const handleProfessionalClick = useCallback(
+    (pro) => {
+      navigate(`/${accountUrl}/professionals/manage/${pro.id}`);
+    },
+    [navigate, accountUrl],
+  );
 
   const handleSort = (columnKey) => {
     setSortConfig((prev) => {
@@ -642,155 +583,68 @@ function PropertiesList() {
   const handleToggleSelect = (ids, shouldSelect = null) => {
     if (Array.isArray(ids)) {
       if (shouldSelect) {
-        const merged = new Set(selectedProperties);
+        const merged = new Set(selectedItems);
         ids.forEach((id) => merged.add(id));
-        setSelectedProperties(Array.from(merged));
+        setSelectedItems(Array.from(merged));
       } else {
-        setSelectedProperties((prev) =>
-          prev.filter((id) => !ids.includes(id)),
-        );
+        setSelectedItems((prev) => prev.filter((id) => !ids.includes(id)));
       }
       return;
     }
-    setSelectedProperties((prev) =>
+    setSelectedItems((prev) =>
       prev.includes(ids) ? prev.filter((id) => id !== ids) : [...prev, ids],
     );
   };
 
-  /* ─── Table config ─────────────────────────────────────────── */
-
-  const columns = [
-    {key: "passport_id", label: "Passport ID", sortable: true},
-    {key: "address", label: "address", sortable: true},
-    {key: "city", label: "city", sortable: true},
-    {key: "state", label: "state", sortable: true},
-    {
-      key: "health",
-      label: "healthStatus",
-      sortable: true,
-      render: (value) => <HealthBar value={value ?? 0} />,
-    },
-  ];
-
-  const renderPropertyRow = (item, handleSelect, selectedItems, onItemClick) => (
-    <DataTableItem
-      item={item}
-      columns={columns}
-      onSelect={handleSelect}
-      isSelected={selectedItems.includes(item.id)}
-      onItemClick={() => onItemClick(item)}
-    />
-  );
-
-  const allSelected =
-    paginatedProperties.length > 0 &&
-    paginatedProperties.every((property) =>
-      selectedProperties.includes(property.id),
-    );
-
-  /* ─── Bulk actions ─────────────────────────────────────────── */
-
-  function handleDeleteClick() {
-    if (selectedProperties.length === 0) {
+  const handleDeleteClick = () => {
+    if (selectedItems.length === 0) {
       dispatch({
         type: "SET_BANNER",
         payload: {
           open: true,
           type: "error",
-          message: t("selectItemsToDelete", {
-            defaultValue: "Please select at least one property to delete",
-          }),
+          message: "Please select at least one professional to delete",
         },
       });
       return;
     }
     dispatch({type: "SET_DANGER_MODAL", payload: true});
-  }
+  };
 
-  async function handleDuplicate() {
-    if (selectedProperties.length === 0) return;
+  const handleDelete = async () => {
     dispatch({type: "SET_SUBMITTING", payload: true});
     try {
-      const timestamp = Date.now();
-      const duplicatedProperties = selectedProperties
-        .map((id, index) => {
-          const original = properties.find((property) => property.id === id);
-          if (!original) return null;
-          return {
-            ...original,
-            id: `${original.id}-COPY-${timestamp + index}`,
-          };
-        })
-        .filter(Boolean);
-      if (duplicatedProperties.length === 0) {
-        throw new Error("No properties duplicated");
+      for (const id of selectedItems) {
+        await AppApi.deleteProfessional(id);
       }
-      setProperties((prev) => [...duplicatedProperties, ...prev]);
-      const n = duplicatedProperties.length;
+      const n = selectedItems.length;
+      setSelectedItems([]);
+      dispatch({type: "SET_DANGER_MODAL", payload: false});
       dispatch({
         type: "SET_BANNER",
         payload: {
           open: true,
           type: "success",
-          message: `${n} ${n === 1 ? "property" : "properties"} duplicated successfully`,
+          message: `${n} professional${n === 1 ? "" : "s"} deleted successfully`,
         },
       });
-    } catch (error) {
+      await fetchProfessionals();
+    } catch (err) {
+      dispatch({type: "SET_DANGER_MODAL", payload: false});
       dispatch({
         type: "SET_BANNER",
         payload: {
           open: true,
           type: "error",
-          message:
-            error?.message || "Error duplicating properties. Please try again.",
+          message: err?.message || "Failed to delete professionals",
         },
       });
     } finally {
       dispatch({type: "SET_SUBMITTING", payload: false});
     }
-  }
+  };
 
-  async function handleDelete() {
-    if (selectedProperties.length === 0) return;
-    dispatch({type: "SET_DANGER_MODAL", payload: false});
-    dispatch({type: "SET_SUBMITTING", payload: true});
-    try {
-      const deletedIds = [...selectedProperties];
-      setProperties((prev) =>
-        prev.filter((property) => !deletedIds.includes(property.id)),
-      );
-      setSelectedProperties((prev) =>
-        prev.filter((id) => !deletedIds.includes(id)),
-      );
-      const remainingItems = sortedProperties.length - deletedIds.length;
-      if (
-        state.currentPage > 1 &&
-        remainingItems <= (state.currentPage - 1) * state.itemsPerPage
-      ) {
-        dispatch({type: "SET_CURRENT_PAGE", payload: state.currentPage - 1});
-      }
-      const n = deletedIds.length;
-      dispatch({
-        type: "SET_BANNER",
-        payload: {
-          open: true,
-          type: "success",
-          message: `${n} ${n === 1 ? "property" : "properties"} deleted successfully`,
-        },
-      });
-    } catch (error) {
-      dispatch({
-        type: "SET_BANNER",
-        payload: {
-          open: true,
-          type: "error",
-          message: "Error deleting properties. Please try again.",
-        },
-      });
-    } finally {
-      dispatch({type: "SET_SUBMITTING", payload: false});
-    }
-  }
+  const hasActiveSearch = state.searchTerm || state.activeFilters.length > 0;
 
   /* ─── Render ───────────────────────────────────────────────── */
 
@@ -835,7 +689,7 @@ function PropertiesList() {
 
         <div className="m-1.5">
           <ModalBlank
-            id="property-danger-modal"
+            id="professional-danger-modal"
             modalOpen={state.dangerModalOpen}
             setModalOpen={(open) =>
               dispatch({type: "SET_DANGER_MODAL", payload: open})
@@ -855,24 +709,21 @@ function PropertiesList() {
               <div>
                 <div className="mb-2">
                   <div className="text-lg font-semibold text-gray-800 dark:text-gray-100">
-                    Delete {selectedProperties.length}{" "}
-                    {selectedProperties.length === 1
-                      ? "property"
-                      : "properties"}
+                    Delete {selectedItems.length}{" "}
+                    {selectedItems.length === 1
+                      ? "professional"
+                      : "professionals"}
                     ?
                   </div>
                 </div>
                 <div className="text-sm mb-10">
                   <div className="space-y-2">
                     <p>
-                      {t("propertyDeleteConfirmationMessage", {
-                        count: selectedProperties.length,
-                        defaultValue:
-                          selectedProperties.length === 1
-                            ? "Are you sure you want to delete the selected property?"
-                            : "Are you sure you want to delete the selected properties?",
-                      })}{" "}
-                      {t("actionCantBeUndone")}
+                      Are you sure you want to delete the selected{" "}
+                      {selectedItems.length === 1
+                        ? "professional"
+                        : "professionals"}
+                      ? This action cannot be undone.
                     </p>
                   </div>
                 </div>
@@ -903,20 +754,34 @@ function PropertiesList() {
           <div className="px-4 sm:px-6 py-8 w-full max-w-[96rem] mx-auto">
             {/* ─── Header row ─────────────────────────────────── */}
             <div className="flex flex-col gap-4 sm:flex-row sm:justify-between sm:items-center mb-5">
-              <h1 className="text-2xl md:text-3xl text-gray-800 dark:text-gray-100 font-bold">
-                {t("properties")}
-              </h1>
+              <div>
+                <h1 className="text-2xl md:text-3xl text-gray-800 dark:text-gray-100 font-bold">
+                  Professionals
+                </h1>
+                <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">
+                  Manage professionals in your directory
+                </p>
+              </div>
               <div className="flex items-center gap-2">
-                <ListDropdown
-                  align="right"
-                  hasSelection={selectedProperties.length > 0}
-                  onImport={() => navigate(`/${accountUrl}/properties/import`)}
-                  onDelete={handleDeleteClick}
-                  onDuplicate={handleDuplicate}
-                />
+                {selectedItems.length > 0 && (
+                  <button
+                    className="btn border-gray-200 dark:border-gray-700/60 hover:border-gray-300 dark:hover:border-gray-600 text-red-500"
+                    onClick={handleDeleteClick}
+                  >
+                    <svg
+                      className="shrink-0 fill-current mr-1"
+                      width="16"
+                      height="16"
+                      viewBox="0 0 16 16"
+                    >
+                      <path d="M5 7h2v6H5V7zm4 0h2v6H9V7zm3-6v2h4v2h-1v10c0 .6-.4 1-1 1H2c-.6 0-1-.4-1-1V5H0V3h4V1c0-.6.4-1 1-1h6c.6 0 1 .4 1 1zm-7 0v1h4V1H5zm6 4H3v9h8V5z" />
+                    </svg>
+                    <span>{t("delete")}</span>
+                  </button>
+                )}
                 <button
-                  className="btn bg-gray-900 text-gray-100 hover:bg-gray-800 dark:bg-gray-100 dark:text-gray-800 dark:hover:bg-white"
-                  onClick={handleNewProperty}
+                  className="btn bg-[#456564] hover:bg-[#34514f] text-white shadow-sm"
+                  onClick={handleNewProfessional}
                 >
                   <svg
                     className="fill-current shrink-0 xs:hidden"
@@ -926,7 +791,7 @@ function PropertiesList() {
                   >
                     <path d="M15 7H9V1c0-.6-.4-1-1-1S7 .4 7 1v6H1c-.6 0-1 .4-1 1s.4 1 1 1h6v6c0 .6.4 1 1 1s1-.4 1-1V9h6c.6 0 1-.4 1-1s-.4-1-1-1z" />
                   </svg>
-                  <span className="max-xs:sr-only">{t("addProperty")}</span>
+                  <span className="max-xs:sr-only">Add Professional</span>
                 </button>
               </div>
             </div>
@@ -934,12 +799,11 @@ function PropertiesList() {
             {/* ─── Search + Filter + View toggle ──────────────── */}
             <div className="mb-5 space-y-3">
               <div className="flex flex-col sm:flex-row gap-2.5">
-                {/* Search */}
                 <div className="relative flex-1 min-w-0">
                   <input
                     type="text"
-                    className="form-input w-full pl-10 pr-4 py-2 bg-white dark:bg-gray-800 border-gray-200 dark:border-gray-700/60 hover:border-gray-300 dark:hover:border-gray-600 focus:border-gray-300 dark:focus:border-gray-600 rounded-lg shadow-sm text-sm"
-                    placeholder={t("searchPropertiesPlaceholder")}
+                    className="form-input w-full pl-10 pr-4 py-2 bg-white dark:bg-gray-800 border-gray-200 dark:border-gray-700/60 hover:border-gray-300 dark:hover:border-gray-600 focus:border-[#456564] dark:focus:border-[#456564] rounded-lg shadow-sm text-sm"
+                    placeholder="Search professionals..."
                     value={state.searchTerm}
                     onChange={handleSearchChange}
                   />
@@ -956,7 +820,6 @@ function PropertiesList() {
                   </div>
                 </div>
 
-                {/* Filter button + View toggle (right of search) */}
                 <div className="flex items-center gap-2 shrink-0">
                   <FilterDropdown
                     filterOptions={filterOptions}
@@ -965,7 +828,6 @@ function PropertiesList() {
                     onRemove={(f) =>
                       dispatch({type: "REMOVE_FILTER", payload: f})
                     }
-                    t={t}
                   />
                   <div className="flex rounded-lg border border-gray-200 dark:border-gray-700/60 overflow-hidden">
                     <button
@@ -976,11 +838,21 @@ function PropertiesList() {
                           ? "bg-gray-200 dark:bg-gray-700 text-gray-800 dark:text-gray-200"
                           : "bg-white dark:bg-gray-800 text-gray-400 hover:text-gray-600 dark:hover:text-gray-300"
                       } transition-colors`}
-                      title={t("gridView")}
-                      aria-label={t("gridView")}
+                      title="Grid view"
+                      aria-label="Grid view"
                     >
-                      <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2V6zM14 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2V6zM4 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2v-2zM14 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2v-2z" />
+                      <svg
+                        className="w-4 h-4"
+                        fill="none"
+                        stroke="currentColor"
+                        viewBox="0 0 24 24"
+                      >
+                        <path
+                          strokeLinecap="round"
+                          strokeLinejoin="round"
+                          strokeWidth={2}
+                          d="M4 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2V6zM14 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2V6zM4 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2v-2zM14 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2v-2z"
+                        />
                       </svg>
                     </button>
                     <button
@@ -991,11 +863,21 @@ function PropertiesList() {
                           ? "bg-gray-200 dark:bg-gray-700 text-gray-800 dark:text-gray-200"
                           : "bg-white dark:bg-gray-800 text-gray-400 hover:text-gray-600 dark:hover:text-gray-300"
                       } transition-colors`}
-                      title={t("listView")}
-                      aria-label={t("listView")}
+                      title="List view"
+                      aria-label="List view"
                     >
-                      <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 10h16M4 14h16M4 18h16" />
+                      <svg
+                        className="w-4 h-4"
+                        fill="none"
+                        stroke="currentColor"
+                        viewBox="0 0 24 24"
+                      >
+                        <path
+                          strokeLinecap="round"
+                          strokeLinejoin="round"
+                          strokeWidth={2}
+                          d="M4 6h16M4 10h16M4 14h16M4 18h16"
+                        />
                       </svg>
                     </button>
                   </div>
@@ -1011,10 +893,8 @@ function PropertiesList() {
                       className="inline-flex items-center gap-1.5 pl-2.5 pr-1.5 py-1 rounded-full text-xs font-medium bg-violet-50 dark:bg-violet-500/10 text-violet-700 dark:text-violet-400 border border-violet-200 dark:border-violet-500/20"
                     >
                       <span className="text-violet-400 dark:text-violet-500 font-normal">
-                        {t(
-                          FILTER_CATEGORIES.find((c) => c.type === f.type)
-                            ?.labelKey ?? f.type,
-                        )}
+                        {FILTER_CATEGORIES.find((c) => c.type === f.type)
+                          ?.label ?? f.type}
                         :
                       </span>
                       {f.label}
@@ -1046,63 +926,112 @@ function PropertiesList() {
                     onClick={() => dispatch({type: "CLEAR_FILTERS"})}
                     className="text-xs text-gray-500 dark:text-gray-400 hover:text-red-500 dark:hover:text-red-400 transition-colors"
                   >
-                    {t("clearAll", {defaultValue: "Clear all"})}
+                    Clear all
                   </button>
                 </div>
               )}
             </div>
 
-            {/* ─── Content: Table or Grid ─────────────────────── */}
-            {viewMode === "list" ? (
-              <DataTable
-                items={paginatedProperties}
-                columns={columns}
-                onItemClick={handlePropertyClick}
-                onSelect={handleToggleSelect}
-                selectedItems={selectedProperties}
-                totalItems={sortedProperties.length}
-                title="properties"
-                sortConfig={sortConfig}
-                onSort={handleSort}
-                renderItem={renderPropertyRow}
-                allSelected={allSelected}
-              />
+            {/* ─── Content: Loading / Table / Grid ────────────── */}
+            {state.loading ? (
+              <div className="flex items-center justify-center py-12">
+                <svg
+                  className="animate-spin h-8 w-8 text-gray-400"
+                  xmlns="http://www.w3.org/2000/svg"
+                  fill="none"
+                  viewBox="0 0 24 24"
+                >
+                  <circle
+                    className="opacity-25"
+                    cx="12"
+                    cy="12"
+                    r="10"
+                    stroke="currentColor"
+                    strokeWidth="4"
+                  />
+                  <path
+                    className="opacity-75"
+                    fill="currentColor"
+                    d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
+                  />
+                </svg>
+              </div>
+            ) : viewMode === "list" ? (
+              <>
+                <ProfessionalsTable
+                  professionals={sortedProfessionals}
+                  onToggleSelect={handleToggleSelect}
+                  selectedItems={selectedItems}
+                  totalProfessionals={totalItems}
+                  currentPage={state.currentPage}
+                  itemsPerPage={state.itemsPerPage}
+                  onProfessionalClick={handleProfessionalClick}
+                  sortConfig={sortConfig}
+                  onSort={handleSort}
+                />
+                {totalItems > 0 && (
+                  <div className="mt-8">
+                    <PaginationClassic
+                      currentPage={state.currentPage}
+                      totalItems={totalItems}
+                      itemsPerPage={state.itemsPerPage}
+                      onPageChange={handlePageChange}
+                      onItemsPerPageChange={handleItemsPerPageChange}
+                    />
+                  </div>
+                )}
+              </>
             ) : (
-              <div>
-                {paginatedProperties.length === 0 ? (
-                  <div className="bg-white dark:bg-gray-800 shadow-xs rounded-xl">
-                    <div className="text-center py-16 text-gray-500 dark:text-gray-400">
-                      {t("noItemsFound")}
+              <>
+                {paginatedProfessionals.length === 0 ? (
+                  <div className="bg-white dark:bg-gray-800 shadow-sm rounded-xl border border-gray-200 dark:border-gray-700/60">
+                    <div className="text-center py-16">
+                      <Building2 className="w-12 h-12 text-gray-300 dark:text-gray-600 mx-auto mb-4" />
+                      <h3 className="text-lg font-medium text-gray-600 dark:text-gray-400 mb-1">
+                        {hasActiveSearch
+                          ? "No professionals found"
+                          : "No professionals yet"}
+                      </h3>
+                      <p className="text-sm text-gray-500 dark:text-gray-500 mb-4">
+                        {hasActiveSearch
+                          ? "Try adjusting your search or filters"
+                          : "Add your first professional to get started"}
+                      </p>
+                      {!hasActiveSearch && (
+                        <button
+                          className="btn bg-[#456564] hover:bg-[#34514f] text-white shadow-sm"
+                          onClick={handleNewProfessional}
+                        >
+                          Add Professional
+                        </button>
+                      )}
                     </div>
                   </div>
                 ) : (
                   <div className="grid grid-cols-1 xs:grid-cols-2 md:grid-cols-3 xl:grid-cols-4 gap-3 sm:gap-4">
-                    {paginatedProperties.map((property) => (
-                      <PropertyCard
-                        key={property.id}
-                        property={property}
-                        onClick={handlePropertyClick}
-                        isSelected={selectedProperties.includes(property.id)}
+                    {paginatedProfessionals.map((pro) => (
+                      <ProfessionalCard
+                        key={pro.id}
+                        professional={pro}
+                        onClick={handleProfessionalClick}
+                        isSelected={selectedItems.includes(pro.id)}
                         onSelect={handleToggleSelect}
-                        getMainPhotoUrl={getMainPhotoUrl}
-                        t={t}
                       />
                     ))}
                   </div>
                 )}
-              </div>
-            )}
-
-            {sortedProperties.length > 0 && (
-              <div className="mt-8">
-                <PaginationClassic
-                  currentPage={state.currentPage}
-                  totalItems={sortedProperties.length}
-                  itemsPerPage={state.itemsPerPage}
-                  onPageChange={handlePageChange}
-                  onItemsPerPageChange={handleItemsPerPageChange}
-                />
-              </div>
+                {totalItems > 0 && (
+                  <div className="mt-8">
+                    <PaginationClassic
+                      currentPage={state.currentPage}
+                      totalItems={totalItems}
+                      itemsPerPage={state.itemsPerPage}
+                      onPageChange={handlePageChange}
+                      onItemsPerPageChange={handleItemsPerPageChange}
+                    />
+                  </div>
+                )}
+              </>
             )}
           </div>
         </main>
@@ -1111,4 +1040,4 @@ function PropertiesList() {
   );
 }
 
-export default PropertiesList;
+export default ProfessionalsList;

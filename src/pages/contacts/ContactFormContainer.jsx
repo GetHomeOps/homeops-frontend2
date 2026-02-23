@@ -1184,7 +1184,7 @@ function ContactsFormContainer() {
         </ModalBlank>
       </div>
 
-      <div className="px-4 sm:px-6 lg:px-1">
+      <div>
         {/* Navigation and Actions */}
         <div className="flex justify-between items-center mb-2">
           <button

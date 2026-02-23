@@ -481,16 +481,11 @@ class AppApi {
     return res;
   }
 
-  /* --------- Property Prediction (OpenAI) --------- */
+  /* --------- Property Data Lookup (ATTOM) --------- */
 
-  static async predictPropertyDetails(propertyInfo) {
+  static async lookupPropertyDetails(propertyInfo) {
     let res = await this.request("predict/property-details", propertyInfo, "POST");
     return res;
-  }
-
-  static async getAiUsage() {
-    let res = await this.request("predict/usage");
-    return res.usage;
   }
 
   /* --------- Platform Analytics --------- */
@@ -546,6 +541,77 @@ class AppApi {
 
   static async logEngagementEvent(eventType, eventData = {}) {
     await this.request("engagement", { eventType, eventData }, "POST");
+  }
+
+  /* --------- Professional Categories --------- */
+
+  static async getAllProfessionalCategories() {
+    let res = await this.request("professional-categories");
+    return res.categories;
+  }
+
+  static async getProfessionalCategoryHierarchy() {
+    let res = await this.request("professional-categories/hierarchy");
+    return res.hierarchy;
+  }
+
+  static async getProfessionalCategory(id) {
+    let res = await this.request(`professional-categories/${id}`);
+    return res.category;
+  }
+
+  static async createProfessionalCategory(data) {
+    let res = await this.request("professional-categories", data, "POST");
+    return res.category;
+  }
+
+  static async updateProfessionalCategory(id, data) {
+    let res = await this.request(`professional-categories/${id}`, data, "PATCH");
+    return res.category;
+  }
+
+  static async deleteProfessionalCategory(id) {
+    return this.request(`professional-categories/${id}`, {}, "DELETE");
+  }
+
+  static async seedProfessionalCategories() {
+    let res = await this.request("professional-categories/seed", {}, "POST");
+    return res;
+  }
+
+  /* --------- Professionals --------- */
+
+  static async getAllProfessionals(filters = {}) {
+    let res = await this.request("professionals", filters);
+    return res.professionals;
+  }
+
+  static async getProfessional(id) {
+    let res = await this.request(`professionals/${id}`);
+    return res.professional;
+  }
+
+  static async createProfessional(data) {
+    let res = await this.request("professionals", data, "POST");
+    return res.professional;
+  }
+
+  static async updateProfessional(id, data) {
+    let res = await this.request(`professionals/${id}`, data, "PATCH");
+    return res.professional;
+  }
+
+  static async deleteProfessional(id) {
+    return this.request(`professionals/${id}`, {}, "DELETE");
+  }
+
+  static async addProfessionalPhoto(professionalId, data) {
+    let res = await this.request(`professionals/${professionalId}/photos`, data, "POST");
+    return res.photo;
+  }
+
+  static async removeProfessionalPhoto(professionalId, photoId) {
+    return this.request(`professionals/${professionalId}/photos/${photoId}`, {}, "DELETE");
   }
 }
 

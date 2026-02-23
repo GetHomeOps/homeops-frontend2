@@ -43,7 +43,7 @@ function ProfessionalDirectory() {
         <Header sidebarOpen={sidebarOpen} setSidebarOpen={setSidebarOpen} />
 
         <main className="grow">
-          <div className="px-4 sm:px-6 lg:px-8 py-8 w-full max-w-[96rem] mx-auto">
+          <div className="px-4 sm:px-6 py-8 w-full max-w-[96rem] mx-auto">
             {/* Hero / Location Bar */}
             <div className="relative mb-10 rounded-2xl overflow-hidden shadow-xl">
               {/* Refined gradient: softer, more organic emerald-to-forest */}

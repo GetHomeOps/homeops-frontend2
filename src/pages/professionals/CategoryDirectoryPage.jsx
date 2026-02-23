@@ -119,7 +119,7 @@ function CategoryDirectoryPage() {
         <Header sidebarOpen={sidebarOpen} setSidebarOpen={setSidebarOpen} />
 
         <main className="grow">
-          <div className="px-4 sm:px-6 lg:px-8 py-8 w-full max-w-[96rem] mx-auto">
+          <div className="px-4 sm:px-6 py-8 w-full max-w-[96rem] mx-auto">
             {/* Breadcrumb & Title */}
             <div className="mb-6">
               <button
