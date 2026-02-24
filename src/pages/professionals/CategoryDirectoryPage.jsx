@@ -1,4 +1,4 @@
-import React, {useState, useMemo, useCallback} from "react";
+import React, {useState, useEffect, useCallback, useMemo} from "react";
 import {useSearchParams, useNavigate} from "react-router-dom";
 import {ArrowLeft, SlidersHorizontal, X, Search} from "lucide-react";
 
@@ -6,7 +6,8 @@ import Sidebar from "../../partials/Sidebar";
 import Header from "../../partials/Header";
 import useCurrentAccount from "../../hooks/useCurrentAccount";
 import {LocationBar, ProfessionalCard, FiltersSidebar} from "./components";
-import {MOCK_PROFESSIONALS, SERVICE_CATEGORIES} from "./data/mockData";
+import AppApi from "../../api/api";
+import {normalizeProfessional} from "./utils/normalizeProfessional";
 
 const RESULTS_PER_PAGE = 10;
 
@@ -18,6 +19,18 @@ const EMPTY_FILTERS = {
   budget: null,
   verified: null,
 };
+
+function flattenCategories(hierarchy) {
+  if (!hierarchy?.length) return [];
+  const flat = [];
+  for (const parent of hierarchy) {
+    flat.push({id: parent.id, name: parent.name});
+    for (const child of parent.children || []) {
+      flat.push({id: child.id, name: child.name});
+    }
+  }
+  return flat;
+}
 
 function CategoryDirectoryPage() {
   const [sidebarOpen, setSidebarOpen] = useState(false);
@@ -49,45 +62,98 @@ function CategoryDirectoryPage() {
 
   const [page, setPage] = useState(1);
   const [searchTerm, setSearchTerm] = useState("");
+  const [searchDebounced, setSearchDebounced] = useState("");
+  const [professionals, setProfessionals] = useState([]);
+  const [categories, setCategories] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
 
-  const [professionals, setProfessionals] = useState(MOCK_PROFESSIONALS);
+  const flatCategories = useMemo(() => flattenCategories(categories), [categories]);
 
-  const toggleSave = useCallback((proId) => {
-    setProfessionals((prev) =>
-      prev.map((p) => (p.id === proId ? {...p, saved: !p.saved} : p)),
-    );
+  useEffect(() => {
+    const t = setTimeout(() => setSearchDebounced(searchTerm), 300);
+    return () => clearTimeout(t);
+  }, [searchTerm]);
+
+  const apiFilters = useMemo(() => {
+    const f = {};
+    if (filters.categoryId) f.category_id = filters.categoryId;
+    if (location?.city) f.city = location.city;
+    if (location?.state) f.state = location.state;
+    if (searchDebounced.trim()) f.search = searchDebounced.trim();
+    if (filters.minRating != null) f.min_rating = filters.minRating;
+    if (filters.budget) f.budget_level = filters.budget;
+    if (filters.language) f.language = filters.language;
+    if (filters.verified) f.is_verified = true;
+    return f;
+  }, [filters, location, searchDebounced]);
+
+  const fetchProfessionals = useCallback(async () => {
+    setLoading(true);
+    setError(null);
+    try {
+      const pros = await AppApi.getAllProfessionals(apiFilters);
+      setProfessionals(pros || []);
+    } catch (err) {
+      setError(err?.message || "Failed to load professionals");
+      setProfessionals([]);
+    } finally {
+      setLoading(false);
+    }
+  }, [apiFilters]);
+
+  const fetchCategories = useCallback(async () => {
+    try {
+      const hierarchy = await AppApi.getProfessionalCategoryHierarchy();
+      setCategories(hierarchy || []);
+    } catch {
+      setCategories([]);
+    }
   }, []);
 
-  const filtered = useMemo(() => {
-    let list = professionals;
+  useEffect(() => {
+    fetchCategories();
+  }, [fetchCategories]);
 
-    if (filters.categoryId) {
-      list = list.filter((p) => p.categoryId === filters.categoryId);
-    }
-    if (filters.minRating) {
-      list = list.filter((p) => p.rating >= filters.minRating);
-    }
-    if (filters.language) {
-      list = list.filter((p) => p.languages.includes(filters.language));
-    }
-    if (location?.city) {
-      list = list.filter((p) => p.location.city === location.city);
-    }
-    if (searchTerm.trim()) {
-      const q = searchTerm.toLowerCase();
-      list = list.filter(
-        (p) =>
-          p.name.toLowerCase().includes(q) ||
-          p.companyName.toLowerCase().includes(q) ||
-          p.categoryName.toLowerCase().includes(q),
-      );
-    }
+  useEffect(() => {
+    fetchProfessionals();
+  }, [fetchProfessionals]);
 
-    return list;
-  }, [professionals, filters, location, searchTerm]);
+  useEffect(() => {
+    setFilters((prev) => ({
+      ...prev,
+      categoryId: categoryParam || prev.categoryId,
+    }));
+  }, [categoryParam]);
 
-  const totalPages = Math.ceil(filtered.length / RESULTS_PER_PAGE);
-  const paginated = filtered.slice(
+  const toggleSave = useCallback(async (proId) => {
+    const pro = professionals.find((p) => p.id === proId);
+    if (!pro) return;
+    const isSaved = pro.saved;
+    try {
+      if (isSaved) {
+        await AppApi.unsaveProfessional(proId);
+        setProfessionals((prev) =>
+          prev.map((p) => (p.id === proId ? {...p, saved: false} : p)),
+        );
+      } else {
+        await AppApi.saveProfessional(proId);
+        setProfessionals((prev) =>
+          prev.map((p) => (p.id === proId ? {...p, saved: true} : p)),
+        );
+      }
+    } catch {
+      // Keep UI state on API failure
+    }
+  }, [professionals]);
+
+  const normalized = useMemo(
+    () => professionals.map(normalizeProfessional).filter(Boolean),
+    [professionals],
+  );
+
+  const totalPages = Math.ceil(normalized.length / RESULTS_PER_PAGE);
+  const paginated = normalized.slice(
     (page - 1) * RESULTS_PER_PAGE,
     page * RESULTS_PER_PAGE,
   );
@@ -99,7 +165,7 @@ function CategoryDirectoryPage() {
   };
 
   const categoryName =
-    SERVICE_CATEGORIES.find((c) => c.id === filters.categoryId)?.name ||
+    flatCategories.find((c) => String(c.id) === String(filters.categoryId))?.name ||
     "All Professionals";
 
   const activeFilterCount = [
@@ -138,8 +204,7 @@ function CategoryDirectoryPage() {
                     {categoryName}
                   </h1>
                   <p className="text-xs text-gray-500 dark:text-gray-400 mt-0.5">
-                    {filtered.length} professional
-                    {filtered.length !== 1 ? "s" : ""} found
+                    {loading ? "Loading…" : `${normalized.length} professional${normalized.length !== 1 ? "s" : ""} found`}
                     {location?.city
                       ? ` in ${location.city}, ${location.state}`
                       : ""}
@@ -194,6 +259,7 @@ function CategoryDirectoryPage() {
                       setPage(1);
                     }}
                     onClearFilters={clearFilters}
+                    categories={flatCategories}
                   />
                 </div>
               </div>
@@ -233,6 +299,7 @@ function CategoryDirectoryPage() {
                           setPage(1);
                         }}
                         onClearFilters={clearFilters}
+                        categories={flatCategories}
                       />
                     </div>
                   </div>
@@ -241,7 +308,22 @@ function CategoryDirectoryPage() {
 
               {/* Results */}
               <div className="flex-1 min-w-0">
-                {paginated.length > 0 ? (
+                {error ? (
+                  <div className="flex flex-col items-center justify-center py-20 text-center">
+                    <p className="text-sm text-red-600 dark:text-red-400 mb-2">{error}</p>
+                    <button
+                      type="button"
+                      onClick={fetchProfessionals}
+                      className="text-sm font-medium text-[#456564] hover:text-[#34514f] dark:text-[#7aa3a2]"
+                    >
+                      Try again
+                    </button>
+                  </div>
+                ) : loading ? (
+                  <div className="flex items-center justify-center py-20">
+                    <p className="text-sm text-gray-500 dark:text-gray-400">Loading…</p>
+                  </div>
+                ) : paginated.length > 0 ? (
                   <>
                     <div className="space-y-4">
                       {paginated.map((pro) => (
@@ -262,11 +344,11 @@ function CategoryDirectoryPage() {
                           </span>{" "}
                           –{" "}
                           <span className="font-medium text-gray-700 dark:text-gray-300">
-                            {Math.min(page * RESULTS_PER_PAGE, filtered.length)}
+                            {Math.min(page * RESULTS_PER_PAGE, normalized.length)}
                           </span>{" "}
                           of{" "}
                           <span className="font-medium text-gray-700 dark:text-gray-300">
-                            {filtered.length}
+                            {normalized.length}
                           </span>
                         </p>
                         <div className="flex items-center gap-1">

@@ -1,7 +1,6 @@
-/**
- * Normalizes API professional format (snake_case) to the format expected by
- * ProfessionalCard, ProfileHeader, and other directory components.
- */
+/** 1x1 transparent pixel - avoids empty src warning, no network request */
+const PLACEHOLDER_IMG = "data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7";
+
 export function normalizeProfessional(apiPro) {
   if (!apiPro) return null;
 
@@ -9,11 +8,15 @@ export function normalizeProfessional(apiPro) {
     || (apiPro.city && apiPro.state ? `${apiPro.city}, ${apiPro.state}` : null)
     || "";
 
-  const projectPhotos = (apiPro.photos || []).map((p) => ({
-    id: p.id,
-    url: p.photo_url || p.url,
-    caption: p.caption || "Project",
-  }));
+  const projectPhotos = (apiPro.photos || []).map((p) => {
+    const url = p.photo_url || p.url || PLACEHOLDER_IMG;
+    return { id: p.id, url, caption: p.caption || "Project" };
+  });
+
+  const profileUrl = apiPro.profile_photo_url || apiPro.profile_photo || PLACEHOLDER_IMG;
+  if (projectPhotos.length === 0) {
+    projectPhotos.push({ id: "profile", url: profileUrl, caption: "Profile" });
+  }
 
   return {
     id: apiPro.id,
@@ -35,7 +38,7 @@ export function normalizeProfessional(apiPro) {
     languages: Array.isArray(apiPro.languages) ? apiPro.languages : [],
     phone: apiPro.phone || "",
     email: apiPro.email || "",
-    photoUrl: apiPro.profile_photo_url || apiPro.profile_photo || "",
+    photoUrl: profileUrl,
     website: apiPro.website || "",
     saved: Boolean(apiPro.saved),
     projectPhotos: projectPhotos.length > 0 ? projectPhotos : [],

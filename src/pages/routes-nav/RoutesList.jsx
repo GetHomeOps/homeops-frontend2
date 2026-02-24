@@ -38,6 +38,7 @@ import Subscription from "../subscriptions/Subscription";
 import SubscriptionProductsList from "../subscriptions/SubscriptionProductsList";
 import SubscriptionProduct from "../subscriptions/SubscriptionProduct";
 import ProfessionalDirectory from "../professionals/ProfessionalDirectory";
+import ProfessionalsDirectorySample from "../professionals/ProfessionalsDirectorySample";
 import CategoryDirectoryPage from "../professionals/CategoryDirectoryPage";
 import MyProfessionals from "../professionals/MyProfessionals";
 import ProfessionalProfile from "../professionals/ProfessionalProfile";
@@ -55,6 +56,8 @@ import BillingPage from "../settings/BillingPage";
 import ConfigurationPage from "../settings/ConfigurationPage";
 import Support from "../support/Support";
 import SupportManagement from "../support/SupportManagement";
+import FeedbackManagement from "../support/FeedbackManagement";
+import Calendar from "../calendar/Calendar";
 
 function RoutesList() {
   const {currentUser, isLoading} = useAuth();
@@ -201,6 +204,14 @@ function RoutesList() {
         }
       />
       <Route
+        path="/:accountUrl/calendar"
+        element={
+          <ProtectedRoute>
+            <Calendar />
+          </ProtectedRoute>
+        }
+      />
+      <Route
         path="/:accountUrl/properties/import"
         element={
           <ProtectedRoute>
@@ -229,6 +240,14 @@ function RoutesList() {
         element={
           <ProtectedRoute>
             <ProfessionalDirectory />
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/:accountUrl/professionals-sample"
+        element={
+          <ProtectedRoute>
+            <ProfessionalsDirectorySample />
           </ProtectedRoute>
         }
       />
@@ -349,6 +368,14 @@ function RoutesList() {
         element={
           <AdminRoute>
             <SupportManagement />
+          </AdminRoute>
+        }
+      />
+      <Route
+        path="/:accountUrl/feedback-management"
+        element={
+          <AdminRoute>
+            <FeedbackManagement />
           </AdminRoute>
         }
       />

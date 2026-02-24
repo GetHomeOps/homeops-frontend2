@@ -1,14 +1,18 @@
 import React, {useContext, useMemo} from "react";
-import {Plus, Users, Crown} from "lucide-react";
+import {Plus, Users, Crown, Mail} from "lucide-react";
 import UserContext from "../../../context/UserContext";
 
 function HomeOpsTeam({teamMembers = [], onOpenShareModal}) {
   const {users = []} = useContext(UserContext);
 
-  /* Sort so owner(s) appear first, then others */
+  /* Sort so owner(s) appear first, then pending, then others */
   const sortedMembers = useMemo(() => {
     const list = [...(teamMembers ?? [])];
     return list.sort((a, b) => {
+      const aPending = a._pending === true;
+      const bPending = b._pending === true;
+      if (aPending && !bPending) return 1;
+      if (!aPending && bPending) return -1;
       const aOwner = (a.role ?? "").toLowerCase() === "homeowner";
       const bOwner = (b.role ?? "").toLowerCase() === "homeowner";
       if (aOwner && !bOwner) return -1;
@@ -37,13 +41,15 @@ function HomeOpsTeam({teamMembers = [], onOpenShareModal}) {
 
       <div className="flex items-center gap-4 flex-wrap">
         {sortedMembers?.map((member) => {
+          const isPending = member._pending === true;
           const initials = member.name
             ? member.name
                 .split(" ")
                 .map((n) => n[0])
                 .join("")
                 .toUpperCase()
-            : "?";
+                .slice(0, 2) || "?"
+            : member.email?.charAt(0)?.toUpperCase() || "?";
           const userFromContext = users?.find(
             (u) =>
               u && member?.id != null && Number(u.id) === Number(member.id),
@@ -57,16 +63,22 @@ function HomeOpsTeam({teamMembers = [], onOpenShareModal}) {
 
           return (
             <div
-              key={member.id}
+              key={member.id ?? `pending-${member.email}`}
               className={`flex items-center gap-3 py-2.5 pl-2.5 pr-4 rounded-full transition-colors duration-150 cursor-default ${
-                isOwner
-                  ? "bg-[#456564]/10 dark:bg-[#5a7a78]/20 border-2 border-[#456564]/30 dark:border-[#5a7a78]/40 ring-1 ring-[#456564]/10"
-                  : "bg-gray-50 dark:bg-gray-800/80 hover:bg-gray-100 dark:hover:bg-gray-700/80"
+                isPending
+                  ? "bg-amber-50 dark:bg-amber-900/10 border-2 border-amber-200 dark:border-amber-800/50"
+                  : isOwner
+                    ? "bg-[#456564]/10 dark:bg-[#5a7a78]/20 border-2 border-[#456564]/30 dark:border-[#5a7a78]/40 ring-1 ring-[#456564]/10"
+                    : "bg-gray-50 dark:bg-gray-800/80 hover:bg-gray-100 dark:hover:bg-gray-700/80"
               }`}
             >
               <div
                 className={`w-11 h-11 rounded-full flex items-center justify-center text-white text-sm font-semibold overflow-hidden flex-shrink-0 ${
-                  isOwner ? "bg-[#456564] dark:bg-[#5a7a78]" : "bg-[#456564]"
+                  isPending
+                    ? "bg-amber-500 dark:bg-amber-600"
+                    : isOwner
+                      ? "bg-[#456564] dark:bg-[#5a7a78]"
+                      : "bg-[#456564]"
                 }`}
               >
                 {photoUrl ? (
@@ -82,9 +94,15 @@ function HomeOpsTeam({teamMembers = [], onOpenShareModal}) {
               <div className="min-w-0">
                 <div className="flex items-center gap-2">
                   <p className="text-sm font-semibold text-gray-900 dark:text-white truncate leading-tight">
-                    {member.name}
+                    {member.name || member.email}
                   </p>
-                  {isOwner && (
+                  {isPending && (
+                    <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded-md bg-amber-200/50 dark:bg-amber-800/30 text-amber-700 dark:text-amber-300 text-xs font-semibold shrink-0">
+                      <Mail className="w-3 h-3" />
+                      Pending
+                    </span>
+                  )}
+                  {isOwner && !isPending && (
                     <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded-md bg-[#456564]/20 dark:bg-[#5a7a78]/30 text-[#456564] dark:text-[#5a7a78] text-xs font-semibold shrink-0">
                       <Crown className="w-3 h-3" />
                       Owner

@@ -1188,9 +1188,43 @@ function PropertyFormContainer() {
         }
         contacts={contacts ?? []}
         teamMembers={homeopsTeam}
+        currentUser={currentUser}
+        currentAccount={currentAccount}
+        propertyId={
+          uid !== "new"
+            ? state.property?.identity?.id ?? state.property?.id ?? uid
+            : null
+        }
+        systems={state.formData.systems}
         onInvite={async ({email: inviteEmail, role, permissions}) => {
-          // TODO: Call API to invite user with role and area permissions
-          await Promise.resolve();
+          const propertyId =
+            uid !== "new"
+              ? state.property?.identity?.id ?? state.property?.id ?? uid
+              : null;
+          if (
+            propertyId &&
+            currentAccount?.id &&
+            typeof AppApi.createInvitation === "function"
+          ) {
+            const intendedRole =
+              role === "agent" ? "editor" : "editor";
+            await AppApi.createInvitation({
+              type: "property",
+              inviteeEmail: inviteEmail,
+              accountId: currentAccount.id,
+              propertyId,
+              intendedRole,
+            });
+          } else {
+            const pendingMember = {
+              email: inviteEmail,
+              name: inviteEmail,
+              role: role === "agent" ? "Agent" : "Homeowner",
+              permissions: permissions ?? {},
+              _pending: true,
+            };
+            handleTeamChange([...homeopsTeam, pendingMember]);
+          }
         }}
       />
       <SystemsSetupModal

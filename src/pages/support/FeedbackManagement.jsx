@@ -3,26 +3,12 @@ import Header from "../../partials/Header";
 import Sidebar from "../../partials/Sidebar";
 import AppApi from "../../api/api";
 import { TicketCard, TicketFormContainer, KanbanColumn, FilterDropdownWithPills } from "./components";
-import {PAGE_LAYOUT} from "../../constants/layout";
-
-const COLUMNS = [
-  { id: "new", title: "New", status: "new" },
-  { id: "in_progress", title: "In Progress", status: "under_review" },
-  { id: "completed", title: "Completed", status: "implemented" },
-  { id: "closed", title: "Closed", status: "rejected" },
-];
-
-/** Map backend status to column */
-const toColumnStatus = (s) => {
-  if (s === "new") return "new";
-  if (["under_review", "planned", "working_on_it"].includes(s)) return "in_progress";
-  if (s === "implemented") return "completed";
-  if (s === "rejected") return "closed";
-  return "new";
-};
-
-/** Map column to backend status */
-const toBackendStatus = (colId) => COLUMNS.find((c) => c.id === colId)?.status ?? "new";
+import { PAGE_LAYOUT } from "../../constants/layout";
+import {
+  FEEDBACK_COLUMNS,
+  feedbackToColumnStatus,
+  columnToFeedbackStatus,
+} from "./kanbanConfig";
 
 const SORT_OPTIONS = [
   { value: "newest", label: "Newest first" },
@@ -50,7 +36,13 @@ function FeedbackManagement() {
       setLoading(true);
       setError(null);
       const list = await AppApi.getAllSupportTickets();
-      setTickets(list || []);
+      const filtered = (list || []).filter((t) => t.type === "feedback");
+      setTickets(filtered);
+      setSelectedTicket((prev) => {
+        if (!prev) return prev;
+        const updated = filtered.find((t) => t.id === prev.id);
+        return updated ? { ...updated, status: feedbackToColumnStatus(updated.status) } : prev;
+      });
     } catch (err) {
       setError(err.message || "Failed to load feedback");
       setTickets([]);
@@ -93,7 +85,7 @@ function FeedbackManagement() {
 
   const filterOptions = useMemo(
     () => ({
-      status: COLUMNS.map((c) => ({ value: c.id, label: c.title })),
+      status: FEEDBACK_COLUMNS.map((c) => ({ value: c.id, label: c.title })),
       planTier: planTiers.map((t) => ({ value: t, label: t })),
     }),
     [planTiers]
@@ -107,7 +99,7 @@ function FeedbackManagement() {
       byType[f.type].push(f.value);
     });
     if (byType.status?.length) {
-      list = list.filter((t) => byType.status.includes(toColumnStatus(t.status)));
+      list = list.filter((t) => byType.status.includes(feedbackToColumnStatus(t.status)));
     }
     if (byType.planTier?.length) {
       list = list.filter((t) => byType.planTier.includes((t.subscriptionTier || "free").toLowerCase()));
@@ -126,8 +118,8 @@ function FeedbackManagement() {
 
   const ticketsByColumn = useMemo(() => {
     const acc = {};
-    COLUMNS.forEach((col) => {
-      let colTickets = filteredTickets.filter((t) => toColumnStatus(t.status) === col.id);
+    FEEDBACK_COLUMNS.forEach((col) => {
+      let colTickets = filteredTickets.filter((t) => feedbackToColumnStatus(t.status) === col.id);
       if (sortBy === "oldest") colTickets.sort((a, b) => new Date(a.createdAt) - new Date(b.createdAt));
       else colTickets.sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
       acc[col.id] = colTickets;
@@ -150,7 +142,7 @@ function FeedbackManagement() {
   }
 
   async function handleStatusChange(ticketId, newStatus) {
-    const backendStatus = toBackendStatus(newStatus);
+    const backendStatus = columnToFeedbackStatus(newStatus);
     setUpdating(true);
     try {
       await AppApi.updateSupportTicket(ticketId, { status: backendStatus });
@@ -200,8 +192,20 @@ function FeedbackManagement() {
     setSelectedTicket(null);
   }
 
+  function handleSendAndMarkInProgress(ticketId) {
+    handleStatusChange(ticketId, "in_progress");
+    setDetailModalOpen(false);
+    setSelectedTicket(null);
+  }
+
+  function handleSendAndResolve(ticketId) {
+    handleStatusChange(ticketId, "completed");
+    setDetailModalOpen(false);
+    setSelectedTicket(null);
+  }
+
   function openDetail(ticket) {
-    setSelectedTicket({ ...ticket, status: toColumnStatus(ticket.status) });
+    setSelectedTicket({ ...ticket, status: feedbackToColumnStatus(ticket.status) });
     setDetailModalOpen(true);
   }
 
@@ -224,7 +228,7 @@ function FeedbackManagement() {
   function handleDrop(e, targetCol) {
     e.preventDefault();
     setDragOverColumn(null);
-    if (!draggedTicket || toColumnStatus(draggedTicket.status) === targetCol.id) {
+    if (!draggedTicket || feedbackToColumnStatus(draggedTicket.status) === targetCol.id) {
       setDraggedTicket(null);
       return;
     }
@@ -290,7 +294,7 @@ function FeedbackManagement() {
           ) : (
             <div className={`flex-1 min-h-0 overflow-x-auto overflow-y-hidden ${PAGE_LAYOUT.listPaddingX} pb-6`}>
               <div className="flex gap-4 min-w-max pb-4" style={{ minHeight: "calc(100vh - 280px)" }}>
-                {COLUMNS.map((col) => (
+                {FEEDBACK_COLUMNS.map((col) => (
                   <KanbanColumn
                     key={col.id}
                     title={col.title}
@@ -305,7 +309,7 @@ function FeedbackManagement() {
                         key={ticket.id}
                         ticket={ticket}
                         onClick={() => openDetail(ticket)}
-                        onDragStart={(e) => handleDragStart(e, ticket)}
+                        onDragStart={handleDragStart}
                         onDragEnd={handleDragEnd}
                         isDragging={draggedTicket?.id === ticket.id}
                         variant="feedback"
@@ -331,6 +335,8 @@ function FeedbackManagement() {
           onStatusChange={handleStatusChange}
           onAssign={handleAssign}
           onInternalNotes={handleInternalNotes}
+          onSendAndMarkInProgress={handleSendAndMarkInProgress}
+          onSendAndResolve={handleSendAndResolve}
           onConvertToSupportTicket={handleConvertToSupportTicket}
           onRefresh={fetchTickets}
           updating={updating}

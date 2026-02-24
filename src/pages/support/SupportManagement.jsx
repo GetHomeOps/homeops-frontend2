@@ -3,24 +3,12 @@ import Header from "../../partials/Header";
 import Sidebar from "../../partials/Sidebar";
 import AppApi from "../../api/api";
 import { TicketCard, TicketFormContainer, KanbanColumn, FilterDropdownWithPills } from "./components";
-import {PAGE_LAYOUT} from "../../constants/layout";
-
-const COLUMNS = [
-  { id: "new", title: "New", status: "new" },
-  { id: "working_on_it", title: "Working on It", status: "working_on_it" },
-  { id: "solved", title: "Solved", status: "solved" },
-];
-
-/** Map backend status to column */
-const toColumnStatus = (s) => {
-  if (s === "new") return "new";
-  if (["working_on_it", "waiting_on_user", "in_progress"].includes(s)) return "working_on_it";
-  if (["solved", "resolved"].includes(s)) return "solved";
-  return "new";
-};
-
-/** Map column to backend status */
-const toBackendStatus = (colId) => COLUMNS.find((c) => c.id === colId)?.status ?? "new";
+import { PAGE_LAYOUT } from "../../constants/layout";
+import {
+  SUPPORT_COLUMNS,
+  supportToColumnStatus,
+  columnToSupportStatus,
+} from "./kanbanConfig";
 
 function SupportManagement() {
   const [sidebarOpen, setSidebarOpen] = useState(false);
@@ -42,7 +30,13 @@ function SupportManagement() {
       setLoading(true);
       setError(null);
       const list = await AppApi.getAllSupportTickets();
-      setTickets(list || []);
+      const filtered = (list || []).filter((t) => t.type === "support");
+      setTickets(filtered);
+      setSelectedTicket((prev) => {
+        if (!prev) return prev;
+        const updated = filtered.find((t) => t.id === prev.id);
+        return updated ? { ...updated, status: supportToColumnStatus(updated.status), priority: tierToPriority(updated.subscriptionTier) } : prev;
+      });
     } catch (err) {
       setError(err.message || "Failed to load tickets");
       setTickets([]);
@@ -93,7 +87,7 @@ function SupportManagement() {
 
   const filterOptions = useMemo(
     () => ({
-      status: COLUMNS.map((c) => ({ value: c.id, label: c.title })),
+      status: SUPPORT_COLUMNS.map((c) => ({ value: c.id, label: c.title })),
       priority: [
         { value: "urgent", label: "Urgent" },
         { value: "high", label: "High" },
@@ -114,7 +108,7 @@ function SupportManagement() {
       byType[f.type].push(f.value);
     });
     if (byType.status?.length) {
-      list = list.filter((t) => byType.status.includes(toColumnStatus(t.status)));
+      list = list.filter((t) => byType.status.includes(supportToColumnStatus(t.status)));
     }
     if (byType.priority?.length) {
       list = list.filter((t) => byType.priority.includes(tierToPriority(t.subscriptionTier)));
@@ -141,8 +135,8 @@ function SupportManagement() {
 
   const ticketsByColumn = useMemo(() => {
     const acc = {};
-    COLUMNS.forEach((col) => {
-      let colTickets = filteredTickets.filter((t) => toColumnStatus(t.status) === col.id);
+    SUPPORT_COLUMNS.forEach((col) => {
+      let colTickets = filteredTickets.filter((t) => supportToColumnStatus(t.status) === col.id);
       // Sort: priorityScore desc, then createdAt oldest first
       colTickets.sort((a, b) => {
         const pa = a.priorityScore ?? 0;
@@ -170,7 +164,7 @@ function SupportManagement() {
   }
 
   async function handleStatusChange(ticketId, newStatus) {
-    const backendStatus = toBackendStatus(newStatus);
+    const backendStatus = columnToSupportStatus(newStatus);
     setUpdating(true);
     try {
       await AppApi.updateSupportTicket(ticketId, { status: backendStatus });
@@ -216,19 +210,19 @@ function SupportManagement() {
   }
 
   function handleSendAndMarkInProgress(ticketId) {
-    handleStatusChange(ticketId, "working_on_it");
+    handleStatusChange(ticketId, "in_progress");
     setDetailModalOpen(false);
     setSelectedTicket(null);
   }
 
   function handleSendAndResolve(ticketId) {
-    handleStatusChange(ticketId, "solved");
+    handleStatusChange(ticketId, "completed");
     setDetailModalOpen(false);
     setSelectedTicket(null);
   }
 
   function openDetail(ticket) {
-    setSelectedTicket({ ...ticket, status: toColumnStatus(ticket.status) });
+    setSelectedTicket({ ...ticket, status: supportToColumnStatus(ticket.status) });
     setDetailModalOpen(true);
   }
 
@@ -251,7 +245,7 @@ function SupportManagement() {
   function handleDrop(e, targetCol) {
     e.preventDefault();
     setDragOverColumn(null);
-    if (!draggedTicket || toColumnStatus(draggedTicket.status) === targetCol.id) {
+    if (!draggedTicket || supportToColumnStatus(draggedTicket.status) === targetCol.id) {
       setDraggedTicket(null);
       return;
     }
@@ -314,7 +308,7 @@ function SupportManagement() {
           ) : (
             <div className={`flex-1 min-h-0 overflow-x-auto overflow-y-hidden ${PAGE_LAYOUT.listPaddingX} pb-6`}>
               <div className="flex gap-4 min-w-max pb-4" style={{ minHeight: "calc(100vh - 280px)" }}>
-                {COLUMNS.map((col) => (
+                {SUPPORT_COLUMNS.map((col) => (
                   <KanbanColumn
                     key={col.id}
                     title={col.title}
@@ -329,7 +323,7 @@ function SupportManagement() {
                         key={ticket.id}
                         ticket={{ ...ticket, priority: tierToPriority(ticket.subscriptionTier) }}
                         onClick={() => openDetail(ticket)}
-                        onDragStart={(e) => handleDragStart(e, ticket)}
+                        onDragStart={handleDragStart}
                         onDragEnd={handleDragEnd}
                         isDragging={draggedTicket?.id === ticket.id}
                         variant="support"

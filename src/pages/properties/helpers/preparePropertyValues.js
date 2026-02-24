@@ -399,11 +399,10 @@ function toPropertyRole(role) {
 
 export function prepareTeamForProperty(team) {
   if (!Array.isArray(team)) return [];
-  return team.map((member) => {
-    if (!member || typeof member !== "object") return member;
-    return {
+  return team
+    .filter((m) => m && typeof m === "object" && m.id != null && !m._pending)
+    .map((member) => ({
       ...member,
       role: toPropertyRole(member.property_role || member.role),
-    };
-  });
+    }));
 }

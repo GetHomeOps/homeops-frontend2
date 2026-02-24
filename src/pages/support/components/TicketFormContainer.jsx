@@ -61,8 +61,7 @@ function TicketFormContainer({
 
   const labels = variant === "feedback" ? FEEDBACK_STATUS_LABELS : SUPPORT_STATUS_LABELS;
   const statusDisplay = normalizeStatus(ticket?.status);
-  const supportStatusForSelect = ["solved", "resolved"].includes(ticket?.status) ? "solved" : (["working_on_it", "waiting_on_user", "in_progress"].includes(ticket?.status) ? "working_on_it" : (ticket?.status || "new"));
-  const feedbackStatusForSelect = ["implemented"].includes(ticket?.status) ? "completed" : (["under_review", "planned", "working_on_it"].includes(ticket?.status) ? "in_progress" : (ticket?.status === "rejected" ? "closed" : (ticket?.status || "new")));
+  const statusForSelect = statusDisplay;
   const priority = ticket?.priority ?? tierToPriority(ticket?.subscriptionTier);
   const slaHours = SLA_BY_TIER[(ticket?.subscriptionTier || "free").toLowerCase()] ?? 48;
 
@@ -77,15 +76,29 @@ function TicketFormContainer({
     setNotesDirty(false);
   }
 
-  // Build activity timeline from ticket data (placeholder for future API)
+  // Build activity timeline: initial message + status/response history (extends when API provides activity)
+  const createdAt = ticket?.createdAt ? new Date(ticket.createdAt) : null;
+  const updatedAt = ticket?.updatedAt ? new Date(ticket.updatedAt) : null;
   const activityItems = [
     {
       type: "message",
       actor: ticket?.createdByName || ticket?.createdByEmail || "User",
       text: ticket?.description,
       timestamp: ticket?.createdAt,
+      label: "Initial submission",
     },
     ...(ticket?.activity || []),
+    ...(updatedAt && createdAt && updatedAt.getTime() > createdAt.getTime() + 60000
+      ? [
+          {
+            type: "status",
+            actor: "System",
+            text: `Ticket updated`,
+            timestamp: ticket?.updatedAt,
+            label: "Last updated",
+          },
+        ]
+      : []),
   ].sort((a, b) => new Date(a.timestamp || 0) - new Date(b.timestamp || 0));
 
   return (
@@ -204,25 +217,15 @@ function TicketFormContainer({
             <div>
               <label className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">Status</label>
               <select
-                value={variant === "support" ? supportStatusForSelect : feedbackStatusForSelect}
+                value={statusForSelect}
                 onChange={(e) => onStatusChange?.(ticket.id, e.target.value)}
                 disabled={updating}
                 className="form-select text-sm w-40"
               >
-                {variant === "support" ? (
-                  <>
-                    <option value="new">New</option>
-                    <option value="working_on_it">Working on It</option>
-                    <option value="solved">Solved</option>
-                  </>
-                ) : (
-                  <>
-                    <option value="new">New</option>
-                    <option value="in_progress">In Progress</option>
-                    <option value="completed">Completed</option>
-                    <option value="closed">Closed</option>
-                  </>
-                )}
+                <option value="new">New</option>
+                <option value="in_progress">In Progress</option>
+                <option value="completed">Completed</option>
+                <option value="closed">Closed</option>
               </select>
             </div>
             <div>
@@ -278,32 +281,43 @@ function TicketFormContainer({
             )}
           </section>
 
-          {/* Activity Timeline */}
+          {/* Activity / History Timeline */}
           <section>
-            <h3 className="text-sm font-semibold text-gray-700 dark:text-gray-300 mb-3">Activity</h3>
+            <h3 className="text-sm font-semibold text-gray-700 dark:text-gray-300 mb-3">Activity & History</h3>
             <div className="space-y-4">
               {activityItems.map((item, i) => (
                 <div key={i} className="flex gap-3">
                   <div className="w-2 h-2 rounded-full bg-gray-400 dark:bg-gray-500 mt-1.5 shrink-0" />
                   <div className="flex-1 min-w-0">
-                    <p className="text-sm text-gray-900 dark:text-white">{item.text}</p>
+                    {item.label && (
+                      <span className="text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
+                        {item.label}
+                      </span>
+                    )}
+                    <p className="text-sm text-gray-900 dark:text-white whitespace-pre-wrap">{item.text}</p>
                     <p className="text-xs text-gray-500 dark:text-gray-400 mt-0.5">
-                      {item.actor} · {item.timestamp && format(new Date(item.timestamp), "MMM d, HH:mm")}
+                      {item.actor} · {item.timestamp && format(new Date(item.timestamp), "MMM d, yyyy HH:mm")}
                     </p>
                   </div>
                 </div>
               ))}
+              {activityItems.length === 0 && (
+                <p className="text-sm text-gray-500 dark:text-gray-400 italic">No activity yet.</p>
+              )}
             </div>
           </section>
 
-          {/* Response Section */}
+          {/* Email Response Section */}
           <section>
-            <h3 className="text-sm font-semibold text-gray-700 dark:text-gray-300 mb-2">Reply</h3>
+            <h3 className="text-sm font-semibold text-gray-700 dark:text-gray-300 mb-2">Email Response</h3>
+            <p className="text-xs text-gray-500 dark:text-gray-400 mb-2">
+              Compose your reply to the user. Sending will update the ticket status.
+            </p>
             <textarea
               value={responseText}
               onChange={(e) => setResponseText(e.target.value)}
               className="form-input w-full min-h-[100px] text-sm"
-              placeholder="Type your response (rich text placeholder — future integration)"
+              placeholder="Type your email response to the user..."
             />
             <div className="flex flex-wrap gap-2 mt-3">
               <button

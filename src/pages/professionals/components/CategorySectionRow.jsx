@@ -1,6 +1,8 @@
 import React, { useRef } from "react";
 import { useNavigate } from "react-router-dom";
 import { ChevronRight } from "lucide-react";
+
+const PLACEHOLDER_IMG = "data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7";
 import useCurrentAccount from "../../../hooks/useCurrentAccount";
 
 function CategorySectionRow({ title, categories, location }) {
@@ -46,7 +48,7 @@ function CategorySectionRow({ title, categories, location }) {
             >
               <div className="aspect-[4/3] w-full overflow-hidden bg-gray-100 dark:bg-gray-700">
                 <img
-                  src={category.imageUrl}
+                  src={category.imageUrl || PLACEHOLDER_IMG}
                   alt=""
                   className="w-full h-full object-cover group-hover/card:scale-105 transition-transform duration-300"
                   loading="lazy"

@@ -11,7 +11,7 @@ import ContactContext from "../../context/ContactContext";
  * Wrapper modal for scheduling maintenance from the Calendar page.
  * Lets user pick property + system first, then opens MaintenanceScheduleModal.
  */
-function CalendarScheduleModal({isOpen, onClose, onScheduled}) {
+function CalendarScheduleModal({isOpen, onClose, onScheduled, initialDate = "", initialTime = ""}) {
   const navigate = useNavigate();
   const {accountUrl} = useParams();
   const {properties, getPropertyById} = useContext(PropertyContext);
@@ -84,6 +84,8 @@ function CalendarScheduleModal({isOpen, onClose, onScheduled}) {
         propertyData={propertyData}
         contacts={contacts}
         onSchedule={() => onScheduled?.()}
+        initialScheduledDate={initialDate}
+        initialScheduledTime={initialTime}
       />
     );
   }

@@ -1,16 +1,72 @@
-import React, {useState, useEffect, useRef, useMemo} from "react";
-import {UserPlus, Mail, Send, ArrowRight, Check, ChevronDown} from "lucide-react";
+import React, {
+  useState,
+  useEffect,
+  useRef,
+  useMemo,
+  useCallback,
+} from "react";
+import {
+  UserPlus,
+  Mail,
+  Send,
+  Check,
+  ChevronDown,
+  User,
+  Home,
+  Shield,
+  Scale,
+} from "lucide-react";
 import ModalBlank from "../../../components/ModalBlank";
-import SelectDropdown from "../../contacts/SelectDropdown";
+import {PROPERTY_SYSTEMS} from "../constants/propertySystems";
 
 const EMAIL_REGEX =
   /^[a-zA-Z0-9.!#$%&'*+/=?^_`{|}~-]+@[a-zA-Z0-9](?:[a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?(?:\.[a-zA-Z0-9](?:[a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?)*$/;
+
+const TABS = [
+  {id: "me", label: "Me", icon: User, description: "Account Owner / creator"},
+  {
+    id: "homeowner",
+    label: "Homeowner / Agent",
+    icon: Home,
+    description: "Invite with role",
+  },
+  {
+    id: "insurance",
+    label: "Insurance",
+    icon: Shield,
+    description: "Coming soon",
+    disabled: true,
+  },
+  {
+    id: "attorney",
+    label: "Attorney",
+    icon: Scale,
+    description: "Coming soon",
+    disabled: true,
+  },
+];
+
+const ROLES = [
+  {id: "homeowner", label: "Homeowner"},
+  {id: "agent", label: "Agent"},
+];
+
+const PERMISSION_OPTIONS = [
+  {id: "edit", label: "Edit"},
+  {id: "view", label: "View"},
+  {id: "none", label: "None"},
+];
 
 function SearchableEmailField({
   contacts,
   value,
   onChange,
+  onBlur,
   placeholder = "Type to search contacts or enter email…",
+  disabled = false,
+  error,
+  "aria-label": ariaLabel,
+  "aria-invalid": ariaInvalid,
 }) {
   const [inputValue, setInputValue] = useState("");
   const [isOpen, setIsOpen] = useState(false);
@@ -19,13 +75,13 @@ function SearchableEmailField({
   const listRef = useRef(null);
 
   const contactsWithEmail = useMemo(
-    () => contacts.filter((c) => c.email?.trim()),
+    () => (contacts || []).filter((c) => c.email?.trim()),
     [contacts],
   );
 
   const filteredContacts = useMemo(() => {
     const term = inputValue.trim().toLowerCase();
-    if (!term) return contactsWithEmail;
+    if (!term) return contactsWithEmail.slice(0, 8);
     return contactsWithEmail.filter((c) => {
       const name = (c.name || "").toLowerCase();
       const email = (c.email || "").toLowerCase();
@@ -66,13 +122,16 @@ function SearchableEmailField({
     return () => document.removeEventListener("mousedown", handleClickOutside);
   }, []);
 
-  const handleSelect = (contact) => {
-    const email = contact.email?.trim() || contact.email;
-    setInputValue(email);
-    onChange(email);
-    setIsOpen(false);
-    setHighlightIndex(-1);
-  };
+  const handleSelect = useCallback(
+    (contact) => {
+      const email = contact.email?.trim() || contact.email;
+      setInputValue(email);
+      onChange(email);
+      setIsOpen(false);
+      setHighlightIndex(-1);
+    },
+    [onChange],
+  );
 
   const handleInputChange = (e) => {
     const v = e.target.value;
@@ -83,10 +142,11 @@ function SearchableEmailField({
   };
 
   const handleInputFocus = () => {
-    setIsOpen(true);
+    if (!disabled) setIsOpen(true);
   };
 
   const handleKeyDown = (e) => {
+    if (disabled) return;
     if (!isOpen && (e.key === "ArrowDown" || e.key === "Enter")) {
       setIsOpen(true);
       e.preventDefault();
@@ -132,9 +192,16 @@ function SearchableEmailField({
           value={inputValue}
           onChange={handleInputChange}
           onFocus={handleInputFocus}
+          onBlur={onBlur}
           onKeyDown={handleKeyDown}
           placeholder={placeholder}
-          className="form-input w-full pr-9"
+          disabled={disabled}
+          aria-label={ariaLabel}
+          aria-invalid={ariaInvalid}
+          aria-describedby={error ? "email-error" : undefined}
+          className={`form-input w-full pr-9 ${
+            error ? "border-red-500 dark:border-red-500" : ""
+          } ${disabled ? "opacity-60 cursor-not-allowed" : ""}`}
           autoComplete="off"
         />
         <div className="absolute inset-y-0 right-0 flex items-center pr-3 pointer-events-none">
@@ -145,7 +212,16 @@ function SearchableEmailField({
           />
         </div>
       </div>
-      {isOpen && (
+      {error && (
+        <p
+          id="email-error"
+          className="mt-1 text-sm text-red-500 dark:text-red-400"
+          role="alert"
+        >
+          {error}
+        </p>
+      )}
+      {isOpen && !disabled && (
         <ul
           ref={listRef}
           className="absolute z-50 w-full mt-1 py-1 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg shadow-lg max-h-48 overflow-auto"
@@ -165,7 +241,7 @@ function SearchableEmailField({
                 aria-selected={highlightIndex === idx}
                 className={`px-4 py-2.5 text-sm cursor-pointer ${
                   highlightIndex === idx
-                    ? "bg-emerald-50 dark:bg-emerald-900/30 text-emerald-700 dark:text-emerald-300"
+                    ? "bg-[#456564]/10 dark:bg-[#5a7a78]/20 text-[#456564] dark:text-[#5a7a78]"
                     : "text-gray-900 dark:text-gray-100 hover:bg-gray-50 dark:hover:bg-gray-700/50"
                 }`}
                 onMouseEnter={() => setHighlightIndex(idx)}
@@ -186,89 +262,181 @@ function SearchableEmailField({
   );
 }
 
+function PermissionToggle({
+  value,
+  onChange,
+  systemId,
+  systemName,
+  "aria-label": ariaLabel,
+}) {
+  return (
+    <div
+      className="flex items-center justify-between gap-3 py-2.5 pl-3 pr-2 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700/30 transition-colors"
+      role="group"
+      aria-label={ariaLabel}
+    >
+      <span className="text-sm text-gray-700 dark:text-gray-300 truncate">
+        {systemName}
+      </span>
+      <div
+        className="flex rounded-lg p-0.5 bg-gray-100 dark:bg-gray-700/50 border border-gray-200 dark:border-gray-600 shrink-0"
+        role="radiogroup"
+        aria-label={`${systemName} permission`}
+      >
+        {PERMISSION_OPTIONS.map((opt) => (
+          <button
+            key={opt.id}
+            type="button"
+            role="radio"
+            aria-checked={value === opt.id}
+            tabIndex={value === opt.id ? 0 : -1}
+            onClick={() => onChange(systemId, opt.id)}
+            onKeyDown={(e) => {
+              if (e.key === "ArrowLeft" && opt.id !== "none") {
+                const idx = PERMISSION_OPTIONS.findIndex((o) => o.id === opt.id);
+                if (idx > 0) onChange(systemId, PERMISSION_OPTIONS[idx - 1].id);
+              }
+              if (e.key === "ArrowRight" && opt.id !== "none") {
+                const idx = PERMISSION_OPTIONS.findIndex((o) => o.id === opt.id);
+                if (idx < PERMISSION_OPTIONS.length - 1)
+                  onChange(systemId, PERMISSION_OPTIONS[idx + 1].id);
+              }
+            }}
+            className={`px-3 py-1.5 text-xs font-medium rounded-md transition-colors ${
+              value === opt.id
+                ? "bg-white dark:bg-gray-600 text-[#456564] dark:text-[#5a7a78] shadow-sm border border-gray-200 dark:border-gray-500"
+                : "text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300"
+            }`}
+          >
+            {opt.label}
+          </button>
+        ))}
+      </div>
+    </div>
+  );
+}
+
 function SharePropertyModal({
   modalOpen,
   setModalOpen,
   propertyAddress = "",
-  users = [],
   contacts = [],
-  onShareWithUser,
-  onSendByEmail,
+  teamMembers = [],
+  currentUser,
+  currentAccount,
+  propertyId,
+  systems = [],
+  onInvite,
 }) {
-  const [mode, setMode] = useState("choose"); // "choose" | "user" | "email"
-  const [selectedUserId, setSelectedUserId] = useState("");
+  const [activeTab, setActiveTab] = useState("me");
   const [email, setEmail] = useState("");
-  const [message, setMessage] = useState("");
+  const [role, setRole] = useState("homeowner");
+  const [permissions, setPermissions] = useState({});
+  const [emailError, setEmailError] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
-  const [successType, setSuccessType] = useState(null); // "user" | "email" | null
+  const [successType, setSuccessType] = useState(null);
+
+  const allSystems = useMemo(() => {
+    const selectedIds = systems?.selectedSystemIds ?? [];
+    const customNames = systems?.customSystemNames ?? [];
+    const predefined =
+      selectedIds.length > 0
+        ? selectedIds
+            .map((id) => {
+              const sys = PROPERTY_SYSTEMS.find((s) => s.id === id);
+              return sys ? {id: sys.id, name: sys.name} : null;
+            })
+            .filter(Boolean)
+        : PROPERTY_SYSTEMS.map((s) => ({id: s.id, name: s.name}));
+    const custom = customNames.map((name) => ({
+      id: `custom-${name}`,
+      name,
+    }));
+    return [...predefined, ...custom];
+  }, [systems?.selectedSystemIds, systems?.customSystemNames]);
+
+  const effectiveEmail = email?.trim() || "";
+  const isValidEmail = EMAIL_REGEX.test(effectiveEmail);
+  const canSubmit = isValidEmail && !emailError;
+
+  const applyToAll = useCallback(
+    (perm) => {
+      const next = {};
+      allSystems.forEach((s) => {
+        next[s.id] = perm;
+      });
+      setPermissions(next);
+    },
+    [allSystems],
+  );
+
+  const handlePermissionChange = useCallback((systemId, value) => {
+    setPermissions((prev) => ({...prev, [systemId]: value}));
+  }, []);
+
+  const getPermission = useCallback(
+    (systemId) => permissions[systemId] ?? "none",
+    [permissions],
+  );
 
   useEffect(() => {
     if (modalOpen) {
-      setMode("choose");
-      setSelectedUserId("");
+      setActiveTab("me");
       setEmail("");
-      setMessage("");
+      setRole("homeowner");
+      setPermissions({});
+      setEmailError("");
       setSuccessType(null);
     }
   }, [modalOpen]);
 
-  const effectiveEmail = email?.trim() || "";
-
-  const userOptions = users.map((u) => ({
-    id: u.id,
-    value: String(u.id),
-    label: u.name || u.email || `User ${u.id}`,
-    name: u.name || u.email || `User ${u.id}`,
-  }));
-
-  const isValidEmail = EMAIL_REGEX.test(effectiveEmail);
-
-  const handleShareWithUser = async () => {
-    if (!selectedUserId) return;
-    setIsSubmitting(true);
-    try {
-      await onShareWithUser?.(selectedUserId);
-      setSuccessType("user");
-      setTimeout(() => {
-        setModalOpen(false);
-      }, 1200);
-    } catch (err) {
-      console.error(err);
-    } finally {
-      setIsSubmitting(false);
+  const handleBlur = useCallback(() => {
+    if (effectiveEmail && !EMAIL_REGEX.test(effectiveEmail)) {
+      setEmailError("Please enter a valid email address.");
+    } else {
+      setEmailError("");
     }
-  };
+  }, [effectiveEmail]);
 
-  const handleSendByEmail = async () => {
-    if (!isValidEmail) return;
+  const handleInvite = async () => {
+    if (!canSubmit || isSubmitting) return;
+    setEmailError("");
     setIsSubmitting(true);
     try {
-      await onSendByEmail?.({
-        email: effectiveEmail,
-        message: message.trim(),
+      const perSystemPerms = {};
+      allSystems.forEach((s) => {
+        perSystemPerms[s.id] = getPermission(s.id);
       });
-      setSuccessType("email");
+      await onInvite?.({
+        email: effectiveEmail,
+        role,
+        permissions: perSystemPerms,
+      });
+      setSuccessType("invite");
       setTimeout(() => {
         setModalOpen(false);
       }, 1200);
     } catch (err) {
       console.error(err);
+      setEmailError(err?.message || "Failed to send invite. Please try again.");
     } finally {
       setIsSubmitting(false);
     }
   };
 
   const showSuccessOverlay = successType !== null;
+  const isComingSoon = activeTab === "insurance" || activeTab === "attorney";
+  const showInviteActions = activeTab === "homeowner";
 
   return (
     <ModalBlank
       id="share-property-modal"
       modalOpen={modalOpen}
       setModalOpen={setModalOpen}
-      contentClassName="max-w-lg min-w-[20rem]"
+      contentClassName="max-w-lg min-w-[20rem] max-h-[90vh] flex flex-col"
     >
       <div
-        className={`p-6 md:p-8 relative ${
+        className={`relative flex flex-col flex-1 min-h-0 overflow-hidden ${
           showSuccessOverlay ? "min-h-[14rem]" : ""
         }`}
       >
@@ -297,13 +465,11 @@ function SharePropertyModal({
                   "shareModalCheckPop 0.4s cubic-bezier(0.34, 1.56, 0.64, 1) forwards",
               }}
             >
-              <div className="w-14 h-14 shrink-0 rounded-full bg-emerald-100 dark:bg-emerald-900/50 flex items-center justify-center">
-                <Check className="w-8 h-8 text-emerald-600 dark:text-emerald-400" />
+              <div className="w-14 h-14 shrink-0 rounded-full bg-[#456564]/20 dark:bg-[#5a7a78]/30 flex items-center justify-center">
+                <Check className="w-8 h-8 text-[#456564] dark:text-[#5a7a78]" />
               </div>
               <p className="text-base font-semibold text-gray-900 dark:text-white text-center break-words w-full">
-                {successType === "user"
-                  ? "Property shared successfully!"
-                  : "Email sent successfully!"}
+                Invite sent successfully!
               </p>
             </div>
           </div>
@@ -311,32 +477,9 @@ function SharePropertyModal({
 
         {!showSuccessOverlay && (
           <>
-            {(mode === "user" || mode === "email") && (
-              <button
-                type="button"
-                onClick={() => setMode("choose")}
-                className="text-sm text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-300 flex items-center gap-1 -ml-1 mb-4"
-              >
-                <svg
-                  className="w-4 h-4"
-                  fill="none"
-                  stroke="currentColor"
-                  viewBox="0 0 24 24"
-                >
-                  <path
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                    strokeWidth={2}
-                    d="M15 19l-7-7 7-7"
-                  />
-                </svg>
-                Back
-              </button>
-            )}
-
-            <div className="text-center mb-6">
+            <div className="p-6 pb-4 border-b border-gray-200 dark:border-gray-700 shrink-0">
               <h2 className="text-xl font-bold text-gray-900 dark:text-white">
-                Share Property
+                Invite to property
               </h2>
               {propertyAddress && (
                 <p className="text-sm text-gray-500 dark:text-gray-400 mt-1 truncate max-w-full">
@@ -345,152 +488,191 @@ function SharePropertyModal({
               )}
             </div>
 
-            {mode === "choose" && (
-              <div className="space-y-4">
-                <button
-                  type="button"
-                  onClick={() => setMode("user")}
-                  className="w-full flex items-center gap-4 p-4 rounded-xl border-2 border-gray-200 dark:border-gray-600 hover:border-emerald-500/50 dark:hover:border-emerald-500/50 hover:bg-emerald-50/50 dark:hover:bg-emerald-900/10 transition-all duration-200 text-left group"
-                >
-                  <div className="flex-shrink-0 w-12 h-12 rounded-full bg-gray-100 dark:bg-gray-700 flex items-center justify-center group-hover:bg-emerald-100 dark:group-hover:bg-emerald-900/30 transition-colors">
-                    <UserPlus className="w-6 h-6 text-gray-600 dark:text-gray-400 group-hover:text-emerald-600 dark:group-hover:text-emerald-400" />
-                  </div>
-                  <div className="flex-1 min-w-0">
-                    <p className="font-semibold text-gray-900 dark:text-white">
-                      Share with existing user
-                    </p>
-                    <p className="text-sm text-gray-500 dark:text-gray-400">
-                      Grant access to a user in your organization
-                    </p>
-                  </div>
-                  <ArrowRight className="w-5 h-5 text-gray-400 group-hover:text-emerald-500 flex-shrink-0" />
-                </button>
-
-                <button
-                  type="button"
-                  onClick={() => setMode("email")}
-                  className="w-full flex items-center gap-4 p-4 rounded-xl border-2 border-gray-200 dark:border-gray-600 hover:border-emerald-500/50 dark:hover:border-emerald-500/50 hover:bg-emerald-50/50 dark:hover:bg-emerald-900/10 transition-all duration-200 text-left group"
-                >
-                  <div className="flex-shrink-0 w-12 h-12 rounded-full bg-gray-100 dark:bg-gray-700 flex items-center justify-center group-hover:bg-emerald-100 dark:group-hover:bg-emerald-900/30 transition-colors">
-                    <Mail className="w-6 h-6 text-gray-600 dark:text-gray-400 group-hover:text-emerald-600 dark:group-hover:text-emerald-400" />
-                  </div>
-                  <div className="flex-1 min-w-0">
-                    <p className="font-semibold text-gray-900 dark:text-white">
-                      Send via email
-                    </p>
-                    <p className="text-sm text-gray-500 dark:text-gray-400">
-                      Email property details to any address
-                    </p>
-                  </div>
-                  <ArrowRight className="w-5 h-5 text-gray-400 group-hover:text-emerald-500 flex-shrink-0" />
-                </button>
-              </div>
-            )}
-
-            {mode === "user" && (
-              <div className="space-y-6">
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                    Select user
-                  </label>
-                  <SelectDropdown
-                    options={userOptions}
-                    value={selectedUserId}
-                    onChange={(v) => setSelectedUserId(v)}
-                    placeholder="Choose a user to share with"
-                  />
-                </div>
-
-                <div className="flex gap-3 pt-2">
+            {/* Tabs */}
+            <div className="flex border-b border-gray-200 dark:border-gray-700 overflow-x-auto shrink-0">
+              {TABS.map((tab) => {
+                const Icon = tab.icon;
+                return (
                   <button
+                    key={tab.id}
                     type="button"
-                    onClick={() => setModalOpen(false)}
-                    className="btn border-gray-200 dark:border-gray-600 text-gray-700 dark:text-gray-300"
+                    onClick={() => !tab.disabled && setActiveTab(tab.id)}
+                    disabled={tab.disabled}
+                    className={`flex items-center gap-2 px-4 py-3 text-sm font-medium whitespace-nowrap transition-colors ${
+                      tab.disabled
+                        ? "text-gray-400 dark:text-gray-500 cursor-not-allowed opacity-60"
+                        : activeTab === tab.id
+                          ? "text-[#456564] dark:text-[#5a7a78] border-b-2 border-[#456564] dark:border-[#5a7a78]"
+                          : "text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300"
+                    }`}
+                    aria-selected={activeTab === tab.id}
+                    aria-disabled={tab.disabled}
+                    role="tab"
                   >
-                    Cancel
+                    <Icon className="w-4 h-4 shrink-0" />
+                    {tab.label}
                   </button>
-                  <button
-                    type="button"
-                    onClick={handleShareWithUser}
-                    disabled={!selectedUserId || isSubmitting}
-                    className="btn bg-emerald-600 hover:bg-emerald-700 text-white disabled:opacity-50 disabled:cursor-not-allowed"
-                  >
-                    {isSubmitting ? (
-                      <span className="flex items-center gap-2">
-                        <span className="animate-spin rounded-full h-3.5 w-3.5 border-2 border-white border-t-transparent" />
-                        Sharing…
-                      </span>
-                    ) : (
-                      <span className="flex items-center gap-2">
-                        Share
-                        <Send className="w-4 h-4" />
-                      </span>
-                    )}
-                  </button>
-                </div>
-              </div>
-            )}
+                );
+              })}
+            </div>
 
-            {mode === "email" && (
-              <div className="space-y-6">
-                <div className="space-y-4">
+            <div className="flex-1 overflow-y-auto p-6 min-h-0">
+              {isComingSoon && (
+                <div className="flex flex-col items-center justify-center py-12 text-center">
+                  <div className="w-16 h-16 rounded-full bg-gray-100 dark:bg-gray-700/50 flex items-center justify-center mb-4">
+                    <Shield className="w-8 h-8 text-gray-400 dark:text-gray-500" />
+                  </div>
+                  <p className="text-base font-medium text-gray-900 dark:text-white">
+                    Coming soon
+                  </p>
+                  <p className="text-sm text-gray-500 dark:text-gray-400 mt-1 max-w-xs">
+                    {activeTab === "insurance"
+                      ? "Invite insurance providers to collaborate on this property."
+                      : "Invite attorneys to collaborate on this property."}
+                  </p>
+                </div>
+              )}
+
+              {activeTab === "me" && !isComingSoon && (
+                <div className="space-y-6">
+                  <div className="flex items-center gap-4 p-4 rounded-xl bg-[#456564]/5 dark:bg-[#5a7a78]/10 border border-[#456564]/20 dark:border-[#5a7a78]/30">
+                    <div className="w-12 h-12 rounded-full bg-[#456564] dark:bg-[#5a7a78] flex items-center justify-center text-white font-semibold shrink-0">
+                      {currentUser?.name?.charAt(0)?.toUpperCase() || "?"}
+                    </div>
+                    <div className="min-w-0 flex-1">
+                      <p className="font-semibold text-gray-900 dark:text-white">
+                        {currentUser?.name || "Account Owner"}
+                      </p>
+                      <p className="text-sm text-gray-500 dark:text-gray-400 truncate">
+                        {currentUser?.email}
+                      </p>
+                      <span className="inline-flex items-center gap-1 mt-1 px-2 py-0.5 rounded-md bg-[#456564]/20 dark:bg-[#5a7a78]/30 text-[#456564] dark:text-[#5a7a78] text-xs font-semibold">
+                        Account Owner
+                      </span>
+                    </div>
+                  </div>
+                  <p className="text-sm text-gray-500 dark:text-gray-400">
+                    You are the account owner and have full access to this property.
+                  </p>
+                </div>
+              )}
+
+              {activeTab === "homeowner" && !isComingSoon && (
+                <div className="space-y-6">
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1.5">
+                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                      Role
+                    </label>
+                    <div
+                      className="flex rounded-lg p-0.5 bg-gray-100 dark:bg-gray-700/50 border border-gray-200 dark:border-gray-600"
+                      role="radiogroup"
+                      aria-label="Invitee role"
+                    >
+                      {ROLES.map((r) => (
+                        <button
+                          key={r.id}
+                          type="button"
+                          role="radio"
+                          aria-checked={role === r.id}
+                          onClick={() => setRole(r.id)}
+                          className={`flex-1 px-4 py-2.5 text-sm font-medium rounded-md transition-colors ${
+                            role === r.id
+                              ? "bg-white dark:bg-gray-600 text-[#456564] dark:text-[#5a7a78] shadow-sm border border-gray-200 dark:border-gray-500"
+                              : "text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300"
+                          }`}
+                        >
+                          {r.label}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+
+                  <div>
+                    <label
+                      htmlFor="invite-email"
+                      className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1.5"
+                    >
                       Email address
                     </label>
                     <SearchableEmailField
                       contacts={contacts}
                       value={email}
                       onChange={setEmail}
-                      placeholder="Type to search contacts or enter email…"
+                      onBlur={handleBlur}
+                      placeholder="Search My Contacts or enter email…"
+                      error={emailError}
+                      aria-label="Invitee email"
+                      aria-invalid={!!emailError}
                     />
                   </div>
 
-                  <div>
-                    <label
-                      htmlFor="share-message"
-                      className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1.5"
-                    >
-                      Message <span className="text-gray-400">(optional)</span>
-                    </label>
-                    <textarea
-                      id="share-message"
-                      value={message}
-                      onChange={(e) => setMessage(e.target.value)}
-                      placeholder="Add a personal message..."
-                      rows={4}
-                      className="form-input w-full resize-none"
-                    />
-                  </div>
+                  {allSystems.length > 0 && (
+                    <div>
+                      <div className="flex items-center justify-between mb-3">
+                        <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">
+                          Permissions by system
+                        </label>
+                        <div className="flex items-center gap-1.5">
+                          <span className="text-xs text-gray-500 dark:text-gray-400">
+                            Apply to all:
+                          </span>
+                          {PERMISSION_OPTIONS.map((opt) => (
+                            <button
+                              key={opt.id}
+                              type="button"
+                              onClick={() => applyToAll(opt.id)}
+                              className="px-2 py-1 text-xs font-medium rounded border border-gray-200 dark:border-gray-600 text-gray-600 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-700/50 hover:text-gray-900 dark:hover:text-gray-200 transition-colors"
+                            >
+                              {opt.label}
+                            </button>
+                          ))}
+                        </div>
+                      </div>
+                      <div className="space-y-0.5 max-h-48 overflow-y-auto rounded-lg border border-gray-200 dark:border-gray-600 p-1">
+                        {allSystems.map((s) => (
+                          <PermissionToggle
+                            key={s.id}
+                            systemId={s.id}
+                            systemName={s.name}
+                            value={getPermission(s.id)}
+                            onChange={handlePermissionChange}
+                            aria-label={`${s.name} permission`}
+                          />
+                        ))}
+                      </div>
+                    </div>
+                  )}
                 </div>
+              )}
+            </div>
 
-                <div className="flex gap-3 pt-2">
-                  <button
-                    type="button"
-                    onClick={() => setModalOpen(false)}
-                    className="btn border-gray-200 dark:border-gray-600 text-gray-700 dark:text-gray-300"
-                  >
-                    Cancel
-                  </button>
-                  <button
-                    type="button"
-                    onClick={handleSendByEmail}
-                    disabled={!isValidEmail || isSubmitting}
-                    className="btn bg-emerald-600 hover:bg-emerald-700 text-white disabled:opacity-50 disabled:cursor-not-allowed"
-                  >
-                    {isSubmitting ? (
-                      <span className="flex items-center gap-2">
-                        <span className="animate-spin rounded-full h-3.5 w-3.5 border-2 border-white border-t-transparent" />
-                        Sending…
-                      </span>
-                    ) : (
-                      <span className="flex items-center gap-2">
-                        Send email
-                        <Send className="w-4 h-4" />
-                      </span>
-                    )}
-                  </button>
-                </div>
+            {showInviteActions && (
+              <div className="p-6 pt-4 border-t border-gray-200 dark:border-gray-700 flex gap-3 shrink-0">
+                <button
+                  type="button"
+                  onClick={() => setModalOpen(false)}
+                  className="btn border-gray-200 dark:border-gray-600 text-gray-700 dark:text-gray-300"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="button"
+                  onClick={handleInvite}
+                  disabled={!canSubmit || isSubmitting}
+                  className="btn bg-[#456564] hover:bg-[#3d5857] dark:bg-[#5a7a78] dark:hover:bg-[#4d6a68] text-white disabled:opacity-50 disabled:cursor-not-allowed"
+                >
+                  {isSubmitting ? (
+                    <span className="flex items-center gap-2">
+                      <span className="animate-spin rounded-full h-3.5 w-3.5 border-2 border-white border-t-transparent" />
+                      Sending…
+                    </span>
+                  ) : (
+                    <span className="flex items-center gap-2">
+                      Send invite
+                      <Send className="w-4 h-4" />
+                    </span>
+                  )}
+                </button>
               </div>
             )}
           </>

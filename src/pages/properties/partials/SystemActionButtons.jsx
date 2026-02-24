@@ -1,7 +1,7 @@
 import React, {useState, useMemo} from "react";
 import {User, Upload, Calendar, CheckSquare, Square} from "lucide-react";
 import InstallerPopover from "./InstallerPopover";
-import SchedulePopover from "./SchedulePopover";
+import ScheduleSystemModal from "./ScheduleSystemModal";
 import UploadDocumentModal from "./UploadDocumentModal";
 
 function SystemActionButtons({
@@ -18,7 +18,7 @@ function SystemActionButtons({
 }) {
   const [showInstallerCard, setShowInstallerCard] = useState(false);
   const [showUploadModal, setShowUploadModal] = useState(false);
-  const [showSchedulePopover, setShowSchedulePopover] = useState(false);
+  const [showScheduleModal, setShowScheduleModal] = useState(false);
 
   const installer = useMemo(() => {
     if (installerId != null && installerId !== "" && contacts.length) {
@@ -103,21 +103,24 @@ function SystemActionButtons({
         </button>
 
         {/* Schedule Button */}
-        <SchedulePopover
-          isOpen={showSchedulePopover}
-          onOpenChange={setShowSchedulePopover}
-          trigger={
-            <button
-              type="button"
-              onClick={(e) => e.stopPropagation()}
-              className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-xs font-medium bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-400 hover:bg-emerald-200 dark:hover:bg-emerald-700/60 hover:text-emerald-800 dark:hover:text-emerald-100 transition-all duration-150"
-              title="Schedule inspection"
-            >
-              <Calendar className="w-3.5 h-3.5" />
-              <span className="hidden sm:inline">Schedule</span>
-            </button>
-          }
+        <button
+          type="button"
+          onClick={(e) => {
+            e.stopPropagation();
+            setShowScheduleModal(true);
+          }}
+          className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-xs font-medium bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-400 hover:bg-emerald-200 dark:hover:bg-emerald-700/60 hover:text-emerald-800 dark:hover:text-emerald-100 transition-all duration-150"
+          title="Schedule inspection or maintenance"
+        >
+          <Calendar className="w-3.5 h-3.5" />
+          <span className="hidden sm:inline">Schedule</span>
+        </button>
+        <ScheduleSystemModal
+          isOpen={showScheduleModal}
+          onClose={setShowScheduleModal}
           systemLabel={systemLabel}
+          systemType={systemType}
+          contacts={contacts}
           onSchedule={onScheduleInspection}
         />
       </div>

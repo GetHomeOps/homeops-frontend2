@@ -1,4 +1,7 @@
 import React from "react";
+
+const PLACEHOLDER_IMG = "data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7";
+
 import {
   Star,
   ShieldCheck,
@@ -30,7 +33,7 @@ function ProfileHeader({
     <div className="bg-white dark:bg-gray-800 rounded-xl border border-gray-200/60 dark:border-gray-700/50 shadow-lg p-5 sm:p-6">
       <div className="flex flex-col sm:flex-row sm:items-center gap-4 sm:gap-5">
         <img
-          src={professional.photoUrl}
+          src={professional.photoUrl || PLACEHOLDER_IMG}
           alt={professional.name}
           className="w-20 h-20 sm:w-24 sm:h-24 rounded-xl object-cover ring-2 ring-white dark:ring-gray-700 shadow-md shrink-0"
         />

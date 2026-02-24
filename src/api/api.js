@@ -5,6 +5,40 @@ const BASE_URL = API_BASE_URL;
 const TOKEN_STORAGE_KEY = "app-token";
 const REFRESH_TOKEN_STORAGE_KEY = "app-refresh-token";
 
+/** Mock calendar events when backend is not ready. */
+function getMockCalendarEvents(startDate, endDate) {
+  const start = new Date(startDate);
+  const end = new Date(endDate);
+  const systems = [
+    { name: "HVAC", type: "maintenance" },
+    { name: "Roof", type: "inspection" },
+    { name: "Plumbing", type: "maintenance" },
+    { name: "Electrical", type: "inspection" },
+  ];
+  const pros = ["ABC Services", "Smith & Co", null];
+  const events = [];
+  const d = new Date(start);
+  while (d <= end) {
+    const day = d.getDay();
+    if (day !== 0 && day !== 6) {
+      const sys = systems[events.length % systems.length];
+      events.push({
+        id: `mock-${d.toISOString().slice(0, 10)}-${events.length}`,
+        systemName: sys.name,
+        systemKey: sys.name.toLowerCase(),
+        type: sys.type,
+        scheduledDate: d.toISOString().slice(0, 10),
+        scheduledTime: events.length % 3 === 0 ? "10:00" : null,
+        contractorName: pros[events.length % pros.length],
+        propertyName: "Sample Property",
+        status: "scheduled",
+      });
+    }
+    d.setDate(d.getDate() + 1);
+  }
+  return events.slice(0, 15);
+}
+
 export class ApiError extends Error {
   constructor(messages, status = 500) {
     const msg = Array.isArray(messages) ? messages[0] : messages;
@@ -421,6 +455,38 @@ class AppApi {
     return res.maintenanceRecords;
   }
 
+  /* --------- Maintenance Events (Calendar) --------- */
+
+  /**
+   * Get inspection + maintenance events for the current user in a date range.
+   * Falls back to mock data if the backend is not ready.
+   * @param {string} startDate - YYYY-MM-DD
+   * @param {string} endDate - YYYY-MM-DD
+   * @returns {Promise<Array>} events
+   */
+  static async getCalendarEvents(startDate, endDate) {
+    try {
+      const res = await this.request("maintenance-events/calendar", {
+        start: startDate,
+        end: endDate,
+      });
+      return res.events ?? [];
+    } catch (err) {
+      console.warn("Calendar API not ready, using mock events:", err?.message);
+      return getMockCalendarEvents(startDate, endDate);
+    }
+  }
+
+  /**
+   * Create a maintenance event for a property.
+   * @param {string} propertyId - property UID
+   * @param {Object} payload - event payload (system_key, scheduled_date, etc.)
+   */
+  static async createMaintenanceEvent(propertyId, payload) {
+    const res = await this.request(`maintenance-events/${propertyId}`, payload, "POST");
+    return res.event;
+  }
+
   /* --------- Documents --------- */
 
   static async getPresignedPreviewUrl(key) {
@@ -628,7 +694,17 @@ class AppApi {
   /* --------- Professionals --------- */
 
   static async getAllProfessionals(filters = {}) {
-    let res = await this.request("professionals", filters);
+    const params = {};
+    if (filters.category_id != null) params.category_id = filters.category_id;
+    if (filters.subcategory_id != null) params.subcategory_id = filters.subcategory_id;
+    if (filters.city) params.city = filters.city;
+    if (filters.state) params.state = filters.state;
+    if (filters.search) params.search = filters.search;
+    if (filters.min_rating != null) params.min_rating = filters.min_rating;
+    if (filters.budget_level) params.budget_level = filters.budget_level;
+    if (filters.language) params.language = filters.language;
+    if (filters.is_verified) params.is_verified = "true";
+    const res = await this.request("professionals", params);
     return res.professionals;
   }
 
@@ -658,6 +734,21 @@ class AppApi {
 
   static async removeProfessionalPhoto(professionalId, photoId) {
     return this.request(`professionals/${professionalId}/photos/${photoId}`, {}, "DELETE");
+  }
+
+  /* --------- Saved Professionals --------- */
+
+  static async getSavedProfessionals() {
+    const res = await this.request("saved-professionals");
+    return res.professionals ?? [];
+  }
+
+  static async saveProfessional(professionalId) {
+    await this.request(`saved-professionals/${professionalId}`, {}, "POST");
+  }
+
+  static async unsaveProfessional(professionalId) {
+    await this.request(`saved-professionals/${professionalId}`, {}, "DELETE");
   }
 
   /* --------- Support Tickets --------- */

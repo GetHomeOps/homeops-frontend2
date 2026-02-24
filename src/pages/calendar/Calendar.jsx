@@ -66,6 +66,8 @@ function Calendar() {
   const [selectedEvent, setSelectedEvent] = useState(null);
   const [detailModalOpen, setDetailModalOpen] = useState(false);
   const [scheduleModalOpen, setScheduleModalOpen] = useState(false);
+  const [scheduleModalInitialDate, setScheduleModalInitialDate] = useState("");
+  const [scheduleModalInitialTime, setScheduleModalInitialTime] = useState("");
 
   const getDays = useCallback(() => {
     const days = new Date(year, month + 1, 0).getDate();
@@ -266,6 +268,18 @@ function Calendar() {
     setDetailModalOpen(true);
   };
 
+  const handleEmptySlotClick = (dateStr, timeStr = "") => {
+    setScheduleModalInitialDate(dateStr);
+    setScheduleModalInitialTime(timeStr);
+    setTimeout(() => setScheduleModalOpen(true), 0);
+  };
+
+  const handleScheduleButtonClick = () => {
+    setScheduleModalInitialDate("");
+    setScheduleModalInitialTime("");
+    setTimeout(() => setScheduleModalOpen(true), 0);
+  };
+
   return (
     <div className="flex h-[100dvh] overflow-hidden">
       <Sidebar sidebarOpen={sidebarOpen} setSidebarOpen={setSidebarOpen} />
@@ -325,13 +339,10 @@ function Calendar() {
 
                 <button
                   type="button"
-                  onClick={() => {
-                    // Defer to next tick so the opening click doesn't bubble and trigger "click outside" close
-                    setTimeout(() => setScheduleModalOpen(true), 0);
-                  }}
+                  onClick={handleScheduleButtonClick}
                   className="btn px-4 bg-[#456564] hover:bg-[#34514f] text-white text-sm font-medium"
                 >
-                  Schedule Event
+                  Schedule
                 </button>
               </div>
             </div>
@@ -446,10 +457,16 @@ function Calendar() {
 
                 {daysInMonth.map((day) => {
                   const dayEvents = getEventsForDay(day);
+                  const dateStr = `${year}-${String(month + 1).padStart(2, "0")}-${String(day).padStart(2, "0")}`;
                   return (
                     <div
-                      className="relative bg-white dark:bg-gray-800 h-20 sm:h-28 lg:h-36 overflow-hidden"
+                      className={`relative bg-white dark:bg-gray-800 h-20 sm:h-28 lg:h-36 overflow-hidden group cursor-pointer transition-colors hover:bg-gray-50 dark:hover:bg-gray-700/50 ${isToday(day) ? "ring-1 ring-inset ring-[#456564]/30" : ""}`}
                       key={day}
+                      onClick={() => handleEmptySlotClick(dateStr)}
+                      role="button"
+                      tabIndex={0}
+                      onKeyDown={(e) => e.key === "Enter" && handleEmptySlotClick(dateStr)}
+                      aria-label={`${day} ${MONTH_NAMES[month]} - click to schedule`}
                     >
                       <div className="h-full flex flex-col justify-between">
                         <div className="grow flex flex-col relative p-0.5 sm:p-1.5 overflow-hidden">
@@ -457,9 +474,12 @@ function Calendar() {
                             {dayEvents.slice(0, 3).map((event) => (
                                 <button
                                   type="button"
-                                  className="relative w-full text-left mb-1"
+                                  className="relative w-full text-left mb-1 hover:opacity-90 transition-opacity"
                                   key={event.id}
-                                  onClick={(e) => handleEventClick(e, event)}
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    handleEventClick(e, event);
+                                  }}
                                 >
                                   <div
                                     className={`px-2 py-0.5 rounded-lg overflow-hidden ${eventColorByType(event.type)}`}
@@ -467,18 +487,23 @@ function Calendar() {
                                     <div className="text-xs font-semibold truncate">
                                       {event.title}
                                     </div>
-                                    <div className="text-xs uppercase truncate hidden sm:block opacity-90">
-                                      {event.scheduledTime
-                                        ? (() => {
-                                            const [h, m] = event.scheduledTime.split(":");
-                                            const hour = parseInt(h, 10);
-                                            const ampm = hour >= 12 ? "PM" : "AM";
-                                            const hour12 = hour % 12 || 12;
-                                            return `${hour12}:${m} ${ampm}`;
-                                          })()
-                                        : event.type === "inspection"
-                                          ? "Inspection"
-                                          : "Maintenance"}
+                                    <div className="text-xs truncate hidden sm:block opacity-90">
+                                      {[
+                                        event.scheduledTime
+                                          ? (() => {
+                                              const [h, m] = event.scheduledTime.split(":");
+                                              const hour = parseInt(h, 10);
+                                              const ampm = hour >= 12 ? "PM" : "AM";
+                                              const hour12 = hour % 12 || 12;
+                                              return `${hour12}:${m} ${ampm}`;
+                                            })()
+                                          : event.type === "inspection"
+                                            ? "Inspection"
+                                            : "Maintenance",
+                                        event.contractorName,
+                                      ]
+                                        .filter(Boolean)
+                                        .join(" • ")}
                                     </div>
                                   </div>
                                 </button>
@@ -494,18 +519,20 @@ function Calendar() {
                             <button
                               type="button"
                               className="text-xs text-gray-500 dark:text-gray-300 font-medium whitespace-nowrap text-center sm:py-0.5 px-0.5 sm:px-2 border border-gray-200 dark:border-gray-700/60 rounded-lg"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                              }}
                             >
                               <span className="md:hidden">+</span>
                               <span>{dayEvents.length - 3}</span>{" "}
                               <span className="hidden md:inline">more</span>
                             </button>
                           )}
-                          <button
-                            type="button"
-                            className={`inline-flex ml-auto w-6 h-6 items-center justify-center text-xs sm:text-sm dark:text-gray-300 font-medium text-center rounded-full hover:bg-violet-100 dark:hover:bg-gray-600 ${isToday(day) ? "text-violet-500" : ""}`}
+                          <span
+                            className={`inline-flex ml-auto w-6 h-6 items-center justify-center text-xs sm:text-sm dark:text-gray-300 font-medium text-center rounded-full ${isToday(day) ? "text-[#456564] dark:text-[#7aa3a2] font-semibold" : ""}`}
                           >
                             {day}
-                          </button>
+                          </span>
                         </div>
                       </div>
                     </div>
@@ -573,16 +600,23 @@ function Calendar() {
                           return (
                             <div
                               key={`${h}-${d.toISOString()}`}
-                              className={`h-14 shrink-0 border-b border-r border-gray-100 dark:border-gray-700/40 last:border-r-0 ${
+                              className={`h-14 shrink-0 border-b border-r border-gray-100 dark:border-gray-700/40 last:border-r-0 cursor-pointer hover:bg-gray-50 dark:hover:bg-gray-700/50 transition-colors ${
                                 isTodayCell ? "bg-sky-500/5 dark:bg-sky-400/10" : "bg-white dark:bg-gray-800"
                               }`}
+                              onClick={() => handleEmptySlotClick(d.toISOString().slice(0, 10), `${String(h).padStart(2, "0")}:00`)}
+                              role="button"
+                              tabIndex={0}
+                              onKeyDown={(e) => e.key === "Enter" && handleEmptySlotClick(d.toISOString().slice(0, 10), `${String(h).padStart(2, "0")}:00`)}
                             >
                               {dayEvents.map((event) => (
                                 <button
                                   type="button"
                                   key={event.id}
-                                  onClick={(e) => handleEventClick(e, event)}
-                                  className={`block w-full text-left px-1.5 py-0.5 rounded text-xs truncate ${eventColorByType(event.type)}`}
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    handleEventClick(e, event);
+                                  }}
+                                  className={`block w-full text-left px-1.5 py-0.5 rounded text-xs truncate hover:opacity-90 ${eventColorByType(event.type)}`}
                                 >
                                   {event.title}
                                 </button>
@@ -626,10 +660,18 @@ function Calendar() {
                       ))}
                     </div>
                     <div className="relative flex flex-col flex-1 min-w-0 overflow-auto">
-                      {dayHours.map((h) => (
+                      {dayHours.map((h) => {
+                        const focusDate = new Date(focusedDate);
+                        const dateStr = focusDate.toISOString().slice(0, 10);
+                        const timeStr = `${String(h).padStart(2, "0")}:00`;
+                        return (
                         <div
                           key={h}
-                          className="h-14 shrink-0 border-b border-gray-100 dark:border-gray-700/40 relative"
+                          className="h-14 shrink-0 border-b border-gray-100 dark:border-gray-700/40 relative cursor-pointer hover:bg-gray-50 dark:hover:bg-gray-700/50 transition-colors"
+                          onClick={() => handleEmptySlotClick(dateStr, timeStr)}
+                          role="button"
+                          tabIndex={0}
+                          onKeyDown={(e) => e.key === "Enter" && handleEmptySlotClick(dateStr, timeStr)}
                         >
                           {getEventsForDate(new Date(focusedDate))
                             .filter((evt) => {
@@ -641,8 +683,11 @@ function Calendar() {
                               <button
                                 type="button"
                                 key={event.id}
-                                onClick={(e) => handleEventClick(e, event)}
-                                className={`absolute left-2 right-2 top-0.5 bottom-0.5 text-left px-2 py-1 rounded text-xs ${eventColorByType(event.type)}`}
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  handleEventClick(e, event);
+                                }}
+                                className={`absolute left-2 right-2 top-0.5 bottom-0.5 text-left px-2 py-1 rounded text-xs hover:opacity-90 ${eventColorByType(event.type)}`}
                               >
                                 <span className="font-semibold truncate block">{event.title}</span>
                                 {event.scheduledTime && (
@@ -659,7 +704,8 @@ function Calendar() {
                               </button>
                             ))}
                         </div>
-                      ))}
+                        );
+                      })}
                     </div>
                   </div>
                 </div>
@@ -678,8 +724,16 @@ function Calendar() {
           />
           <CalendarScheduleModal
             isOpen={scheduleModalOpen}
-            onClose={setScheduleModalOpen}
+            onClose={(v) => {
+              setScheduleModalOpen(v);
+              if (!v) {
+                setScheduleModalInitialDate("");
+                setScheduleModalInitialTime("");
+              }
+            }}
             onScheduled={refreshEvents}
+            initialDate={scheduleModalInitialDate}
+            initialTime={scheduleModalInitialTime}
           />
         </>,
         document.body,

@@ -16,17 +16,23 @@ import {
   Users,
   LayoutGrid,
   Settings2,
-  Contact,
+  UserCircle,
   ClipboardList,
   MessageSquare,
   MessageCircle,
   CreditCard,
+  Settings,
+  Receipt,
+  Sliders,
+  HelpCircle,
+  UsersRound,
 } from "lucide-react";
 
 const ICON_SIZE = 18;
+const ICON_PROPS = { size: ICON_SIZE, strokeWidth: 1.75 };
 
 const icon = (Component) => (props) => (
-  <Component {...props} size={ICON_SIZE} strokeWidth={1.75} />
+  <Component {...props} {...ICON_PROPS} />
 );
 
 export const SIDEBAR_CONFIG = [
@@ -69,7 +75,7 @@ export const SIDEBAR_CONFIG = [
           { id: "manage", label: "Manage", path: "professionals/manage", icon: icon(Settings2), roles: "adminOnly" },
         ],
       },
-      { id: "contacts", label: "My Contacts", path: "contacts", icon: icon(Contact), roles: "all" },
+      { id: "contacts", label: "My Contacts", path: "contacts", icon: icon(UserCircle), roles: "all" },
     ],
   },
 
@@ -95,3 +101,28 @@ export const SIDEBAR_CONFIG = [
     ],
   },
 ];
+
+// Professionals (Sample) — kept separate, shown after main nav with divider
+export const PROFESSIONALS_SAMPLE = {
+  id: "professionals-sample",
+  label: "Professionals (Sample)",
+  path: "professionals-sample",
+  icon: icon(Users),
+  roles: "all",
+};
+
+// Settings section — bottom of sidebar (Billing, Configuration, Support, Users)
+// Support Management and Feedback Management moved to ADMIN > Operations
+export const SETTINGS_CONFIG = {
+  id: "settings",
+  type: "collapsible",
+  label: "Settings",
+  icon: icon(Settings),
+  defaultExpanded: false,
+  children: [
+    { id: "billing", label: "Billing", path: "settings/billing", icon: icon(Receipt), roles: "all", hideForSuperAdmin: true },
+    { id: "configuration", label: "Configuration", path: "settings/configuration", icon: icon(Sliders), roles: "all" },
+    { id: "support", label: "Support", path: "settings/support", icon: icon(HelpCircle), roles: "all" },
+    { id: "users", label: "Users", path: "users", icon: icon(UsersRound), roles: "adminOnly" },
+  ],
+};

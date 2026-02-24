@@ -1,5 +1,7 @@
 import React, {useState, useCallback} from "react";
 import {useNavigate} from "react-router-dom";
+
+const PLACEHOLDER_IMG = "data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7";
 import {
   Star,
   Bookmark,
@@ -41,7 +43,7 @@ function ProjectImageCarousel({photos}) {
       {displayPhotos.map((photo, idx) => (
         <img
           key={photo.id}
-          src={photo.url}
+          src={photo.url || PLACEHOLDER_IMG}
           alt={photo.caption}
           loading="lazy"
           className={`absolute inset-0 w-full h-full object-cover transition-opacity duration-500 ${
@@ -114,7 +116,7 @@ function ProfessionalCard({
 
   if (variant === "directory-teaser") {
     const mainImage =
-      professional.projectPhotos[0]?.url || professional.photoUrl;
+      professional.projectPhotos[0]?.url || professional.photoUrl || PLACEHOLDER_IMG;
     return (
       <div
         onClick={goToProfile}
@@ -157,7 +159,7 @@ function ProfessionalCard({
 
   if (variant === "grid") {
     const mainImage =
-      professional.projectPhotos[0]?.url || professional.photoUrl;
+      professional.projectPhotos[0]?.url || professional.photoUrl || PLACEHOLDER_IMG;
     return (
       <div
         onClick={goToProfile}
@@ -215,7 +217,7 @@ function ProfessionalCard({
       >
         <div className="shrink-0 w-14 h-14 rounded-lg overflow-hidden">
           <img
-            src={professional.projectPhotos[0]?.url || professional.photoUrl}
+            src={professional.projectPhotos[0]?.url || professional.photoUrl || PLACEHOLDER_IMG}
             alt={professional.name}
             className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
           />
@@ -263,7 +265,7 @@ function ProfessionalCard({
           <div className="flex items-start justify-between gap-3">
             <div className="flex items-start gap-3 min-w-0 flex-1">
               <img
-                src={professional.photoUrl}
+                src={professional.photoUrl || PLACEHOLDER_IMG}
                 alt=""
                 className="w-10 h-10 rounded-full object-cover ring-2 ring-gray-100 dark:ring-gray-700 shrink-0 mt-0.5"
               />

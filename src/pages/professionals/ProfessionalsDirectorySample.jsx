@@ -1,4 +1,4 @@
-import React, {useState, useEffect, useCallback} from "react";
+import React, {useState} from "react";
 import {useNavigate} from "react-router-dom";
 import {ArrowRight, Bookmark, Search} from "lucide-react";
 
@@ -6,66 +6,20 @@ import Sidebar from "../../partials/Sidebar";
 import Header from "../../partials/Header";
 import useCurrentAccount from "../../hooks/useCurrentAccount";
 import {LocationBar, CategorySectionRow, ProfessionalCard} from "./components";
-import AppApi from "../../api/api";
-import {normalizeProfessional} from "./utils/normalizeProfessional";
+import {
+  CATEGORY_SECTIONS,
+  SERVICE_CATEGORIES,
+  MOCK_PROFESSIONALS,
+} from "./data/mockData";
 
-const PLACEHOLDER_IMG = "data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7";
-
-function imageSeed(id) {
-  return String(id).split("").reduce((acc, c) => acc + c.charCodeAt(0), 0) % 1000;
-}
-
-function mapHierarchyToSections(hierarchy) {
-  if (!hierarchy?.length) return [];
-  return hierarchy.map((parent) => ({
-    id: parent.id,
-    title: parent.name,
-    categories: (parent.children || []).map((child) => {
-      const raw = child.image_url || `https://picsum.photos/seed/${imageSeed(child.id)}/400/280`;
-      return {
-        id: child.id,
-        name: child.name,
-        imageUrl: raw && raw.trim() ? raw : PLACEHOLDER_IMG,
-        proCount: child.professional_count ?? 0,
-      };
-    }),
-  }));
-}
-
-function ProfessionalDirectory() {
+function ProfessionalsDirectorySample() {
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [location, setLocation] = useState(null);
-  const [hierarchy, setHierarchy] = useState([]);
-  const [savedPros, setSavedPros] = useState([]);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState(null);
   const navigate = useNavigate();
   const {currentAccount} = useCurrentAccount();
   const accountUrl = currentAccount?.url || "";
 
-  const categorySections = mapHierarchyToSections(hierarchy);
-  const savedProsTeaser = savedPros.slice(0, 4).map(normalizeProfessional).filter(Boolean);
-
-  const fetchData = useCallback(async () => {
-    setLoading(true);
-    setError(null);
-    try {
-      const [hierarchyRes, savedRes] = await Promise.all([
-        AppApi.getProfessionalCategoryHierarchy(),
-        AppApi.getSavedProfessionals().catch(() => []),
-      ]);
-      setHierarchy(hierarchyRes || []);
-      setSavedPros(savedRes || []);
-    } catch (err) {
-      setError(err?.message || "Failed to load directory");
-    } finally {
-      setLoading(false);
-    }
-  }, []);
-
-  useEffect(() => {
-    fetchData();
-  }, [fetchData]);
+  const savedPros = MOCK_PROFESSIONALS.filter((p) => p.saved).slice(0, 4);
 
   const goToMyPros = () => {
     navigate(accountUrl ? `/${accountUrl}/my-professionals` : "/my-professionals");
@@ -80,43 +34,6 @@ function ProfessionalDirectory() {
       : "/professionals/search";
     navigate(`${base}?${params.toString()}`);
   };
-
-  if (loading) {
-    return (
-      <div className="flex h-[100dvh] overflow-hidden">
-        <Sidebar sidebarOpen={sidebarOpen} setSidebarOpen={setSidebarOpen} />
-        <div className="relative flex flex-col flex-1 overflow-y-auto overflow-x-hidden">
-          <Header sidebarOpen={sidebarOpen} setSidebarOpen={setSidebarOpen} />
-          <main className="grow flex items-center justify-center">
-            <p className="text-sm text-gray-500 dark:text-gray-400">Loading…</p>
-          </main>
-        </div>
-      </div>
-    );
-  }
-
-  if (error) {
-    return (
-      <div className="flex h-[100dvh] overflow-hidden">
-        <Sidebar sidebarOpen={sidebarOpen} setSidebarOpen={setSidebarOpen} />
-        <div className="relative flex flex-col flex-1 overflow-y-auto overflow-x-hidden">
-          <Header sidebarOpen={sidebarOpen} setSidebarOpen={setSidebarOpen} />
-          <main className="grow flex items-center justify-center">
-            <div className="text-center">
-              <p className="text-sm text-red-600 dark:text-red-400 mb-2">{error}</p>
-              <button
-                type="button"
-                onClick={fetchData}
-                className="text-sm font-medium text-[#456564] hover:text-[#34514f] dark:text-[#7aa3a2]"
-              >
-                Try again
-              </button>
-            </div>
-          </main>
-        </div>
-      </div>
-    );
-  }
 
   return (
     <div className="flex h-[100dvh] overflow-hidden">
@@ -173,7 +90,7 @@ function ProfessionalDirectory() {
             </div>
 
             {/* My Professionals teaser — compact horizontal cards, distinct from category sections */}
-            {savedProsTeaser.length > 0 && (
+            {savedPros.length > 0 && (
               <section className="mb-10">
                 <div className="flex items-center justify-between mb-3">
                   <div className="flex items-center gap-2">
@@ -192,7 +109,7 @@ function ProfessionalDirectory() {
                   </button>
                 </div>
                 <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
-                  {savedProsTeaser.map((pro) => (
+                  {savedPros.map((pro) => (
                     <ProfessionalCard
                       key={pro.id}
                       professional={pro}
@@ -213,14 +130,19 @@ function ProfessionalDirectory() {
                   Select a category to find specialists in your area
                 </p>
               </div>
-              {categorySections.map((section) => (
-                <CategorySectionRow
-                  key={section.id}
-                  title={section.title}
-                  categories={section.categories}
-                  location={location}
-                />
-              ))}
+              {CATEGORY_SECTIONS.map((section) => {
+                const categories = section.categoryIds
+                  .map((id) => SERVICE_CATEGORIES.find((c) => c.id === id))
+                  .filter(Boolean);
+                return (
+                  <CategorySectionRow
+                    key={section.id}
+                    title={section.title}
+                    categories={categories}
+                    location={location}
+                  />
+                );
+              })}
             </section>
           </div>
         </main>
@@ -229,4 +151,4 @@ function ProfessionalDirectory() {
   );
 }
 
-export default ProfessionalDirectory;
+export default ProfessionalsDirectorySample;

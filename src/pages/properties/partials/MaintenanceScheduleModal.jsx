@@ -895,6 +895,8 @@ function MaintenanceScheduleModal({
   propertyData = {},
   contacts = [],
   onSchedule,
+  initialScheduledDate = "",
+  initialScheduledTime = "",
 }) {
   const navigate = useNavigate();
   const {accountUrl} = useParams();
@@ -957,8 +959,8 @@ function MaintenanceScheduleModal({
       setHasContractor(null);
       setSelectedContractor(null);
       setContractorSearch("");
-      setScheduledDate("");
-      setScheduledTime("");
+      setScheduledDate(initialScheduledDate || "");
+      setScheduledTime(initialScheduledTime || "");
       setRecurrenceType("one-time");
       setCustomIntervalValue(3);
       setCustomIntervalUnit("months");
@@ -971,7 +973,7 @@ function MaintenanceScheduleModal({
       setAiAdvice(null);
       setAiLoading(false);
     }
-  }, [isOpen]);
+  }, [isOpen, initialScheduledDate, initialScheduledTime]);
 
   // Update message template when dependencies change
   useEffect(() => {
