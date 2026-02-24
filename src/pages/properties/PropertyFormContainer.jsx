@@ -24,8 +24,6 @@ import SharePropertyModal from "./partials/SharePropertyModal";
 import PropertyUnauthorized from "./PropertyUnauthorized";
 import PropertyNotFound from "./PropertyNotFound";
 import {ApiError} from "../../api/api";
-import {PAGE_LAYOUT} from "../../constants/layout";
-
 /** True if the API error indicates the property does not exist (404 or 403 "Property not found"). */
 function isPropertyNotFoundError(err) {
   if (!(err instanceof ApiError)) return false;
@@ -1145,7 +1143,7 @@ function PropertyFormContainer() {
     !state.isSubmitting;
   if (loadingExisting) {
     return (
-      <div className={`${PAGE_LAYOUT.formPaddingX} pt-1 flex items-center justify-center min-h-[40vh]`}>
+      <div className="sm:px-6 lg:px-14 pt-6 pb-8 flex items-center justify-center min-h-[40vh]">
         <div className="text-gray-500 dark:text-gray-400">
           Loading property...
         </div>
@@ -1155,7 +1153,7 @@ function PropertyFormContainer() {
 
   if (state.propertyNotFound && uid !== "new") {
     return (
-      <div className={`${PAGE_LAYOUT.formPaddingX} pt-1`}>
+      <div className="sm:px-6 lg:px-14 pt-6 pb-8">
         <PropertyNotFound />
       </div>
     );
@@ -1163,14 +1161,14 @@ function PropertyFormContainer() {
 
   if (state.propertyAccessDenied && uid !== "new") {
     return (
-      <div className={`${PAGE_LAYOUT.formPaddingX} pt-1`}>
+      <div className="sm:px-6 lg:px-14 pt-6 pb-8">
         <PropertyUnauthorized />
       </div>
     );
   }
 
   return (
-    <div className={`${PAGE_LAYOUT.formPaddingX} pt-1`}>
+    <div className="sm:px-6 lg:px-14 pt-6 pb-8">
       <SharePropertyModal
         modalOpen={shareModalOpen}
         setModalOpen={setShareModalOpen}

@@ -22,8 +22,8 @@ import {
   MessageCircle,
   CreditCard,
   Settings,
-  Receipt,
-  Sliders,
+  Wallet,
+  Cog,
   HelpCircle,
   UsersRound,
 } from "lucide-react";
@@ -120,8 +120,8 @@ export const SETTINGS_CONFIG = {
   icon: icon(Settings),
   defaultExpanded: false,
   children: [
-    { id: "billing", label: "Billing", path: "settings/billing", icon: icon(Receipt), roles: "all", hideForSuperAdmin: true },
-    { id: "configuration", label: "Configuration", path: "settings/configuration", icon: icon(Sliders), roles: "all" },
+    { id: "billing", label: "Billing", path: "settings/billing", icon: icon(Wallet), roles: "all", hideForSuperAdmin: true },
+    { id: "configuration", label: "Configuration", path: "settings/configuration", icon: icon(Cog), roles: "all" },
     { id: "support", label: "Support", path: "settings/support", icon: icon(HelpCircle), roles: "all" },
     { id: "users", label: "Users", path: "users", icon: icon(UsersRound), roles: "adminOnly" },
   ],

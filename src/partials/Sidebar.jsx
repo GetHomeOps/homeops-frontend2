@@ -211,13 +211,13 @@ function SidebarTooltip({show, label, children}) {
 
 // Shared link/collapsed classes for Stripe-style nav
 const linkBase =
-  "flex items-center pl-4 pr-3 py-2 rounded-lg transition-all duration-200 lg:justify-center lg:sidebar-expanded:justify-start 2xl:justify-start";
-const linkActive = "bg-white/15 text-white [&_svg]:text-white border-l-2 border-white/40";
-const linkInactive = "text-white/90 hover:bg-white/[0.08] hover:text-white [&_svg]:text-white/70 border-l-2 border-transparent";
+  "flex items-center pl-4 pr-3 py-2 rounded-lg transition-all duration-200 lg:justify-center lg:px-3 lg:sidebar-expanded:pl-4 lg:sidebar-expanded:pr-3 lg:sidebar-expanded:justify-start 2xl:justify-start 2xl:pl-4 2xl:pr-3";
+const linkActive = "bg-white/15 text-white [&_svg]:text-white";
+const linkInactive = "text-white/90 hover:bg-white/[0.08] hover:text-white [&_svg]:text-white/70";
 const linkChildActive = "text-white [&_svg]:text-white";
 const linkChildInactive = "text-white/70 hover:text-white [&_svg]:text-white/50";
 const spanCollapse =
-  "text-sm font-medium ml-4 min-w-0 whitespace-nowrap lg:ml-0 lg:max-w-0 lg:overflow-hidden lg:opacity-0 lg:sidebar-expanded:ml-4 lg:sidebar-expanded:max-w-none lg:sidebar-expanded:overflow-visible lg:sidebar-expanded:opacity-100 2xl:ml-4 2xl:max-w-none 2xl:overflow-visible 2xl:opacity-100 duration-200";
+  "text-sm font-medium ml-4 min-w-0 whitespace-nowrap lg:ml-0 lg:w-0 lg:min-w-0 lg:max-w-0 lg:overflow-hidden lg:opacity-0 lg:sidebar-expanded:ml-4 lg:sidebar-expanded:w-auto lg:sidebar-expanded:min-w-0 lg:sidebar-expanded:max-w-none lg:sidebar-expanded:overflow-visible lg:sidebar-expanded:opacity-100 2xl:ml-4 2xl:max-w-none 2xl:overflow-visible 2xl:opacity-100 duration-200";
 
 function Sidebar({sidebarOpen, setSidebarOpen, variant = "default"}) {
   const {pathname} = useLocation();
@@ -239,8 +239,26 @@ function Sidebar({sidebarOpen, setSidebarOpen, variant = "default"}) {
   const [isExpandableViewport, setIsExpandableViewport] = useState(false);
   const [handleHovered, setHandleHovered] = useState(false);
 
+  const groupForPath = (path) => {
+    if (/\/professionals(\/|$)/.test(path) || /\/my-professionals(\/|$)/.test(path)) return "directory";
+    if (/\/support-management(\/|$)/.test(path) || /\/feedback-management(\/|$)/.test(path)) return "operations";
+    if (path.includes("settings/") || path.includes("users")) return "settings";
+    return null;
+  };
+
   // Single open collapsible — only one can be expanded at a time
-  const [openCollapsible, setOpenCollapsible] = useState(null);
+  const [openCollapsible, setOpenCollapsible] = useState(() => groupForPath(pathname));
+
+  // Sync open collapsible with pathname during render (no intermediate state, no flicker).
+  // React's recommended pattern for derived state — runs synchronously before commit.
+  const prevPathnameRef = useRef(pathname);
+  if (prevPathnameRef.current !== pathname) {
+    prevPathnameRef.current = pathname;
+    const target = groupForPath(pathname);
+    if (target !== null && target !== openCollapsible) {
+      setOpenCollapsible(target);
+    }
+  }
 
   useEffect(() => {
     const mqExpandable = window.matchMedia("(min-width: 1024px) and (max-width: 1535px)");
@@ -273,20 +291,6 @@ function Sidebar({sidebarOpen, setSidebarOpen, variant = "default"}) {
     },
     [pathname],
   );
-
-  // Auto-expand group containing active route (others collapse)
-  useEffect(() => {
-    if (/\/professionals(\/|$)/.test(pathname) || /\/my-professionals(\/|$)/.test(pathname)) {
-      setOpenCollapsible("directory");
-    } else if (/\/support-management(\/|$)/.test(pathname) || /\/feedback-management(\/|$)/.test(pathname)) {
-      setOpenCollapsible("operations");
-    } else if (
-      pathname.includes("settings/") ||
-      pathname.includes("users")
-    ) {
-      setOpenCollapsible("settings");
-    }
-  }, [pathname]);
 
   useEffect(() => {
     const clickHandler = ({target}) => {
@@ -374,16 +378,19 @@ function Sidebar({sidebarOpen, setSidebarOpen, variant = "default"}) {
     const button = (
       <button
         type="button"
-        onClick={() => setOpen(!open)}
+        onClick={(e) => {
+          if (e.target.closest("a")) return;
+          setOpen(!open);
+        }}
         aria-label={group.label}
-        className={`flex items-center w-full pl-4 pr-3 py-2 rounded-lg transition-all duration-200 ${
+        className={`flex items-center w-full pl-4 pr-3 py-2 rounded-lg transition-all duration-200 lg:justify-center lg:px-3 lg:sidebar-expanded:pl-4 lg:sidebar-expanded:pr-3 lg:sidebar-expanded:justify-start 2xl:justify-start 2xl:pl-4 2xl:pr-3 ${
           isGroupActive ? "text-white [&_svg]:text-white" : "text-white/90 hover:text-white [&_svg]:text-white/70"
         }`}
       >
         {Icon && <Icon className="shrink-0" />}
         <span className={spanCollapse}>{group.label}</span>
         <span
-          className={`ml-auto shrink-0 transition-transform duration-300 ease-out lg:opacity-0 lg:sidebar-expanded:opacity-100 2xl:opacity-100 ${
+          className={`ml-auto shrink-0 transition-transform duration-300 ease-out lg:opacity-0 lg:w-0 lg:min-w-0 lg:overflow-hidden lg:sidebar-expanded:opacity-100 lg:sidebar-expanded:w-auto lg:sidebar-expanded:min-w-0 lg:sidebar-expanded:overflow-visible 2xl:opacity-100 2xl:w-auto 2xl:min-w-0 2xl:overflow-visible ${
             open ? "rotate-0" : "-rotate-90"
           }`}
         >
@@ -393,7 +400,10 @@ function Sidebar({sidebarOpen, setSidebarOpen, variant = "default"}) {
     );
 
     const content = (
-      <ul className={`py-1 ${isCollapsed && !sidebarOpen ? "" : "ml-4"}`}>
+      <ul
+        className={`py-1 ${isCollapsed && !sidebarOpen ? "" : "ml-4"}`}
+        onClick={(e) => e.stopPropagation()}
+      >
         {children.map((child) => (
           <li key={child.id}>{renderNavLink(child, true)}</li>
         ))}
@@ -401,7 +411,7 @@ function Sidebar({sidebarOpen, setSidebarOpen, variant = "default"}) {
     );
 
     const wrapped = flyoutContent ? (
-      <SubmenuFlyout show={showTooltip} title={group.label} alignTop flyoutContent={flyoutContent}>
+      <SubmenuFlyout show={showTooltip} title={group.label} flyoutContent={flyoutContent}>
         {button}
       </SubmenuFlyout>
     ) : (
@@ -504,7 +514,12 @@ function Sidebar({sidebarOpen, setSidebarOpen, variant = "default"}) {
             sidebarOpen ? "translate-x-0" : "-translate-x-64"
           } ${handleHovered && !sidebarExpanded ? "lg:shadow-[2px_0_0_0_#456564] 2xl:shadow-none" : ""} ${variant === "v2" ? "border-r border-white/10" : "shadow-xs"}`}
         >
-          <div className="flex justify-between mb-10 pr-3 sm:px-2">
+          <div
+            className={`flex flex-col flex-1 min-h-0 transition-transform duration-150 ease-out ${
+              handleHovered && !sidebarExpanded && !is2xlViewport ? "lg:translate-x-[2px]" : ""
+            }`}
+          >
+          <div className="flex justify-between lg:justify-center lg:sidebar-expanded:justify-between mb-10 pr-3 sm:px-2 lg:px-0">
             <button
               ref={trigger}
               className="lg:hidden text-white hover:text-white/80"
@@ -574,13 +589,7 @@ function Sidebar({sidebarOpen, setSidebarOpen, variant = "default"}) {
               )}
             </div>
           </div>
-
-          {handleHovered && sidebarExpanded && (
-            <div
-              className="absolute right-0 top-0 bottom-0 w-[2px] bg-gray-50 dark:bg-gray-900 pointer-events-none hidden lg:block 2xl:hidden transition-opacity duration-150"
-              aria-hidden
-            />
-          )}
+          </div>
         </div>
 
         <button
