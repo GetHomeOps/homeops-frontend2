@@ -1,7 +1,6 @@
 import React from "react";
 import {useLocation} from "react-router-dom";
 import RoutesList from "./pages/routes-nav/RoutesList";
-import {AuthProvider} from "./context/AuthContext";
 import {ContactProvider} from "./context/ContactContext";
 import {UserProvider} from "./context/UserContext";
 import {PropertyProvider} from "./context/PropertyContext";
@@ -18,15 +17,13 @@ function App() {
   }, [location.pathname]); // triggered on route change
 
   return (
-    <AuthProvider>
-      <ContactProvider>
-        <UserProvider>
-          <PropertyProvider>
-            <RoutesList />
-          </PropertyProvider>
-        </UserProvider>
-      </ContactProvider>
-    </AuthProvider>
+    <ContactProvider>
+      <UserProvider>
+        <PropertyProvider>
+          <RoutesList />
+        </PropertyProvider>
+      </UserProvider>
+    </ContactProvider>
   );
 }
 

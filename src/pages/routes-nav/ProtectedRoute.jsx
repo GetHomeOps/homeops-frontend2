@@ -30,6 +30,11 @@ function ProtectedRoute({children}) {
     );
   }
 
+  // Users who haven't completed onboarding (e.g. new Google signups) must finish first
+  if (currentUser.onboardingCompleted === false) {
+    return <Navigate to="/onboarding" replace />;
+  }
+
   return children;
 }
 

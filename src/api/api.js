@@ -252,6 +252,10 @@ class AppApi {
     return this.request(`auth/change-password`, { currentPassword, newPassword }, "POST");
   }
 
+  static async completeOnboarding(data) {
+    return this.request(`auth/complete-onboarding`, data, "POST");
+  }
+
   /* --------- MFA --------- */
 
   static async getMfaStatus() {

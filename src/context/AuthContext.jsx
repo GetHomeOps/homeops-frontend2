@@ -336,6 +336,24 @@ export function AuthProvider({children}) {
     return userWithAccounts;
   }
 
+  /** Refresh current user from API (e.g. after onboarding completion). */
+  async function refreshCurrentUser() {
+    if (!token) return null;
+    try {
+      const {email} = decode(token);
+      AppApi.token = token;
+      const currentUser = await AppApi.getCurrentUser(email);
+      if (!currentUser?.id) return null;
+      const userAccounts = await getUserAccounts(currentUser.id);
+      const userWithAccounts = {...currentUser, accounts: userAccounts || []};
+      setCurrentUser({isLoading: false, data: userWithAccounts});
+      return userWithAccounts;
+    } catch (err) {
+      console.error("refreshCurrentUser failed:", err);
+      return null;
+    }
+  }
+
   /** Handle user logout */
   function logout() {
     const refreshToken = localStorage.getItem(REFRESH_TOKEN_STORAGE_ID);
@@ -371,6 +389,7 @@ export function AuthProvider({children}) {
         signup,
         logout,
         handleOAuthCallback,
+        refreshCurrentUser,
       }}
     >
       {children}

@@ -8,6 +8,8 @@ import useCurrentAccount from "../../hooks/useCurrentAccount";
 import ProtectedRoute from "./ProtectedRoute";
 import AdminRoute from "./AdminRoute";
 import PublicRoute from "./PublicRoute";
+import OnboardingRoute from "./OnboardingRoute";
+import OnboardingWizard from "../onboarding/OnboardingWizard";
 
 // Public pages (no sidebar/navbar for unauthenticated users)
 import Signin from "../auth/Signin";
@@ -87,6 +89,14 @@ function RoutesList() {
         }
       />
       <Route path="/auth/callback" element={<AuthCallback />} />
+      <Route
+        path="/onboarding"
+        element={
+          <OnboardingRoute>
+            <OnboardingWizard />
+          </OnboardingRoute>
+        }
+      />
     </>
   );
 
@@ -367,7 +377,9 @@ function RoutesList() {
         path="/"
         element={
           currentUser ? (
-            currentAccount?.url ? (
+            currentUser.onboardingCompleted === false ? (
+              <Navigate to="/onboarding" replace />
+            ) : currentAccount?.url ? (
               <Navigate to={`/${currentAccount.url}/home`} replace />
             ) : (
               <div>

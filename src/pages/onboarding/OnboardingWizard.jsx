@@ -3,7 +3,7 @@ import {useNavigate} from "react-router-dom";
 import {Home, Briefcase, ChevronLeft, ChevronRight, Check, Loader2} from "lucide-react";
 import {useAuth} from "../../context/AuthContext";
 import AppApi from "../../api/api";
-import {HOMEOWNER_PLANS, AGENT_PLANS, PLAN_LIMITS, formatPlanPrice} from "./onboardingPlans";
+import {HOMEOWNER_PLANS, AGENT_PLANS, PLAN_LIMITS} from "./onboardingPlans";
 
 const ROLE_OPTIONS = [
   {
@@ -87,44 +87,7 @@ function Step1Role({role, onSelect}) {
   );
 }
 
-function BillingToggle({billingInterval, onChange}) {
-  return (
-    <div className="flex items-center justify-center gap-3">
-      <span
-        className={`text-sm font-medium transition-colors ${
-          billingInterval === "monthly" ? "text-gray-900 dark:text-gray-100" : "text-gray-500 dark:text-gray-400"
-        }`}
-      >
-        Monthly
-      </span>
-      <button
-        type="button"
-        role="switch"
-        aria-checked={billingInterval === "yearly"}
-        onClick={() => onChange(billingInterval === "monthly" ? "yearly" : "monthly")}
-        className="relative w-11 h-6 rounded-full bg-gray-200 dark:bg-gray-700 transition-colors focus:outline-none focus:ring-2 focus:ring-violet-500 focus:ring-offset-2 dark:focus:ring-offset-gray-900"
-      >
-        <span
-          className={`absolute top-1 left-1 w-4 h-4 rounded-full bg-white shadow-sm transition-transform ${
-            billingInterval === "yearly" ? "translate-x-5" : "translate-x-0"
-          }`}
-        />
-      </button>
-      <span
-        className={`text-sm font-medium transition-colors ${
-          billingInterval === "yearly" ? "text-gray-900 dark:text-gray-100" : "text-gray-500 dark:text-gray-400"
-        }`}
-      >
-        Yearly
-      </span>
-      <span className="text-xs text-violet-600 dark:text-violet-400 font-medium bg-violet-100 dark:bg-violet-900/40 px-2 py-0.5 rounded">
-        Save 17%
-      </span>
-    </div>
-  );
-}
-
-function Step2Plan({role, plan, onSelect, billingInterval, onBillingChange}) {
+function Step2Plan({role, plan, onSelect}) {
   const plans = role === "homeowner" ? HOMEOWNER_PLANS : AGENT_PLANS;
 
   return (
@@ -132,7 +95,6 @@ function Step2Plan({role, plan, onSelect, billingInterval, onBillingChange}) {
       <h2 className="text-xl font-semibold text-gray-900 dark:text-gray-100 text-center">
         Choose your plan
       </h2>
-      <BillingToggle billingInterval={billingInterval} onChange={onBillingChange} />
       <div className="grid grid-cols-1 md:grid-cols-3 gap-4 max-w-4xl mx-auto">
         {plans.map((p) => {
           const isSelected = plan === p.id;
@@ -154,9 +116,6 @@ function Step2Plan({role, plan, onSelect, billingInterval, onBillingChange}) {
               <div className={`p-6 ${isPopular ? "pt-10" : ""}`}>
                 <h3 className="font-semibold text-gray-900 dark:text-gray-100">{p.name}</h3>
                 <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">{p.tagline}</p>
-                <p className="mt-4 text-lg font-semibold text-gray-900 dark:text-gray-100">
-                  {formatPlanPrice(p, billingInterval)}
-                </p>
                 <ul className="mt-4 space-y-2">
                   {p.features.map((f, i) => (
                     <li key={i} className="flex items-start gap-2 text-sm text-gray-600 dark:text-gray-300">
@@ -185,14 +144,13 @@ function Step2Plan({role, plan, onSelect, billingInterval, onBillingChange}) {
   );
 }
 
-function Step3Confirmation({role, plan, limits, billingInterval}) {
+function Step3Confirmation({role, plan, limits}) {
   const roleLabel = role === "homeowner" ? "Homeowner" : "Agent";
   const planData =
     role === "homeowner"
       ? HOMEOWNER_PLANS.find((p) => p.id === plan)
       : AGENT_PLANS.find((p) => p.id === plan);
   const planLabel = planData?.name ?? plan;
-  const priceLabel = planData ? formatPlanPrice(planData, billingInterval) : null;
 
   return (
     <div className="space-y-6">
@@ -208,12 +166,6 @@ function Step3Confirmation({role, plan, limits, billingInterval}) {
           <span className="text-gray-500 dark:text-gray-400">Plan</span>
           <span className="font-medium text-gray-900 dark:text-gray-100">{planLabel}</span>
         </div>
-        {priceLabel && (
-          <div className="flex justify-between items-center">
-            <span className="text-gray-500 dark:text-gray-400">Billing</span>
-            <span className="font-medium text-gray-900 dark:text-gray-100">{priceLabel}</span>
-          </div>
-        )}
         <hr className="border-gray-200 dark:border-gray-700" />
         <div className="text-sm text-gray-600 dark:text-gray-300">
           <p className="font-medium text-gray-700 dark:text-gray-200 mb-1">Summary of limits</p>
@@ -233,7 +185,6 @@ export default function OnboardingWizard() {
   const [step, setStep] = useState(1);
   const [role, setRole] = useState(null);
   const [plan, setPlan] = useState(null);
-  const [billingInterval, setBillingInterval] = useState("monthly");
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState(null);
 
@@ -278,8 +229,6 @@ export default function OnboardingWizard() {
               role={role}
               plan={plan}
               onSelect={setPlan}
-              billingInterval={billingInterval}
-              onBillingChange={setBillingInterval}
             />
           )}
           {step === 3 && (
@@ -287,7 +236,6 @@ export default function OnboardingWizard() {
               role={role}
               plan={plan}
               limits={limits}
-              billingInterval={billingInterval}
             />
           )}
         </div>

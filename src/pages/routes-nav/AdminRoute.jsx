@@ -31,6 +31,10 @@ function AdminRoute({children, allowedRoles = DEFAULT_ALLOWED_ROLES}) {
     );
   }
 
+  if (currentUser.onboardingCompleted === false) {
+    return <Navigate to="/onboarding" replace />;
+  }
+
   if (!allowedRoles.includes(currentUser.role)) {
     return <Navigate to="/" replace />;
   }
