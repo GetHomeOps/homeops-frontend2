@@ -1,9 +1,15 @@
-import React, { useState, useEffect, useCallback, useMemo } from "react";
+import React, {useState, useEffect, useCallback, useMemo} from "react";
+import {useParams, useNavigate} from "react-router-dom";
 import Header from "../../partials/Header";
 import Sidebar from "../../partials/Sidebar";
 import AppApi from "../../api/api";
-import { TicketCard, TicketFormContainer, KanbanColumn, FilterDropdownWithPills } from "./components";
-import { PAGE_LAYOUT } from "../../constants/layout";
+import {
+  TicketCard,
+  TicketFormContainer,
+  KanbanColumn,
+  FilterDropdownWithPills,
+} from "./components";
+import {PAGE_LAYOUT} from "../../constants/layout";
 import {
   SUPPORT_COLUMNS,
   supportToColumnStatus,
@@ -11,6 +17,8 @@ import {
 } from "./kanbanConfig";
 
 function SupportManagement() {
+  const {accountUrl, ticketId: ticketIdParam} = useParams();
+  const navigate = useNavigate();
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [tickets, setTickets] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -35,7 +43,13 @@ function SupportManagement() {
       setSelectedTicket((prev) => {
         if (!prev) return prev;
         const updated = filtered.find((t) => t.id === prev.id);
-        return updated ? { ...updated, status: supportToColumnStatus(updated.status), priority: tierToPriority(updated.subscriptionTier) } : prev;
+        return updated
+          ? {
+              ...updated,
+              status: supportToColumnStatus(updated.status),
+              priority: tierToPriority(updated.subscriptionTier),
+            }
+          : prev;
       });
     } catch (err) {
       setError(err.message || "Failed to load tickets");
@@ -71,33 +85,38 @@ function SupportManagement() {
 
   const planTiers = useMemo(() => {
     const set = new Set();
-    (tickets || []).forEach((t) => set.add((t.subscriptionTier || "Free").toLowerCase()));
+    (tickets || []).forEach((t) =>
+      set.add((t.subscriptionTier || "Free").toLowerCase()),
+    );
     return Array.from(set).sort();
   }, [tickets]);
 
   const filterCategories = useMemo(
     () => [
-      { type: "status", label: "Status" },
-      { type: "priority", label: "Priority" },
-      { type: "planTier", label: "Plan" },
-      { type: "assignedTo", label: "Assigned" },
+      {type: "status", label: "Status"},
+      {type: "priority", label: "Priority"},
+      {type: "planTier", label: "Plan"},
+      {type: "assignedTo", label: "Assigned"},
     ],
-    []
+    [],
   );
 
   const filterOptions = useMemo(
     () => ({
-      status: SUPPORT_COLUMNS.map((c) => ({ value: c.id, label: c.title })),
+      status: SUPPORT_COLUMNS.map((c) => ({value: c.id, label: c.title})),
       priority: [
-        { value: "urgent", label: "Urgent" },
-        { value: "high", label: "High" },
-        { value: "medium", label: "Medium" },
-        { value: "low", label: "Low" },
+        {value: "urgent", label: "Urgent"},
+        {value: "high", label: "High"},
+        {value: "medium", label: "Medium"},
+        {value: "low", label: "Low"},
       ],
-      planTier: planTiers.map((t) => ({ value: t, label: t })),
-      assignedTo: admins.map((a) => ({ value: String(a.id), label: a.name || a.email })),
+      planTier: planTiers.map((t) => ({value: t, label: t})),
+      assignedTo: admins.map((a) => ({
+        value: String(a.id),
+        label: a.name || a.email,
+      })),
     }),
-    [planTiers, admins]
+    [planTiers, admins],
   );
 
   const filteredTickets = useMemo(() => {
@@ -108,16 +127,24 @@ function SupportManagement() {
       byType[f.type].push(f.value);
     });
     if (byType.status?.length) {
-      list = list.filter((t) => byType.status.includes(supportToColumnStatus(t.status)));
+      list = list.filter((t) =>
+        byType.status.includes(supportToColumnStatus(t.status)),
+      );
     }
     if (byType.priority?.length) {
-      list = list.filter((t) => byType.priority.includes(tierToPriority(t.subscriptionTier)));
+      list = list.filter((t) =>
+        byType.priority.includes(tierToPriority(t.subscriptionTier)),
+      );
     }
     if (byType.planTier?.length) {
-      list = list.filter((t) => byType.planTier.includes((t.subscriptionTier || "free").toLowerCase()));
+      list = list.filter((t) =>
+        byType.planTier.includes((t.subscriptionTier || "free").toLowerCase()),
+      );
     }
     if (byType.assignedTo?.length) {
-      list = list.filter((t) => byType.assignedTo.includes(String(t.assignedTo)));
+      list = list.filter((t) =>
+        byType.assignedTo.includes(String(t.assignedTo)),
+      );
     }
     if (searchQuery.trim()) {
       const q = searchQuery.toLowerCase();
@@ -127,7 +154,7 @@ function SupportManagement() {
           (t.description || "").toLowerCase().includes(q) ||
           (t.createdByName || "").toLowerCase().includes(q) ||
           (t.createdByEmail || "").toLowerCase().includes(q) ||
-          (t.accountName || "").toLowerCase().includes(q)
+          (t.accountName || "").toLowerCase().includes(q),
       );
     }
     return list;
@@ -136,7 +163,9 @@ function SupportManagement() {
   const ticketsByColumn = useMemo(() => {
     const acc = {};
     SUPPORT_COLUMNS.forEach((col) => {
-      let colTickets = filteredTickets.filter((t) => supportToColumnStatus(t.status) === col.id);
+      let colTickets = filteredTickets.filter(
+        (t) => supportToColumnStatus(t.status) === col.id,
+      );
       // Sort: priorityScore desc, then createdAt oldest first
       colTickets.sort((a, b) => {
         const pa = a.priorityScore ?? 0;
@@ -150,12 +179,15 @@ function SupportManagement() {
   }, [filteredTickets]);
 
   function addFilter(f) {
-    if (activeFilters.some((x) => x.type === f.type && x.value === f.value)) return;
+    if (activeFilters.some((x) => x.type === f.type && x.value === f.value))
+      return;
     setActiveFilters((prev) => [...prev, f]);
   }
 
   function removeFilter(f) {
-    setActiveFilters((prev) => prev.filter((x) => !(x.type === f.type && x.value === f.value)));
+    setActiveFilters((prev) =>
+      prev.filter((x) => !(x.type === f.type && x.value === f.value)),
+    );
   }
 
   function clearFilters() {
@@ -167,10 +199,12 @@ function SupportManagement() {
     const backendStatus = columnToSupportStatus(newStatus);
     setUpdating(true);
     try {
-      await AppApi.updateSupportTicket(ticketId, { status: backendStatus });
+      await AppApi.updateSupportTicket(ticketId, {status: backendStatus});
       await fetchTickets();
       if (selectedTicket?.id === ticketId) {
-        setSelectedTicket((prev) => (prev ? { ...prev, status: newStatus } : null));
+        setSelectedTicket((prev) =>
+          prev ? {...prev, status: newStatus} : null,
+        );
       }
     } catch (err) {
       setError(err.message || "Failed to update");
@@ -182,10 +216,14 @@ function SupportManagement() {
   async function handleAssign(ticketId, assignedTo) {
     setUpdating(true);
     try {
-      await AppApi.updateSupportTicket(ticketId, { assignedTo: assignedTo || null });
+      await AppApi.updateSupportTicket(ticketId, {
+        assignedTo: assignedTo || null,
+      });
       await fetchTickets();
       if (selectedTicket?.id === ticketId) {
-        setSelectedTicket((prev) => (prev ? { ...prev, assignedTo: assignedTo || null } : null));
+        setSelectedTicket((prev) =>
+          prev ? {...prev, assignedTo: assignedTo || null} : null,
+        );
       }
     } catch (err) {
       setError(err.message || "Failed to assign");
@@ -197,10 +235,10 @@ function SupportManagement() {
   async function handleInternalNotes(ticketId, internalNotes) {
     setUpdating(true);
     try {
-      await AppApi.updateSupportTicket(ticketId, { internalNotes });
+      await AppApi.updateSupportTicket(ticketId, {internalNotes});
       await fetchTickets();
       if (selectedTicket?.id === ticketId) {
-        setSelectedTicket((prev) => (prev ? { ...prev, internalNotes } : null));
+        setSelectedTicket((prev) => (prev ? {...prev, internalNotes} : null));
       }
     } catch (err) {
       setError(err.message || "Failed to save notes");
@@ -213,18 +251,50 @@ function SupportManagement() {
     handleStatusChange(ticketId, "in_progress");
     setDetailModalOpen(false);
     setSelectedTicket(null);
+    navigate(`/${accountUrl}/support-management`);
   }
 
   function handleSendAndResolve(ticketId) {
     handleStatusChange(ticketId, "completed");
     setDetailModalOpen(false);
     setSelectedTicket(null);
+    navigate(`/${accountUrl}/support-management`);
   }
 
   function openDetail(ticket) {
-    setSelectedTicket({ ...ticket, status: supportToColumnStatus(ticket.status) });
-    setDetailModalOpen(true);
+    navigate(`/${accountUrl}/support-management/${ticket.id}`);
   }
+
+  function closeDetail() {
+    setDetailModalOpen(false);
+    setSelectedTicket(null);
+    navigate(`/${accountUrl}/support-management`);
+  }
+
+  // Sync ticket resolution modal with URL
+  useEffect(() => {
+    if (!ticketIdParam) {
+      setDetailModalOpen(false);
+      setSelectedTicket(null);
+      return;
+    }
+    const id = Number(ticketIdParam);
+    if (!id) return;
+    setDetailModalOpen(true);
+    AppApi.getSupportTicket(id)
+      .then((res) => {
+        const t = res.ticket;
+        setSelectedTicket({
+          ...t,
+          status: supportToColumnStatus(t.status),
+          priority: tierToPriority(t.subscriptionTier),
+        });
+      })
+      .catch(() => {
+        setDetailModalOpen(false);
+        setSelectedTicket(null);
+      });
+  }, [ticketIdParam]);
 
   function handleDragStart(e, ticket) {
     setDraggedTicket(ticket);
@@ -245,7 +315,10 @@ function SupportManagement() {
   function handleDrop(e, targetCol) {
     e.preventDefault();
     setDragOverColumn(null);
-    if (!draggedTicket || supportToColumnStatus(draggedTicket.status) === targetCol.id) {
+    if (
+      !draggedTicket ||
+      supportToColumnStatus(draggedTicket.status) === targetCol.id
+    ) {
       setDraggedTicket(null);
       return;
     }
@@ -269,8 +342,12 @@ function SupportManagement() {
           <div className={`${PAGE_LAYOUT.listPaddingX} py-6 flex-shrink-0`}>
             <div className="flex flex-wrap items-center justify-between gap-4 mb-4">
               <div>
-                <h1 className="text-2xl font-bold text-gray-800 dark:text-gray-100">Support Management</h1>
-                <p className="mt-0.5 text-sm text-gray-500 dark:text-gray-400">Manage support tickets. Drag cards between columns.</p>
+                <h1 className="text-2xl font-bold text-gray-800 dark:text-gray-100">
+                  Support Management
+                </h1>
+                <p className="mt-0.5 text-sm text-gray-500 dark:text-gray-400">
+                  Manage support tickets. Drag cards between columns.
+                </p>
               </div>
               <button
                 type="button"
@@ -306,8 +383,13 @@ function SupportManagement() {
               <p className="text-gray-500 dark:text-gray-400">Loading...</p>
             </div>
           ) : (
-            <div className={`flex-1 min-h-0 overflow-x-auto overflow-y-hidden ${PAGE_LAYOUT.listPaddingX} pb-6`}>
-              <div className="flex gap-4 min-w-max pb-4" style={{ minHeight: "calc(100vh - 280px)" }}>
+            <div
+              className={`flex-1 min-h-0 overflow-x-auto overflow-y-hidden ${PAGE_LAYOUT.listPaddingX} pb-6`}
+            >
+              <div
+                className="flex gap-4 min-w-max pb-4"
+                style={{minHeight: "calc(100vh - 280px)"}}
+              >
                 {SUPPORT_COLUMNS.map((col) => (
                   <KanbanColumn
                     key={col.id}
@@ -321,7 +403,10 @@ function SupportManagement() {
                     {(ticketsByColumn[col.id] || []).map((ticket) => (
                       <TicketCard
                         key={ticket.id}
-                        ticket={{ ...ticket, priority: tierToPriority(ticket.subscriptionTier) }}
+                        ticket={{
+                          ...ticket,
+                          priority: tierToPriority(ticket.subscriptionTier),
+                        }}
                         onClick={() => openDetail(ticket)}
                         onDragStart={handleDragStart}
                         onDragEnd={handleDragEnd}
@@ -342,10 +427,7 @@ function SupportManagement() {
           ticket={selectedTicket}
           admins={admins}
           variant="support"
-          onClose={() => {
-            setDetailModalOpen(false);
-            setSelectedTicket(null);
-          }}
+          onClose={closeDetail}
           onStatusChange={handleStatusChange}
           onAssign={handleAssign}
           onInternalNotes={handleInternalNotes}

@@ -9,18 +9,18 @@ import {
 
 /** Predefined property systems used by Systems tab, Maintenance tab, and SystemsSetupModal. */
 export const PROPERTY_SYSTEMS = [
-  { id: "roof", name: "Roof", icon: Building },
-  { id: "gutters", name: "Gutters", icon: Droplet },
-  { id: "foundation", name: "Foundation & Structure", icon: Building },
-  { id: "exterior", name: "Exterior", icon: Building },
-  { id: "windows", name: "Windows", icon: Home },
-  { id: "heating", name: "Heating", icon: Zap },
-  { id: "ac", name: "Air Conditioning", icon: Zap },
-  { id: "waterHeating", name: "Water Heating", icon: Droplet },
-  { id: "electrical", name: "Electrical", icon: Zap },
-  { id: "plumbing", name: "Plumbing", icon: Droplet },
-  { id: "safety", name: "Safety", icon: Shield },
-  { id: "inspections", name: "Inspections", icon: FileCheck },
+  { id: "roof", name: "Roof", icon: Building, description: "Shingles, tiles, flashing & drainage" },
+  { id: "gutters", name: "Gutters", icon: Droplet, description: "Gutter channels, downspouts & guards" },
+  { id: "foundation", name: "Foundation & Structure", icon: Building, description: "Structural base, walls & framing" },
+  { id: "exterior", name: "Exterior", icon: Building, description: "Siding, paint & exterior finishes" },
+  { id: "windows", name: "Windows", icon: Home, description: "Windows, doors & weatherstripping" },
+  { id: "heating", name: "Heating", icon: Zap, description: "Furnace, boiler & heat distribution" },
+  { id: "ac", name: "Air Conditioning", icon: Zap, description: "Central AC, mini-splits & ventilation" },
+  { id: "waterHeating", name: "Water Heating", icon: Droplet, description: "Water heater, tankless or tank units" },
+  { id: "electrical", name: "Electrical", icon: Zap, description: "Panels, wiring & circuit breakers" },
+  { id: "plumbing", name: "Plumbing", icon: Droplet, description: "Pipes, fixtures & water supply lines" },
+  { id: "safety", name: "Safety", icon: Shield, description: "Smoke detectors, CO alarms & fire safety" },
+  { id: "inspections", name: "Inspections", icon: FileCheck, description: "Scheduled & completed inspections" },
 ];
 
 /** Default systems shown when user has not selected any from the modal. */

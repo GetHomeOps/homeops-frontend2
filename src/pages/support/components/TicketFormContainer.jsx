@@ -44,6 +44,7 @@ function TicketFormContainer({
   ticket,
   admins = [],
   variant = "support", // 'support' | 'feedback'
+  readOnly = false, // true = user viewing own ticket (no admin controls)
   onClose,
   onStatusChange,
   onAssign,
@@ -131,7 +132,8 @@ function TicketFormContainer({
         </div>
 
         <div className="p-6 space-y-6">
-          {/* User Info Panel */}
+          {/* User Info Panel (admin only) */}
+          {!readOnly && (
           <section className="rounded-lg border border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800/50 p-4">
             <h3 className="text-sm font-semibold text-gray-700 dark:text-gray-300 mb-3">User Info</h3>
             <div className="grid grid-cols-2 sm:grid-cols-3 gap-3 text-sm">
@@ -170,6 +172,7 @@ function TicketFormContainer({
               <span className="text-xs font-medium text-gray-700 dark:text-gray-300">{slaHours}h response</span>
             </div>
           </section>
+          )}
 
           {/* Ticket Details */}
           <section>
@@ -212,7 +215,8 @@ function TicketFormContainer({
             </div>
           </section>
 
-          {/* Admin controls: Status, Assign, Escalation */}
+          {/* Admin controls: Status, Assign, Escalation (admin only) */}
+          {!readOnly && (
           <section className="flex flex-wrap gap-4 items-end">
             <div>
               <label className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">Status</label>
@@ -256,8 +260,10 @@ function TicketFormContainer({
               </button>
             )}
           </section>
+          )}
 
           {/* Internal Notes (admin-only) */}
+          {!readOnly && (
           <section>
             <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Internal Notes</label>
             <textarea
@@ -280,6 +286,7 @@ function TicketFormContainer({
               </button>
             )}
           </section>
+          )}
 
           {/* Activity / History Timeline */}
           <section>
@@ -307,7 +314,8 @@ function TicketFormContainer({
             </div>
           </section>
 
-          {/* Email Response Section */}
+          {/* Email Response Section (admin only) */}
+          {!readOnly && (
           <section>
             <h3 className="text-sm font-semibold text-gray-700 dark:text-gray-300 mb-2">Email Response</h3>
             <p className="text-xs text-gray-500 dark:text-gray-400 mb-2">
@@ -338,6 +346,7 @@ function TicketFormContainer({
               </button>
             </div>
           </section>
+          )}
         </div>
       </div>
     </ModalBlank>

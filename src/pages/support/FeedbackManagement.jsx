@@ -1,9 +1,14 @@
-import React, { useState, useEffect, useCallback, useMemo } from "react";
+import React, {useState, useEffect, useCallback, useMemo} from "react";
 import Header from "../../partials/Header";
 import Sidebar from "../../partials/Sidebar";
 import AppApi from "../../api/api";
-import { TicketCard, TicketFormContainer, KanbanColumn, FilterDropdownWithPills } from "./components";
-import { PAGE_LAYOUT } from "../../constants/layout";
+import {
+  TicketCard,
+  TicketFormContainer,
+  KanbanColumn,
+  FilterDropdownWithPills,
+} from "./components";
+import {PAGE_LAYOUT} from "../../constants/layout";
 import {
   FEEDBACK_COLUMNS,
   feedbackToColumnStatus,
@@ -11,8 +16,8 @@ import {
 } from "./kanbanConfig";
 
 const SORT_OPTIONS = [
-  { value: "newest", label: "Newest first" },
-  { value: "oldest", label: "Oldest first" },
+  {value: "newest", label: "Newest first"},
+  {value: "oldest", label: "Oldest first"},
 ];
 
 function FeedbackManagement() {
@@ -41,7 +46,9 @@ function FeedbackManagement() {
       setSelectedTicket((prev) => {
         if (!prev) return prev;
         const updated = filtered.find((t) => t.id === prev.id);
-        return updated ? { ...updated, status: feedbackToColumnStatus(updated.status) } : prev;
+        return updated
+          ? {...updated, status: feedbackToColumnStatus(updated.status)}
+          : prev;
       });
     } catch (err) {
       setError(err.message || "Failed to load feedback");
@@ -77,18 +84,18 @@ function FeedbackManagement() {
 
   const filterCategories = useMemo(
     () => [
-      { type: "status", label: "Status" },
-      { type: "planTier", label: "Plan" },
+      {type: "status", label: "Status"},
+      {type: "planTier", label: "Plan"},
     ],
-    []
+    [],
   );
 
   const filterOptions = useMemo(
     () => ({
-      status: FEEDBACK_COLUMNS.map((c) => ({ value: c.id, label: c.title })),
-      planTier: planTiers.map((t) => ({ value: t, label: t })),
+      status: FEEDBACK_COLUMNS.map((c) => ({value: c.id, label: c.title})),
+      planTier: planTiers.map((t) => ({value: t, label: t})),
     }),
-    [planTiers]
+    [planTiers],
   );
 
   const filteredTickets = useMemo(() => {
@@ -99,10 +106,14 @@ function FeedbackManagement() {
       byType[f.type].push(f.value);
     });
     if (byType.status?.length) {
-      list = list.filter((t) => byType.status.includes(feedbackToColumnStatus(t.status)));
+      list = list.filter((t) =>
+        byType.status.includes(feedbackToColumnStatus(t.status)),
+      );
     }
     if (byType.planTier?.length) {
-      list = list.filter((t) => byType.planTier.includes((t.subscriptionTier || "free").toLowerCase()));
+      list = list.filter((t) =>
+        byType.planTier.includes((t.subscriptionTier || "free").toLowerCase()),
+      );
     }
     if (searchQuery.trim()) {
       const q = searchQuery.toLowerCase();
@@ -110,7 +121,7 @@ function FeedbackManagement() {
         (t) =>
           (t.subject || "").toLowerCase().includes(q) ||
           (t.description || "").toLowerCase().includes(q) ||
-          (t.createdByName || "").toLowerCase().includes(q)
+          (t.createdByName || "").toLowerCase().includes(q),
       );
     }
     return list;
@@ -119,21 +130,32 @@ function FeedbackManagement() {
   const ticketsByColumn = useMemo(() => {
     const acc = {};
     FEEDBACK_COLUMNS.forEach((col) => {
-      let colTickets = filteredTickets.filter((t) => feedbackToColumnStatus(t.status) === col.id);
-      if (sortBy === "oldest") colTickets.sort((a, b) => new Date(a.createdAt) - new Date(b.createdAt));
-      else colTickets.sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
+      let colTickets = filteredTickets.filter(
+        (t) => feedbackToColumnStatus(t.status) === col.id,
+      );
+      if (sortBy === "oldest")
+        colTickets.sort(
+          (a, b) => new Date(a.createdAt) - new Date(b.createdAt),
+        );
+      else
+        colTickets.sort(
+          (a, b) => new Date(b.createdAt) - new Date(a.createdAt),
+        );
       acc[col.id] = colTickets;
     });
     return acc;
   }, [filteredTickets, sortBy]);
 
   function addFilter(f) {
-    if (activeFilters.some((x) => x.type === f.type && x.value === f.value)) return;
+    if (activeFilters.some((x) => x.type === f.type && x.value === f.value))
+      return;
     setActiveFilters((prev) => [...prev, f]);
   }
 
   function removeFilter(f) {
-    setActiveFilters((prev) => prev.filter((x) => !(x.type === f.type && x.value === f.value)));
+    setActiveFilters((prev) =>
+      prev.filter((x) => !(x.type === f.type && x.value === f.value)),
+    );
   }
 
   function clearFilters() {
@@ -145,10 +167,12 @@ function FeedbackManagement() {
     const backendStatus = columnToFeedbackStatus(newStatus);
     setUpdating(true);
     try {
-      await AppApi.updateSupportTicket(ticketId, { status: backendStatus });
+      await AppApi.updateSupportTicket(ticketId, {status: backendStatus});
       await fetchTickets();
       if (selectedTicket?.id === ticketId) {
-        setSelectedTicket((prev) => (prev ? { ...prev, status: newStatus } : null));
+        setSelectedTicket((prev) =>
+          prev ? {...prev, status: newStatus} : null,
+        );
       }
     } catch (err) {
       setError(err.message || "Failed to update");
@@ -160,10 +184,14 @@ function FeedbackManagement() {
   async function handleAssign(ticketId, assignedTo) {
     setUpdating(true);
     try {
-      await AppApi.updateSupportTicket(ticketId, { assignedTo: assignedTo || null });
+      await AppApi.updateSupportTicket(ticketId, {
+        assignedTo: assignedTo || null,
+      });
       await fetchTickets();
       if (selectedTicket?.id === ticketId) {
-        setSelectedTicket((prev) => (prev ? { ...prev, assignedTo: assignedTo || null } : null));
+        setSelectedTicket((prev) =>
+          prev ? {...prev, assignedTo: assignedTo || null} : null,
+        );
       }
     } catch (err) {
       setError(err.message || "Failed to assign");
@@ -175,10 +203,10 @@ function FeedbackManagement() {
   async function handleInternalNotes(ticketId, internalNotes) {
     setUpdating(true);
     try {
-      await AppApi.updateSupportTicket(ticketId, { internalNotes });
+      await AppApi.updateSupportTicket(ticketId, {internalNotes});
       await fetchTickets();
       if (selectedTicket?.id === ticketId) {
-        setSelectedTicket((prev) => (prev ? { ...prev, internalNotes } : null));
+        setSelectedTicket((prev) => (prev ? {...prev, internalNotes} : null));
       }
     } catch (err) {
       setError(err.message || "Failed to save notes");
@@ -205,7 +233,10 @@ function FeedbackManagement() {
   }
 
   function openDetail(ticket) {
-    setSelectedTicket({ ...ticket, status: feedbackToColumnStatus(ticket.status) });
+    setSelectedTicket({
+      ...ticket,
+      status: feedbackToColumnStatus(ticket.status),
+    });
     setDetailModalOpen(true);
   }
 
@@ -228,7 +259,10 @@ function FeedbackManagement() {
   function handleDrop(e, targetCol) {
     e.preventDefault();
     setDragOverColumn(null);
-    if (!draggedTicket || feedbackToColumnStatus(draggedTicket.status) === targetCol.id) {
+    if (
+      !draggedTicket ||
+      feedbackToColumnStatus(draggedTicket.status) === targetCol.id
+    ) {
       setDraggedTicket(null);
       return;
     }
@@ -252,8 +286,12 @@ function FeedbackManagement() {
           <div className={`${PAGE_LAYOUT.listPaddingX} py-6 flex-shrink-0`}>
             <div className="flex flex-wrap items-center justify-between gap-4 mb-4">
               <div>
-                <h1 className="text-2xl font-bold text-gray-800 dark:text-gray-100">Feedback Management</h1>
-                <p className="mt-0.5 text-sm text-gray-500 dark:text-gray-400">Manage feature requests. Paid tiers are prioritized.</p>
+                <h1 className="text-2xl font-bold text-gray-800 dark:text-gray-100">
+                  Feedback Management
+                </h1>
+                <p className="mt-0.5 text-sm text-gray-500 dark:text-gray-400">
+                  Manage feature requests. Paid tiers are prioritized.
+                </p>
               </div>
               <button
                 type="button"
@@ -292,8 +330,13 @@ function FeedbackManagement() {
               <p className="text-gray-500 dark:text-gray-400">Loading...</p>
             </div>
           ) : (
-            <div className={`flex-1 min-h-0 overflow-x-auto overflow-y-hidden ${PAGE_LAYOUT.listPaddingX} pb-6`}>
-              <div className="flex gap-4 min-w-max pb-4" style={{ minHeight: "calc(100vh - 280px)" }}>
+            <div
+              className={`flex-1 min-h-0 overflow-x-auto overflow-y-hidden ${PAGE_LAYOUT.listPaddingX} pb-6`}
+            >
+              <div
+                className="flex gap-4 min-w-max pb-4"
+                style={{minHeight: "calc(100vh - 280px)"}}
+              >
                 {FEEDBACK_COLUMNS.map((col) => (
                   <KanbanColumn
                     key={col.id}

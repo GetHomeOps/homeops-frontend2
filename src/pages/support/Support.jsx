@@ -1,5 +1,6 @@
 import React, {useState, useEffect} from "react";
 import {useTranslation} from "react-i18next";
+import {useParams, useNavigate} from "react-router-dom";
 import {format} from "date-fns";
 import Header from "../../partials/Header";
 import Sidebar from "../../partials/Sidebar";
@@ -7,9 +8,12 @@ import useCurrentAccount from "../../hooks/useCurrentAccount";
 import {useAuth} from "../../context/AuthContext";
 import AppApi from "../../api/api";
 import {PAGE_LAYOUT} from "../../constants/layout";
+import TicketFormContainer from "./components/TicketFormContainer";
 
 function Support() {
   const {t} = useTranslation();
+  const {accountUrl, ticketId: ticketIdParam} = useParams();
+  const navigate = useNavigate();
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const {currentAccount} = useCurrentAccount();
   const {currentUser} = useAuth();
@@ -22,8 +26,39 @@ function Support() {
   const [success, setSuccess] = useState(false);
   const [tickets, setTickets] = useState([]);
   const [loadingTickets, setLoadingTickets] = useState(true);
+  const [selectedTicket, setSelectedTicket] = useState(null);
+  const [detailModalOpen, setDetailModalOpen] = useState(false);
 
   const accountId = currentAccount?.id;
+
+  function openTicketDetail(ticket) {
+    navigate(`/${accountUrl || currentAccount?.url}/settings/support/${ticket.id}`);
+  }
+
+  function closeTicketDetail() {
+    setDetailModalOpen(false);
+    setSelectedTicket(null);
+    navigate(`/${accountUrl || currentAccount?.url}/settings/support`);
+  }
+
+  // Sync modal with URL: open when ticketId in URL, close when not
+  useEffect(() => {
+    if (!ticketIdParam) {
+      setDetailModalOpen(false);
+      setSelectedTicket(null);
+      return;
+    }
+    if (!currentUser?.id) return;
+    const id = Number(ticketIdParam);
+    if (!id) return;
+    setDetailModalOpen(true);
+    AppApi.getSupportTicket(id)
+      .then((res) => setSelectedTicket(res.ticket))
+      .catch(() => {
+        setDetailModalOpen(false);
+        setSelectedTicket(null);
+      });
+  }, [ticketIdParam, currentUser?.id]);
 
   useEffect(() => {
     if (!currentUser?.id) return;
@@ -326,7 +361,11 @@ function Support() {
                       {tickets.map((ticket) => (
                         <li
                           key={ticket.id}
-                          className="rounded-lg border border-gray-200 dark:border-gray-700 p-4 hover:bg-gray-50 dark:hover:bg-gray-700/30"
+                          role="button"
+                          tabIndex={0}
+                          onClick={() => openTicketDetail(ticket)}
+                          onKeyDown={(e) => e.key === "Enter" && openTicketDetail(ticket)}
+                          className="rounded-lg border border-gray-200 dark:border-gray-700 p-4 hover:bg-gray-50 dark:hover:bg-gray-700/30 cursor-pointer transition-colors"
                         >
                           <div className="flex flex-wrap items-start justify-between gap-2">
                             <div className="min-w-0 flex-1">
@@ -359,6 +398,19 @@ function Support() {
           </div>
         </main>
       </div>
+
+      {detailModalOpen && selectedTicket && (
+        <TicketFormContainer
+          ticket={selectedTicket}
+          variant={selectedTicket.type || "support"}
+          readOnly
+          onClose={closeTicketDetail}
+          onRefresh={async () => {
+            const list = await AppApi.getMySupportTickets();
+            setTickets(list || []);
+          }}
+        />
+      )}
     </div>
   );
 }

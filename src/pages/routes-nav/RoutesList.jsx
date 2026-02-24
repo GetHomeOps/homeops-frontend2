@@ -59,6 +59,7 @@ import SupportManagement from "../support/SupportManagement";
 import FeedbackManagement from "../support/FeedbackManagement";
 import Calendar from "../calendar/Calendar";
 
+
 function RoutesList() {
   const {currentUser, isLoading} = useAuth();
   const {currentAccount} = useCurrentAccount();
@@ -130,15 +131,86 @@ function RoutesList() {
           </ProtectedRoute>
         }
       />
-      <Route path="/:accountUrl/dashboard" element={<ProtectedRoute><DashboardOverview /></ProtectedRoute>} />
-      <Route path="/:accountUrl/dashboard/accounts" element={<ProtectedRoute><AccountAnalytics /></ProtectedRoute>} />
-      <Route path="/:accountUrl/dashboard/costs" element={<ProtectedRoute><CostAnalytics /></ProtectedRoute>} />
-      <Route path="/:accountUrl/dashboard/engagement" element={<ProtectedRoute><EngagementDashboard /></ProtectedRoute>} />
-      <Route path="/:accountUrl/dashboard/growth" element={<ProtectedRoute><GrowthDashboard /></ProtectedRoute>} />
-      <Route path="/:accountUrl/invitations" element={<ProtectedRoute><InvitationsList /></ProtectedRoute>} />
-      <Route path="/:accountUrl/settings/billing" element={<ProtectedRoute><BillingPage /></ProtectedRoute>} />
-      <Route path="/:accountUrl/settings/configuration" element={<ProtectedRoute><ConfigurationPage /></ProtectedRoute>} />
-      <Route path="/:accountUrl/settings/support" element={<ProtectedRoute><Support /></ProtectedRoute>} />
+      <Route
+        path="/:accountUrl/dashboard"
+        element={
+          <ProtectedRoute>
+            <DashboardOverview />
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/:accountUrl/dashboard/accounts"
+        element={
+          <ProtectedRoute>
+            <AccountAnalytics />
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/:accountUrl/dashboard/costs"
+        element={
+          <ProtectedRoute>
+            <CostAnalytics />
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/:accountUrl/dashboard/engagement"
+        element={
+          <ProtectedRoute>
+            <EngagementDashboard />
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/:accountUrl/dashboard/growth"
+        element={
+          <ProtectedRoute>
+            <GrowthDashboard />
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/:accountUrl/invitations"
+        element={
+          <ProtectedRoute>
+            <InvitationsList />
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/:accountUrl/settings/billing"
+        element={
+          <ProtectedRoute>
+            <BillingPage />
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/:accountUrl/settings/configuration"
+        element={
+          <ProtectedRoute>
+            <ConfigurationPage />
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/:accountUrl/settings/support"
+        element={
+          <ProtectedRoute>
+            <Support />
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/:accountUrl/settings/support/:ticketId"
+        element={
+          <ProtectedRoute>
+            <Support />
+          </ProtectedRoute>
+        }
+      />
       <Route
         path="/:accountUrl/contacts"
         element={
@@ -365,6 +437,14 @@ function RoutesList() {
       />
       <Route
         path="/:accountUrl/support-management"
+        element={
+          <AdminRoute>
+            <SupportManagement />
+          </AdminRoute>
+        }
+      />
+      <Route
+        path="/:accountUrl/support-management/:ticketId"
         element={
           <AdminRoute>
             <SupportManagement />

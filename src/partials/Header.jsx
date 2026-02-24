@@ -84,9 +84,7 @@ function Header({sidebarOpen, setSidebarOpen, variant = "default"}) {
                 setModalOpen={setSearchModalOpen}
               />
             </div> */}
-            {/* <Notifications align="right" />
-            <Help align="right" />
-            <ThemeToggle /> */}
+            <Notifications align="right" />
             {/*  Divider */}
             <hr className="w-px h-6 bg-gray-200 dark:bg-gray-700/60 border-none" />
             <UserMenu align="right" />

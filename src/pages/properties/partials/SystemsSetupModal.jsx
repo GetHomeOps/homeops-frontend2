@@ -367,10 +367,10 @@ function SystemsSetupModal({
       contentClassName="max-w-4xl"
     >
       <div className="relative">
-        {/* Horizontal stepper — visible when not in success state */}
+        {/* Horizontal step tracker */}
         {!showSuccess && visibleSteps.length > 1 && (
-          <div className="px-6 md:px-8 pt-6 pb-4 border-b border-gray-200/80 dark:border-gray-700/80 bg-gray-50/40 dark:bg-gray-800/40">
-            <nav className="flex items-center justify-between" aria-label="Progress">
+          <div className="px-6 md:px-8 pt-5 pb-4">
+            <nav className="flex items-center" aria-label="Progress">
               {visibleSteps.map((stepId, idx) => {
                 const config = STEP_CONFIG[stepId];
                 const isActive = step === stepId;
@@ -382,48 +382,48 @@ function SystemsSetupModal({
                       type="button"
                       onClick={() => isClickable && goToStep(stepId)}
                       disabled={!isClickable}
-                      className={`group flex flex-col items-center min-w-0 flex-1 ${
+                      className={`group flex items-center gap-2 ${
                         isClickable ? "cursor-pointer" : "cursor-default"
                       }`}
                       aria-current={isActive ? "step" : undefined}
                     >
-                      <div
-                        className={`flex items-center justify-center w-10 h-10 rounded-full border-2 transition-all duration-300 ${
+                      <span
+                        className={`flex items-center justify-center w-6 h-6 rounded-full text-xs font-semibold transition-all duration-200 ${
                           isActive
-                            ? "border-[#456564] bg-[#456564] text-white shadow-md shadow-[#456564]/25"
+                            ? "bg-[#456564] text-white ring-4 ring-[#456564]/10 dark:ring-[#456564]/20"
                             : isCompleted
-                              ? "border-[#456564] bg-[#456564] text-white"
-                              : "border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 text-gray-500 dark:text-gray-400"
+                              ? "bg-[#456564] text-white"
+                              : "bg-gray-100 dark:bg-gray-700 text-gray-400 dark:text-gray-500"
                         }`}
                       >
                         {isCompleted && !isActive ? (
-                          <CheckCircle2 className="w-5 h-5" />
+                          <CheckCircle2 className="w-3.5 h-3.5" />
                         ) : (
-                          <span className="text-sm font-semibold">
-                            {idx + 1}
-                          </span>
+                          idx + 1
                         )}
-                      </div>
+                      </span>
                       <span
-                        className={`mt-2 text-xs font-medium truncate max-w-full px-1 ${
+                        className={`text-sm font-medium transition-colors duration-200 ${
                           isActive
-                            ? "text-[#456564] dark:text-[#5a7a78]"
+                            ? "text-gray-900 dark:text-white"
                             : isCompleted
-                              ? "text-gray-600 dark:text-gray-400"
-                              : "text-gray-500 dark:text-gray-500"
+                              ? "text-gray-600 dark:text-gray-300"
+                              : "text-gray-400 dark:text-gray-500"
                         }`}
                       >
                         {config.label}
                       </span>
                     </button>
                     {idx < visibleSteps.length - 1 && (
-                      <div
-                        className={`flex-1 mx-1 min-w-[24px] h-0.5 rounded-full transition-colors duration-300 ${
-                          currentStepIndex > idx
-                            ? "bg-[#456564]"
-                            : "bg-gray-200 dark:bg-gray-600"
-                        }`}
-                      />
+                      <div className="flex-1 flex items-center mx-3 md:mx-4">
+                        <div
+                          className={`w-full h-px transition-colors duration-300 ${
+                            currentStepIndex > idx
+                              ? "bg-[#456564]"
+                              : "bg-gray-200 dark:bg-gray-700"
+                          }`}
+                        />
+                      </div>
                     )}
                   </React.Fragment>
                 );
@@ -446,7 +446,7 @@ function SystemsSetupModal({
             to { opacity: 1; transform: scale(1); }
           }
         `}</style>
-        <div className="p-6 md:p-8 relative min-h-[320px]">
+        <div className="p-6 md:p-8 relative min-h-[320px] pt-8">
           {/* Success overlay with animation */}
           {showSuccess && (
           <>
@@ -720,11 +720,11 @@ function SystemsSetupModal({
             </div>
 
             {/* Predefined systems grid */}
-            <div className="mb-6">
-              <h3 className="text-sm font-medium text-gray-700 dark:text-gray-300 mb-3">
+            <div className="mb-8">
+              <h3 className="text-sm font-medium text-gray-700 dark:text-gray-300 mb-4">
                 Common systems
               </h3>
-              <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
                 {PROPERTY_SYSTEMS.map((sys) => {
                   const Icon = sys.icon;
                   const isSelected = selected.has(sys.id);
@@ -733,40 +733,47 @@ function SystemsSetupModal({
                       key={sys.id}
                       type="button"
                       onClick={() => toggleSystem(sys.id)}
-                      className={`flex items-center gap-3 p-4 rounded-xl border-2 text-left transition-all duration-200 ${
+                      className={`group relative flex items-start gap-3 p-3.5 rounded-xl border text-left transition-all duration-200 ${
                         isSelected
-                          ? "border-[#456564] bg-[#456564]/5 dark:bg-[#456564]/10 shadow-sm"
-                          : "border-gray-200 dark:border-gray-600 hover:border-gray-300 dark:hover:border-gray-500 bg-white dark:bg-gray-800/50"
+                          ? "border-[#456564] bg-[#456564]/[0.04] dark:bg-[#456564]/10 ring-1 ring-[#456564]/20"
+                          : "border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800/40 hover:border-gray-300 dark:hover:border-gray-600 hover:bg-gray-50/50 dark:hover:bg-gray-800/60"
                       }`}
                     >
                       <div
-                        className={`flex items-center justify-center w-10 h-10 rounded-lg shrink-0 ${
+                        className={`flex items-center justify-center w-9 h-9 rounded-lg shrink-0 transition-colors duration-200 ${
                           isSelected
                             ? "bg-[#456564] text-white"
-                            : "bg-gray-100 dark:bg-gray-700 text-gray-500"
+                            : "bg-gray-100 dark:bg-gray-700/70 text-gray-400 dark:text-gray-500 group-hover:bg-gray-200/70 dark:group-hover:bg-gray-700"
                         }`}
                       >
-                        <Icon className="w-5 h-5" />
+                        <Icon className="w-[18px] h-[18px]" />
                       </div>
-                      <span
-                        className={`text-sm font-medium truncate ${
-                          isSelected
-                            ? "text-gray-900 dark:text-white"
-                            : "text-gray-600 dark:text-gray-400"
-                        }`}
-                      >
-                        {sys.name}
-                      </span>
+                      <div className="flex-1 min-w-0 pt-0.5">
+                        <span
+                          className={`text-sm font-medium block leading-tight ${
+                            isSelected
+                              ? "text-gray-900 dark:text-white"
+                              : "text-gray-700 dark:text-gray-300"
+                          }`}
+                        >
+                          {sys.name}
+                        </span>
+                        {sys.description && (
+                          <span className="text-[11px] leading-snug text-gray-400 dark:text-gray-500 mt-0.5 block">
+                            {sys.description}
+                          </span>
+                        )}
+                      </div>
                       <div
-                        className={`ml-auto w-5 h-5 rounded border-2 flex items-center justify-center shrink-0 ${
+                        className={`w-[18px] h-[18px] rounded flex items-center justify-center shrink-0 mt-0.5 transition-all duration-200 ${
                           isSelected
-                            ? "border-[#456564] bg-[#456564]"
-                            : "border-gray-300 dark:border-gray-500"
+                            ? "bg-[#456564] text-white"
+                            : "border border-gray-300 dark:border-gray-600 group-hover:border-gray-400 dark:group-hover:border-gray-500"
                         }`}
                       >
                         {isSelected && (
                           <svg
-                            className="w-3 h-3 text-white"
+                            className="w-2.5 h-2.5 text-white"
                             fill="currentColor"
                             viewBox="0 0 12 12"
                           >

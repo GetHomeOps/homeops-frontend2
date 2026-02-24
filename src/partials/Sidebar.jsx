@@ -471,9 +471,9 @@ function Sidebar({sidebarOpen, setSidebarOpen, variant = "default"}) {
     if (visibleItems.length === 0) return null;
 
     return (
-      <div key={section.id} className={`${isCollapsed ? "mt-4" : "mt-6 first:mt-3"}`}>
+      <div key={section.id} className={`${isCollapsed ? "mt-3" : "mt-4 first:mt-2"}`}>
         {!isCollapsed && (
-          <div className="px-4 py-1.5 mb-1">
+          <div className="px-4 py-1 mb-0.5">
             <span className="text-[10px] font-semibold uppercase tracking-wider text-white/50">
               {section.label}
             </span>
@@ -577,7 +577,7 @@ function Sidebar({sidebarOpen, setSidebarOpen, variant = "default"}) {
               {SIDEBAR_CONFIG.filter((s) => s.type === "section").map(renderSection)}
 
               {/* Professionals (Sample) — spacing when collapsed, divider when expanded */}
-              <div className={`${isCollapsed ? "mt-4" : "mt-6 pt-4 border-t border-white/10"}`}>
+              <div className={`${isCollapsed ? "mt-3" : "mt-4 pt-3 border-t border-white/10"}`}>
                 <ul className="flex flex-col">
                   <li className="mb-0.5 last:mb-0">
                     {renderNavLink(PROFESSIONALS_SAMPLE)}
@@ -587,7 +587,7 @@ function Sidebar({sidebarOpen, setSidebarOpen, variant = "default"}) {
             </div>
 
             {/* Settings (bottom) — spacing when collapsed, divider when expanded */}
-            <div className={`pt-4 mt-auto ${isCollapsed ? "" : "border-t border-white/10"}`}>
+            <div className={`pt-3 mt-auto ${isCollapsed ? "" : "border-t border-white/10"}`}>
               {renderCollapsible(
                 SETTINGS_CONFIG,
                 openCollapsible === "settings",
