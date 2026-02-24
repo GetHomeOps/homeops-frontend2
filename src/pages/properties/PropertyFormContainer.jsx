@@ -24,6 +24,7 @@ import SharePropertyModal from "./partials/SharePropertyModal";
 import PropertyUnauthorized from "./PropertyUnauthorized";
 import PropertyNotFound from "./PropertyNotFound";
 import {ApiError} from "../../api/api";
+import {PAGE_LAYOUT} from "../../constants/layout";
 
 /** True if the API error indicates the property does not exist (404 or 403 "Property not found"). */
 function isPropertyNotFoundError(err) {
@@ -330,7 +331,8 @@ function PropertyFormContainer() {
   const {users} = useContext(UserContext);
   const {contacts} = useContext(ContactContext);
   const {currentUser} = useAuth();
-  const accountUrl = accountUrlParam || currentAccount?.url || currentAccount?.name || "";
+  const accountUrl =
+    accountUrlParam || currentAccount?.url || currentAccount?.name || "";
   const [homeopsTeam, setHomeopsTeam] = useState([]);
   const [systemsSetupModalOpen, setSystemsSetupModalOpen] = useState(false);
   const [actionsDropdownOpen, setActionsDropdownOpen] = useState(false);
@@ -388,6 +390,7 @@ function PropertyFormContainer() {
     inputRef: identityAddressRef,
     isLoaded: identityPlacesLoaded,
     error: identityPlacesError,
+    AutocompleteWrapper: IdentityAutocompleteWrapper,
   } = useGooglePlacesAutocomplete({
     onPlaceSelected: handleIdentityPlaceSelected,
   });
@@ -1010,6 +1013,10 @@ function PropertyFormContainer() {
             .map((r) => r.id),
         );
         const systemsFromBackend = await getSystemsByPropertyId(res.id);
+
+        const scrollEl = document.querySelector(".flex-1.overflow-y-auto");
+        const scrollPos = scrollEl?.scrollTop ?? window.scrollY ?? 0;
+
         dispatch({
           type: "REFRESH_PROPERTY_AFTER_SAVE",
           payload: {
@@ -1030,6 +1037,14 @@ function PropertyFormContainer() {
             type: "success",
             message: t("propertyUpdatedSuccessfullyMessage"),
           },
+        });
+
+        requestAnimationFrame(() => {
+          requestAnimationFrame(() => {
+            const el = document.querySelector(".flex-1.overflow-y-auto");
+            if (el) el.scrollTop = scrollPos;
+            else if (scrollPos) window.scrollTo(0, scrollPos);
+          });
         });
       } else {
         dispatch({
@@ -1130,7 +1145,7 @@ function PropertyFormContainer() {
     !state.isSubmitting;
   if (loadingExisting) {
     return (
-      <div className="px-4 sm:px-6 lg:px-1 pt-1 flex items-center justify-center min-h-[40vh]">
+      <div className={`${PAGE_LAYOUT.formPaddingX} pt-1 flex items-center justify-center min-h-[40vh]`}>
         <div className="text-gray-500 dark:text-gray-400">
           Loading property...
         </div>
@@ -1140,7 +1155,7 @@ function PropertyFormContainer() {
 
   if (state.propertyNotFound && uid !== "new") {
     return (
-      <div className="px-4 sm:px-6 lg:px-1 pt-1">
+      <div className={`${PAGE_LAYOUT.formPaddingX} pt-1`}>
         <PropertyNotFound />
       </div>
     );
@@ -1148,14 +1163,14 @@ function PropertyFormContainer() {
 
   if (state.propertyAccessDenied && uid !== "new") {
     return (
-      <div className="px-4 sm:px-6 lg:px-1 pt-1">
+      <div className={`${PAGE_LAYOUT.formPaddingX} pt-1`}>
         <PropertyUnauthorized />
       </div>
     );
   }
 
   return (
-    <div className="px-4 sm:px-6 lg:px-1 pt-1">
+    <div className={`${PAGE_LAYOUT.formPaddingX} pt-1`}>
       <SharePropertyModal
         modalOpen={shareModalOpen}
         setModalOpen={setShareModalOpen}
@@ -1171,14 +1186,10 @@ function PropertyFormContainer() {
           state.formData.identity?.fullAddress ||
           ""
         }
-        users={users ?? []}
         contacts={contacts ?? []}
-        onShareWithUser={async (userId) => {
-          // TODO: Call API to share property with user
-          await Promise.resolve();
-        }}
-        onSendByEmail={async ({email: recipientEmail, message: msg}) => {
-          // TODO: Call API to send property via email
+        teamMembers={homeopsTeam}
+        onInvite={async ({email: inviteEmail, role, permissions}) => {
+          // TODO: Call API to invite user with role and area permissions
           await Promise.resolve();
         }}
       />
@@ -1406,12 +1417,15 @@ function PropertyFormContainer() {
                           navState.visiblePropertyIds[prevIndex];
                         const prevNavState =
                           buildNavigationState(prevPropertyId);
-                        navigate(`/${accountUrl}/properties/${prevPropertyId}`, {
-                          state: prevNavState || {
-                            ...navState,
-                            currentIndex: navState.currentIndex - 1,
+                        navigate(
+                          `/${accountUrl}/properties/${prevPropertyId}`,
+                          {
+                            state: prevNavState || {
+                              ...navState,
+                              currentIndex: navState.currentIndex - 1,
+                            },
                           },
-                        });
+                        );
                       }
                     }}
                     disabled={
@@ -1445,12 +1459,15 @@ function PropertyFormContainer() {
                           navState.visiblePropertyIds[nextIndex];
                         const nextNavState =
                           buildNavigationState(nextPropertyId);
-                        navigate(`/${accountUrl}/properties/${nextPropertyId}`, {
-                          state: nextNavState || {
-                            ...navState,
-                            currentIndex: navState.currentIndex + 1,
+                        navigate(
+                          `/${accountUrl}/properties/${nextPropertyId}`,
+                          {
+                            state: nextNavState || {
+                              ...navState,
+                              currentIndex: navState.currentIndex + 1,
+                            },
                           },
-                        });
+                        );
                       }
                     }}
                     disabled={
@@ -1625,15 +1642,15 @@ function PropertyFormContainer() {
                           {cardData.propertyName}
                         </h1>
                       )}
-                      <h1
-                        className={`${cardData.propertyName ? "text-base text-gray-600 dark:text-gray-300" : "text-xl md:text-2xl text-gray-900 dark:text-white"} font-bold mb-1 leading-tight`}
+                      <p
+                        className={`${cardData.propertyName ? "text-base text-gray-600 dark:text-gray-300" : "text-xl md:text-2xl font-bold text-gray-900 dark:text-white"} leading-tight`}
                       >
-                        {cardData.address || "—"}
-                      </h1>
-                      <p className="text-sm text-gray-600 dark:text-gray-300 font-medium">
-                        {[cardData.city, cardData.state, cardData.zip]
-                          .filter(Boolean)
-                          .join(", ") || "—"}
+                        {cardData.fullAddress ||
+                          cardData.address ||
+                          [cardData.city, cardData.state, cardData.zip]
+                            .filter(Boolean)
+                            .join(", ") ||
+                          "—"}
                       </p>
                     </div>
                   </div>
@@ -1736,11 +1753,7 @@ function PropertyFormContainer() {
         {/* HomeOps Team */}
         <HomeOpsTeam
           teamMembers={homeopsTeam}
-          propertyId={state.formData.identity?.id ?? uid ?? "new"}
-          accountUrl={accountUrl}
-          onTeamChange={handleTeamChange}
-          creatorId={uid === "new" ? currentUser?.id : undefined}
-          canEditAgent={currentUser?.role?.toLowerCase() !== "homeowner"}
+          onOpenShareModal={() => setShareModalOpen(true)}
         />
 
         {/* Property Health & Completeness */}
@@ -1803,6 +1816,7 @@ function PropertyFormContainer() {
                 addressInputRef={identityAddressRef}
                 placesLoaded={identityPlacesLoaded}
                 placesError={identityPlacesError}
+                AutocompleteWrapper={IdentityAutocompleteWrapper}
               />
             )}
 

@@ -192,6 +192,7 @@ function SystemsTab({
           )}
           progress={systemsProgress.roof}
           propertyId={propertyId}
+          propertyData={propertyData}
           systemsToShow={systemsToShow}
         >
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
@@ -344,6 +345,7 @@ function SystemsTab({
           )}
           progress={systemsProgress.gutters}
           propertyId={propertyId}
+          propertyData={propertyData}
           systemsToShow={systemsToShow}
         >
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
@@ -495,6 +497,7 @@ function SystemsTab({
           )}
           progress={systemsProgress.foundation}
           propertyId={propertyId}
+          propertyData={propertyData}
           systemsToShow={systemsToShow}
         >
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
@@ -596,6 +599,7 @@ function SystemsTab({
           )}
           progress={systemsProgress.exterior}
           propertyId={propertyId}
+          propertyData={propertyData}
           systemsToShow={systemsToShow}
         >
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
@@ -704,6 +708,7 @@ function SystemsTab({
           )}
           progress={systemsProgress.windows}
           propertyId={propertyId}
+          propertyData={propertyData}
           systemsToShow={systemsToShow}
         >
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
@@ -856,6 +861,7 @@ function SystemsTab({
           )}
           progress={systemsProgress.heating}
           propertyId={propertyId}
+          propertyData={propertyData}
           systemsToShow={systemsToShow}
         >
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
@@ -1016,6 +1022,7 @@ function SystemsTab({
           )}
           progress={systemsProgress.ac}
           propertyId={propertyId}
+          propertyData={propertyData}
           systemsToShow={systemsToShow}
         >
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
@@ -1179,6 +1186,7 @@ function SystemsTab({
           )}
           progress={systemsProgress.waterHeating}
           propertyId={propertyId}
+          propertyData={propertyData}
           systemsToShow={systemsToShow}
         >
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
@@ -1344,6 +1352,7 @@ function SystemsTab({
           )}
           progress={systemsProgress.electrical}
           propertyId={propertyId}
+          propertyData={propertyData}
           systemsToShow={systemsToShow}
         >
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
@@ -1509,6 +1518,7 @@ function SystemsTab({
           )}
           progress={systemsProgress.plumbing}
           propertyId={propertyId}
+          propertyData={propertyData}
           systemsToShow={systemsToShow}
         >
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
@@ -1695,6 +1705,7 @@ function SystemsTab({
           }
           progress={systemsProgress.safety}
           propertyId={propertyId}
+          propertyData={propertyData}
           systemsToShow={systemsToShow}
         >
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
@@ -1756,6 +1767,7 @@ function SystemsTab({
           }
           progress={systemsProgress.inspections}
           propertyId={propertyId}
+          propertyData={propertyData}
           systemsToShow={systemsToShow}
         >
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
@@ -2029,6 +2041,7 @@ function SystemsTab({
               )}
               progress={customProgress}
               propertyId={propertyId}
+              propertyData={propertyData}
               systemsToShow={systemsToShow}
             >
               <div className="grid grid-cols-1 md:grid-cols-2 gap-6">

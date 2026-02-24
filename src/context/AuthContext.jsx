@@ -73,31 +73,56 @@ export function AuthProvider({children}) {
     getCurrentUser();
   }, [token, isSigningUp]);
 
-  /** Handles site-wide login */
+  /** Handles site-wide login. Throws with mfaRequired/mfaTicket when MFA is needed. */
   async function login(loginData) {
-    try {
-      const {accessToken, refreshToken} = await AppApi.login(loginData);
-      setToken(accessToken);
-      localStorage.setItem(REFRESH_TOKEN_STORAGE_ID, refreshToken);
-
-      const {email} = decode(accessToken);
-      AppApi.token = accessToken;
-      const currentUser = await AppApi.getCurrentUser(email);
-
-      const userAccounts = await getUserAccounts(currentUser.id);
-
-      setCurrentUser({
-        isLoading: false,
-        data: {...currentUser, accounts: userAccounts || []},
-      });
-
-      localStorage.removeItem("current-account");
-
-      return accessToken;
-    } catch (error) {
-      console.error("Login error:", error);
-      throw error;
+    const result = await AppApi.login(loginData);
+    if (result.mfaRequired && result.mfaTicket) {
+      const err = new Error("MFA required");
+      err.mfaRequired = true;
+      err.mfaTicket = result.mfaTicket;
+      throw err;
     }
+
+    const {accessToken, refreshToken} = result;
+    setToken(accessToken);
+    localStorage.setItem(REFRESH_TOKEN_STORAGE_ID, refreshToken);
+
+    const {email} = decode(accessToken);
+    AppApi.token = accessToken;
+    const currentUser = await AppApi.getCurrentUser(email);
+
+    const userAccounts = await getUserAccounts(currentUser.id);
+
+    setCurrentUser({
+      isLoading: false,
+      data: {...currentUser, accounts: userAccounts || []},
+    });
+
+    localStorage.removeItem("current-account");
+
+    return accessToken;
+  }
+
+  /** Complete login after MFA verification. */
+  async function completeMfaLogin(mfaTicket, codeOrBackupCode) {
+    const {accessToken, refreshToken} = await AppApi.verifyMfa(mfaTicket, codeOrBackupCode);
+    setToken(accessToken);
+    localStorage.setItem(REFRESH_TOKEN_STORAGE_ID, refreshToken);
+
+    const {email} = decode(accessToken);
+    AppApi.token = accessToken;
+    const currentUser = await AppApi.getCurrentUser(email);
+
+    const userAccounts = await getUserAccounts(currentUser.id);
+
+    setCurrentUser({
+      isLoading: false,
+      data: {...currentUser, accounts: userAccounts || []},
+    });
+
+    localStorage.removeItem("current-account");
+
+    return accessToken;
   }
 
   function extractTokenFromSignupResponse(signupResponse) {
@@ -299,6 +324,18 @@ export function AuthProvider({children}) {
     }
   }
 
+  /** Handle OAuth callback (Google, etc.): store tokens and load user. */
+  async function handleOAuthCallback(accessToken, refreshToken = null) {
+    if (!accessToken) throw new Error("No token received");
+    const decodedToken = initializeAuthentication(accessToken, refreshToken);
+    const {email} = decodedToken;
+    const currentUser = await fetchUser(null, accessToken);
+    const userId = extractUserId(currentUser, decodedToken);
+    const userAccounts = await ensureUserHasAccount(userId, currentUser, email);
+    const userWithAccounts = finalizeUserSignup(currentUser, userId, userAccounts);
+    return userWithAccounts;
+  }
+
   /** Handle user logout */
   function logout() {
     const refreshToken = localStorage.getItem(REFRESH_TOKEN_STORAGE_ID);
@@ -330,8 +367,10 @@ export function AuthProvider({children}) {
         currentUser: currentUser.data,
         isLoading: currentUser.isLoading,
         login,
+        completeMfaLogin,
         signup,
         logout,
+        handleOAuthCallback,
       }}
     >
       {children}

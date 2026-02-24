@@ -4,12 +4,14 @@ import {
   X,
   Settings2,
   CheckCircle2,
-  MapPin,
   Sparkles,
   Loader2,
   Search,
   AlertCircle,
   Database,
+  FileCheck,
+  Upload,
+  ChevronRight,
 } from "lucide-react";
 import ModalBlank from "../../../components/ModalBlank";
 import {
@@ -19,8 +21,34 @@ import {
 import useGooglePlacesAutocomplete from "../../../hooks/useGooglePlacesAutocomplete";
 import AppApi from "../../../api/api";
 
+/** Step definitions for the stepper. Order matters. */
+const STEP_IDS = ["identity", "details", "inspection", "systems"];
+
+const STEP_CONFIG = {
+  identity: { label: "Identity" },
+  details: { label: "Details" },
+  systems: { label: "Systems" },
+  inspection: { label: "Inspection" },
+};
+
 /** Property detail fields populated from ATTOM public records, keyed by display group. */
 const AI_FIELD_GROUPS = [
+  {
+    label: "Identity & Address",
+    fields: [
+      {key: "taxId", label: "Tax / Parcel ID"},
+      {key: "addressLine2", label: "Address Line 2"},
+      {key: "county", label: "County"},
+    ],
+  },
+  {
+    label: "Ownership",
+    fields: [
+      {key: "ownerName", label: "Owner Name"},
+      {key: "ownerName2", label: "Owner Name 2"},
+      {key: "ownerCity", label: "Owner City"},
+    ],
+  },
   {
     label: "General",
     fields: [
@@ -28,12 +56,6 @@ const AI_FIELD_GROUPS = [
       {key: "subType", label: "Sub Type"},
       {key: "roofType", label: "Roof Type"},
       {key: "yearBuilt", label: "Year Built", type: "number"},
-      {
-        key: "effectiveYearBuilt",
-        label: "Effective Year Built",
-        type: "number",
-      },
-      {key: "effectiveYearBuiltSource", label: "Effective Yr Built Source"},
     ],
   },
   {
@@ -106,7 +128,7 @@ function SystemsSetupModal({
   const [newCustomName, setNewCustomName] = useState("");
   const [showSuccess, setShowSuccess] = useState(false);
   const showSystemsOnly = skipIdentityStep || !isNewProperty;
-  const [step, setStep] = useState(showSystemsOnly ? "systems" : "identity");
+  const [step, setStep] = useState(showSystemsOnly ? "inspection" : "identity");
   const [identityFields, setIdentityFields] = useState({
     propertyName: "",
     address: "",
@@ -116,12 +138,17 @@ function SystemsSetupModal({
     state: "",
     zip: "",
     county: "",
+    ownerName: "",
+    ownerName2: "",
+    ownerCity: "",
   });
 
   const [aiFields, setAiFields] = useState({});
   const [predicting, setPredicting] = useState(false);
   const [predictError, setPredictError] = useState(null);
   const [hasPredicted, setHasPredicted] = useState(false);
+  const [inspectionReportAvailable, setInspectionReportAvailable] = useState(null);
+  const [inspectionFiles, setInspectionFiles] = useState([]);
 
   const handlePlaceSelected = useCallback((parsed) => {
     setIdentityFields((prev) => ({
@@ -140,12 +167,13 @@ function SystemsSetupModal({
     inputRef: addressInputRef,
     isLoaded: placesLoaded,
     error: placesError,
+    AutocompleteWrapper: AddressAutocompleteWrapper,
   } = useGooglePlacesAutocomplete({onPlaceSelected: handlePlaceSelected});
 
   useEffect(() => {
     if (!modalOpen) return;
     const systemsOnly = skipIdentityStep || !isNewProperty;
-    setStep(systemsOnly ? "systems" : "identity");
+    setStep(systemsOnly ? "inspection" : "identity");
     setIdentityFields({
       propertyName: formData?.propertyName ?? "",
       address:
@@ -161,6 +189,9 @@ function SystemsSetupModal({
       state: formData?.state ?? "",
       zip: formData?.zip ?? "",
       county: formData?.county ?? "",
+      ownerName: formData?.ownerName ?? "",
+      ownerName2: formData?.ownerName2 ?? "",
+      ownerCity: formData?.ownerCity ?? "",
     });
     setAiFields({});
     setSelected(new Set(selectedSystemIds ?? []));
@@ -174,6 +205,8 @@ function SystemsSetupModal({
     setPredicting(false);
     setPredictError(null);
     setHasPredicted(false);
+    setInspectionReportAvailable(null);
+    setInspectionFiles([]);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [modalOpen, skipIdentityStep, isNewProperty]);
 
@@ -197,7 +230,7 @@ function SystemsSetupModal({
       }
     }
     onIdentityFieldsChange?.(payload);
-    setStep("systems");
+    setStep("inspection");
   };
 
   const handleLookupProperty = async () => {
@@ -279,6 +312,19 @@ function SystemsSetupModal({
     });
   };
 
+  const visibleSteps = isNewProperty
+    ? STEP_IDS
+    : STEP_IDS.filter((s) => s === "inspection" || s === "systems");
+  const currentStepIndex = visibleSteps.indexOf(step);
+  const canGoToStep = (targetStep) => {
+    const idx = visibleSteps.indexOf(targetStep);
+    return idx >= 0 && idx <= currentStepIndex;
+  };
+
+  const goToStep = (targetStep) => {
+    if (canGoToStep(targetStep)) setStep(targetStep);
+  };
+
   const handleSave = () => {
     setShowSuccess(true);
     setTimeout(() => {
@@ -287,9 +333,30 @@ function SystemsSetupModal({
     }, 1400);
   };
 
+  const handleInspectionContinue = () => {
+    setStep("systems");
+  };
+
   const handleSkipSystems = () => {
     persistSystems();
     setModalOpen(false);
+  };
+
+  // Dummy file upload handlers (backend integration later)
+  const handleInspectionFileDrop = (e) => {
+    e.preventDefault();
+    const files = Array.from(e.dataTransfer?.files ?? []);
+    setInspectionFiles((prev) => [...prev, ...files]);
+  };
+
+  const handleInspectionFileSelect = (e) => {
+    const files = Array.from(e.target?.files ?? []);
+    setInspectionFiles((prev) => [...prev, ...files]);
+    e.target.value = "";
+  };
+
+  const removeInspectionFile = (index) => {
+    setInspectionFiles((prev) => prev.filter((_, i) => i !== index));
   };
 
   return (
@@ -299,20 +366,90 @@ function SystemsSetupModal({
       setModalOpen={setModalOpen}
       contentClassName="max-w-4xl"
     >
-      <div className="p-6 md:p-8 relative">
-        {/* Success overlay with animation */}
-        {showSuccess && (
+      <div className="relative">
+        {/* Horizontal stepper — visible when not in success state */}
+        {!showSuccess && visibleSteps.length > 1 && (
+          <div className="px-6 md:px-8 pt-6 pb-4 border-b border-gray-200/80 dark:border-gray-700/80 bg-gray-50/40 dark:bg-gray-800/40">
+            <nav className="flex items-center justify-between" aria-label="Progress">
+              {visibleSteps.map((stepId, idx) => {
+                const config = STEP_CONFIG[stepId];
+                const isActive = step === stepId;
+                const isCompleted = currentStepIndex > idx;
+                const isClickable = canGoToStep(stepId);
+                return (
+                  <React.Fragment key={stepId}>
+                    <button
+                      type="button"
+                      onClick={() => isClickable && goToStep(stepId)}
+                      disabled={!isClickable}
+                      className={`group flex flex-col items-center min-w-0 flex-1 ${
+                        isClickable ? "cursor-pointer" : "cursor-default"
+                      }`}
+                      aria-current={isActive ? "step" : undefined}
+                    >
+                      <div
+                        className={`flex items-center justify-center w-10 h-10 rounded-full border-2 transition-all duration-300 ${
+                          isActive
+                            ? "border-[#456564] bg-[#456564] text-white shadow-md shadow-[#456564]/25"
+                            : isCompleted
+                              ? "border-[#456564] bg-[#456564] text-white"
+                              : "border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 text-gray-500 dark:text-gray-400"
+                        }`}
+                      >
+                        {isCompleted && !isActive ? (
+                          <CheckCircle2 className="w-5 h-5" />
+                        ) : (
+                          <span className="text-sm font-semibold">
+                            {idx + 1}
+                          </span>
+                        )}
+                      </div>
+                      <span
+                        className={`mt-2 text-xs font-medium truncate max-w-full px-1 ${
+                          isActive
+                            ? "text-[#456564] dark:text-[#5a7a78]"
+                            : isCompleted
+                              ? "text-gray-600 dark:text-gray-400"
+                              : "text-gray-500 dark:text-gray-500"
+                        }`}
+                      >
+                        {config.label}
+                      </span>
+                    </button>
+                    {idx < visibleSteps.length - 1 && (
+                      <div
+                        className={`flex-1 mx-1 min-w-[24px] h-0.5 rounded-full transition-colors duration-300 ${
+                          currentStepIndex > idx
+                            ? "bg-[#456564]"
+                            : "bg-gray-200 dark:bg-gray-600"
+                        }`}
+                      />
+                    )}
+                  </React.Fragment>
+                );
+              })}
+            </nav>
+          </div>
+        )}
+
+        <style>{`
+          @keyframes systemsStepFadeIn {
+            from { opacity: 0; transform: translateX(12px); }
+            to { opacity: 1; transform: translateX(0); }
+          }
+          @keyframes systemsModalFadeIn {
+            from { opacity: 0; }
+            to { opacity: 1; }
+          }
+          @keyframes systemsModalScaleIn {
+            from { opacity: 0; transform: scale(0.85); }
+            to { opacity: 1; transform: scale(1); }
+          }
+        `}</style>
+        <div className="p-6 md:p-8 relative min-h-[320px]">
+          {/* Success overlay with animation */}
+          {showSuccess && (
           <>
-            <style>{`
-              @keyframes systemsModalFadeIn {
-                from { opacity: 0; }
-                to { opacity: 1; }
-              }
-              @keyframes systemsModalScaleIn {
-                from { opacity: 0; transform: scale(0.85); }
-                to { opacity: 1; transform: scale(1); }
-              }
-            `}</style>
             <div
               className="absolute inset-0 flex flex-col items-center justify-center bg-white/95 dark:bg-gray-800/95 rounded-lg z-10"
               style={{animation: "systemsModalFadeIn 0.3s ease-out forwards"}}
@@ -328,7 +465,7 @@ function SystemsSetupModal({
                   <CheckCircle2 className="w-10 h-10 text-emerald-600 dark:text-emerald-400" />
                 </div>
                 <p className="text-lg font-semibold text-gray-900 dark:text-white">
-                  Systems saved successfully!
+                  Setup complete!
                 </p>
               </div>
             </div>
@@ -337,16 +474,19 @@ function SystemsSetupModal({
 
         {/* Step 1: Identity & Address — property name + address only (details from ATTOM) */}
         {step === "identity" && isNewProperty && (
-          <div className="space-y-10">
+          <div
+            className="space-y-10"
+            style={{animation: "systemsStepFadeIn 0.35s ease-out forwards"}}
+          >
             {/* Centered header */}
             <div className="text-center">
-              <div className="inline-flex items-center justify-center w-16 h-16 rounded-2xl bg-gradient-to-br from-[#456564]/15 to-[#456564]/5 dark:from-[#456564]/25 dark:to-[#456564]/10 mb-5">
+              <div className="inline-flex items-center justify-center w-16 h-16 rounded-2xl bg-gradient-to-br from-[#456564]/15 to-[#456564]/5 dark:from-[#456564]/25 dark:to-[#456564]/10 mb-5 shadow-sm">
                 <Sparkles
                   className="w-8 h-8 text-[#456564]"
                   strokeWidth={1.5}
                 />
               </div>
-              <h2 className="text-2xl font-semibold text-gray-900 dark:text-white mb-2">
+              <h2 className="text-2xl font-semibold tracking-tight text-gray-900 dark:text-white mb-2">
                 Let's set up your property
               </h2>
               <p className="text-sm text-gray-500 dark:text-gray-400 max-w-sm mx-auto leading-relaxed">
@@ -382,15 +522,29 @@ function SystemsSetupModal({
                       </span>
                     )}
                   </label>
-                  <input
-                    key={String(modalOpen)}
-                    ref={addressInputRef}
-                    type="text"
-                    defaultValue={identityFields.address}
-                    placeholder="Start typing an address to search..."
-                    className="form-input w-full rounded-xl border-gray-200 dark:border-gray-600 dark:bg-gray-800 dark:text-white focus:outline-none focus:ring-2 focus:ring-[#456564]/30 focus:border-[#456564] transition-colors py-3"
-                    autoComplete="off"
-                  />
+                  {AddressAutocompleteWrapper ? (
+                    <AddressAutocompleteWrapper>
+                      <input
+                        key={String(modalOpen)}
+                        ref={addressInputRef}
+                        type="text"
+                        defaultValue={identityFields.address}
+                        placeholder="Start typing an address to search..."
+                        className="form-input w-full rounded-xl border-gray-200 dark:border-gray-600 dark:bg-gray-800 dark:text-white focus:outline-none focus:ring-2 focus:ring-[#456564]/30 focus:border-[#456564] transition-colors py-3"
+                        autoComplete="off"
+                      />
+                    </AddressAutocompleteWrapper>
+                  ) : (
+                    <input
+                      key={String(modalOpen)}
+                      ref={addressInputRef}
+                      type="text"
+                      defaultValue={identityFields.address}
+                      placeholder="Start typing an address to search..."
+                      className="form-input w-full rounded-xl border-gray-200 dark:border-gray-600 dark:bg-gray-800 dark:text-white focus:outline-none focus:ring-2 focus:ring-[#456564]/30 focus:border-[#456564] transition-colors py-3"
+                      autoComplete="off"
+                    />
+                  )}
                   {placesError && (
                     <p className="mt-1.5 text-xs text-amber-600 dark:text-amber-400">
                       {placesError} — you can still type the address manually.
@@ -400,22 +554,23 @@ function SystemsSetupModal({
               </div>
             </div>
 
-            <div className="flex justify-center gap-3 pt-4">
-              <button
-                type="button"
-                onClick={() => {
-                  setStep("details");
-                }}
-                className="btn border border-gray-200 dark:border-gray-600 hover:bg-gray-50 dark:hover:bg-gray-700 text-gray-700 dark:text-gray-300"
-              >
-                Skip
-              </button>
+            <div className="flex justify-center gap-3 pt-6">
+              {!isNewProperty && (
+                <button
+                  type="button"
+                  onClick={() => setStep("details")}
+                  className="btn border border-gray-200 dark:border-gray-600 hover:bg-gray-50 dark:hover:bg-gray-700 text-gray-700 dark:text-gray-300 transition-colors"
+                >
+                  Skip
+                </button>
+              )}
               <button
                 type="button"
                 onClick={handleIdentityContinue}
-                className="btn bg-[#456564] hover:bg-[#34514f] text-white"
+                className="btn bg-[#456564] hover:bg-[#34514f] text-white inline-flex items-center gap-2 transition-colors"
               >
                 Continue
+                <ChevronRight className="w-4 h-4" />
               </button>
             </div>
           </div>
@@ -423,12 +578,15 @@ function SystemsSetupModal({
 
         {/* Step 2: Property Data Lookup — fetch details from ATTOM public records (new properties only) */}
         {step === "details" && isNewProperty && (
-          <div className="space-y-6">
+          <div
+            className="space-y-6"
+            style={{animation: "systemsStepFadeIn 0.35s ease-out forwards"}}
+          >
             <div className="text-center pb-2">
-              <div className="inline-flex items-center justify-center w-16 h-16 rounded-2xl bg-gradient-to-br from-[#456564]/12 to-[#456564]/5 dark:from-[#456564]/20 dark:to-[#456564]/8 mb-4">
+              <div className="inline-flex items-center justify-center w-16 h-16 rounded-2xl bg-gradient-to-br from-[#456564]/12 to-[#456564]/5 dark:from-[#456564]/20 dark:to-[#456564]/8 mb-4 shadow-sm">
                 <Database className="w-8 h-8 text-[#456564]" strokeWidth={1.5} />
               </div>
-              <h2 className="text-2xl font-semibold text-gray-900 dark:text-white mb-2">
+              <h2 className="text-2xl font-semibold tracking-tight text-gray-900 dark:text-white mb-2">
                 Property Data Lookup
               </h2>
               <p className="text-sm text-gray-500 dark:text-gray-400 max-w-md mx-auto leading-relaxed">
@@ -520,13 +678,15 @@ function SystemsSetupModal({
                 Back
               </button>
               <div className="flex gap-3">
-                <button
-                  type="button"
-                  onClick={() => setStep("systems")}
-                  className="btn border border-gray-200 dark:border-gray-600 hover:bg-gray-50 dark:hover:bg-gray-700 text-gray-700 dark:text-gray-300"
-                >
-                  Skip
-                </button>
+                {!isNewProperty && (
+                  <button
+                    type="button"
+                    onClick={() => setStep("inspection")}
+                    className="btn border border-gray-200 dark:border-gray-600 hover:bg-gray-50 dark:hover:bg-gray-700 text-gray-700 dark:text-gray-300"
+                  >
+                    Skip
+                  </button>
+                )}
                 <button
                   type="button"
                   onClick={handleDetailsContinue}
@@ -539,18 +699,20 @@ function SystemsSetupModal({
           </div>
         )}
 
-        {/* Step 3: Property Systems (always shown for existing properties, or when user continues from details) */}
-        {(step === "systems" || (step === "identity" && !isNewProperty)) && (
-          <>
-            <div className="flex items-center gap-3 mb-6">
-              <div className="flex items-center justify-center w-12 h-12 rounded-xl bg-[#456564]/10 dark:bg-[#456564]/20">
+        {/* Step 4: Property Systems (final step — after inspection) */}
+        {step === "systems" && (
+          <div
+            style={{animation: "systemsStepFadeIn 0.35s ease-out forwards"}}
+          >
+            <div className="flex items-center gap-4 mb-8">
+              <div className="flex items-center justify-center w-12 h-12 rounded-xl bg-[#456564]/10 dark:bg-[#456564]/20 shadow-sm">
                 <Settings2 className="w-6 h-6 text-[#456564]" />
               </div>
               <div>
-                <h2 className="text-xl font-semibold text-gray-900 dark:text-white">
+                <h2 className="text-xl font-semibold tracking-tight text-gray-900 dark:text-white">
                   Property Systems
                 </h2>
-                <p className="text-sm text-gray-500 dark:text-gray-400 mt-0.5">
+                <p className="text-sm text-gray-500 dark:text-gray-400 mt-1 leading-relaxed">
                   Select the systems included in this property. You can add
                   custom systems below.
                 </p>
@@ -699,24 +861,199 @@ function SystemsSetupModal({
               </div>
             )}
 
-            <div className="flex justify-end gap-3 pt-6 border-t border-gray-200 dark:border-gray-700">
+            <div className="flex justify-between gap-3 pt-8 border-t border-gray-200/80 dark:border-gray-700/80 mt-8">
               <button
                 type="button"
-                onClick={handleSkipSystems}
+                onClick={() => goToStep("inspection")}
                 className="btn border border-gray-200 dark:border-gray-600 hover:bg-gray-50 dark:hover:bg-gray-700 text-gray-700 dark:text-gray-300"
               >
-                Skip
+                Back
+              </button>
+              <div className="flex gap-3">
+                {!isNewProperty && (
+                  <button
+                    type="button"
+                    onClick={handleSkipSystems}
+                    className="btn border border-gray-200 dark:border-gray-600 hover:bg-gray-50 dark:hover:bg-gray-700 text-gray-700 dark:text-gray-300"
+                  >
+                    Skip
+                  </button>
+                )}
+                <button
+                  type="button"
+                  onClick={handleSave}
+                  className="btn bg-[#456564] hover:bg-[#34514f] text-white inline-flex items-center gap-2"
+                >
+                  Complete setup
+                  <CheckCircle2 className="w-4 h-4" />
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* Step 3: Inspection Report (before systems) */}
+        {step === "inspection" && (
+          <div
+            className="space-y-8"
+            style={{animation: "systemsStepFadeIn 0.35s ease-out forwards"}}
+          >
+            <div className="text-center max-w-md mx-auto">
+              <div className="inline-flex items-center justify-center w-16 h-16 rounded-2xl bg-gradient-to-br from-[#456564]/15 to-[#456564]/5 dark:from-[#456564]/25 dark:to-[#456564]/10 mb-5">
+                <FileCheck
+                  className="w-8 h-8 text-[#456564]"
+                  strokeWidth={1.5}
+                />
+              </div>
+              <h2 className="text-2xl font-semibold text-gray-900 dark:text-white mb-2">
+                Inspection Report
+              </h2>
+              <p className="text-sm text-gray-500 dark:text-gray-400 leading-relaxed">
+                Do you have an inspection report available for this property?
+              </p>
+            </div>
+
+            {/* Yes/No toggle */}
+            <div className="flex justify-center gap-4">
+              <button
+                type="button"
+                onClick={() => setInspectionReportAvailable(true)}
+                className={`flex items-center gap-3 px-6 py-4 rounded-xl border-2 transition-all duration-200 ${
+                  inspectionReportAvailable === true
+                    ? "border-[#456564] bg-[#456564]/10 dark:bg-[#456564]/20 shadow-sm"
+                    : "border-gray-200 dark:border-gray-600 hover:border-gray-300 dark:hover:border-gray-500 bg-white dark:bg-gray-800/50"
+                }`}
+              >
+                <div
+                  className={`w-5 h-5 rounded-full border-2 flex items-center justify-center ${
+                    inspectionReportAvailable === true
+                      ? "border-[#456564] bg-[#456564]"
+                      : "border-gray-300 dark:border-gray-500"
+                  }`}
+                >
+                  {inspectionReportAvailable === true && (
+                    <div className="w-2 h-2 rounded-full bg-white" />
+                  )}
+                </div>
+                <span
+                  className={`font-medium ${
+                    inspectionReportAvailable === true
+                      ? "text-gray-900 dark:text-white"
+                      : "text-gray-600 dark:text-gray-400"
+                  }`}
+                >
+                  Yes
+                </span>
               </button>
               <button
                 type="button"
-                onClick={handleSave}
-                className="btn bg-[#456564] hover:bg-[#34514f] text-white"
+                onClick={() => setInspectionReportAvailable(false)}
+                className={`flex items-center gap-3 px-6 py-4 rounded-xl border-2 transition-all duration-200 ${
+                  inspectionReportAvailable === false
+                    ? "border-[#456564] bg-[#456564]/10 dark:bg-[#456564]/20 shadow-sm"
+                    : "border-gray-200 dark:border-gray-600 hover:border-gray-300 dark:hover:border-gray-500 bg-white dark:bg-gray-800/50"
+                }`}
               >
-                Save systems
+                <div
+                  className={`w-5 h-5 rounded-full border-2 flex items-center justify-center ${
+                    inspectionReportAvailable === false
+                      ? "border-[#456564] bg-[#456564]"
+                      : "border-gray-300 dark:border-gray-500"
+                  }`}
+                >
+                  {inspectionReportAvailable === false && (
+                    <div className="w-2 h-2 rounded-full bg-white" />
+                  )}
+                </div>
+                <span
+                  className={`font-medium ${
+                    inspectionReportAvailable === false
+                      ? "text-gray-900 dark:text-white"
+                      : "text-gray-600 dark:text-gray-400"
+                  }`}
+                >
+                  No
+                </span>
               </button>
             </div>
-          </>
+
+            {/* File upload (shown when Yes) */}
+            {inspectionReportAvailable === true && (
+              <div
+                className="rounded-2xl border-2 border-dashed border-gray-300 dark:border-gray-600 bg-gray-50/50 dark:bg-gray-800/30 p-8 transition-all duration-300"
+                style={{animation: "systemsStepFadeIn 0.3s ease-out forwards"}}
+              >
+                <div
+                  className="relative flex flex-col items-center justify-center min-h-[160px] py-6"
+                  onDragOver={(e) => e.preventDefault()}
+                  onDragLeave={(e) => e.preventDefault()}
+                  onDrop={handleInspectionFileDrop}
+                >
+                  <input
+                    type="file"
+                    multiple
+                    accept=".pdf,.doc,.docx,image/*"
+                    onChange={handleInspectionFileSelect}
+                    className="absolute inset-0 w-full h-full opacity-0 cursor-pointer z-10"
+                    id="inspection-file-input"
+                  />
+                  <Upload className="w-12 h-12 text-gray-400 dark:text-gray-500 mb-4" />
+                  <p className="text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                    Drag & drop your inspection report here
+                  </p>
+                  <p className="text-xs text-gray-500 dark:text-gray-400 mb-4">
+                    or click to browse (PDF, DOC, images)
+                  </p>
+                  {inspectionFiles.length > 0 && (
+                    <div className="w-full max-w-sm space-y-2 mt-4">
+                      {inspectionFiles.map((file, idx) => (
+                        <div
+                          key={`${file.name}-${idx}`}
+                          className="flex items-center justify-between gap-2 px-3 py-2 rounded-lg bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-600"
+                        >
+                          <span className="text-sm text-gray-700 dark:text-gray-300 truncate flex-1">
+                            {file.name}
+                          </span>
+                          <button
+                            type="button"
+                            onClick={() => removeInspectionFile(idx)}
+                            className="p-1 rounded hover:bg-gray-200 dark:hover:bg-gray-600 text-gray-500"
+                            aria-label={`Remove ${file.name}`}
+                          >
+                            <X className="w-4 h-4" />
+                          </button>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              </div>
+            )}
+
+            <div className="flex justify-between items-center gap-3 pt-4">
+              <div>
+                {canGoToStep("details") && (
+                  <button
+                    type="button"
+                    onClick={() => goToStep("details")}
+                    className="btn border border-gray-200 dark:border-gray-600 hover:bg-gray-50 dark:hover:bg-gray-700 text-gray-700 dark:text-gray-300"
+                  >
+                    Back
+                  </button>
+                )}
+              </div>
+              <button
+                type="button"
+                onClick={handleInspectionContinue}
+                className="btn bg-[#456564] hover:bg-[#34514f] text-white inline-flex items-center gap-2 ml-auto"
+              >
+                Continue
+                <ChevronRight className="w-4 h-4" />
+              </button>
+            </div>
+          </div>
         )}
+        </div>
       </div>
     </ModalBlank>
   );

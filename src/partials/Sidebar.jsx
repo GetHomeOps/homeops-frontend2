@@ -242,16 +242,20 @@ function Sidebar({sidebarOpen, setSidebarOpen, variant = "default"}) {
   const isSettingsPath =
     pathname.includes("settings/billing") ||
     pathname.includes("settings/configuration") ||
+    pathname.includes("settings/support") ||
+    pathname.includes("support-management") ||
     (canManageUsers && pathname.includes("users"));
   const [settingsOpen, setSettingsOpen] = useState(isSettingsPath);
   const [subscriptionsOpen, setSubscriptionsOpen] = useState(
-    isSubscriptionsActive,
+    isSubscriptionsActive && !isSettingsPath,
   );
   const [professionalsOpen, setProfessionalsOpen] = useState(
-    isProfessionalsActive,
+    isProfessionalsActive ||
+      (!isSettingsPath && !isSubscriptionsActive),
   );
   const [is2xlViewport, setIs2xlViewport] = useState(false);
   const [isExpandableViewport, setIsExpandableViewport] = useState(false);
+  const [handleHovered, setHandleHovered] = useState(false);
 
   useEffect(() => {
     const mqExpandable = window.matchMedia("(min-width: 1024px) and (max-width: 1535px)");
@@ -276,7 +280,9 @@ function Sidebar({sidebarOpen, setSidebarOpen, variant = "default"}) {
     if (
       (canManageUsers && pathname.includes("users")) ||
       pathname.includes("settings/billing") ||
-      pathname.includes("settings/configuration")
+      pathname.includes("settings/configuration") ||
+      pathname.includes("settings/support") ||
+      pathname.includes("support-management")
     ) {
       setProfessionalsOpen(false);
       setSubscriptionsOpen(false);
@@ -349,9 +355,9 @@ function Sidebar({sidebarOpen, setSidebarOpen, variant = "default"}) {
         <div
           id="sidebar"
           ref={sidebar}
-          className={`flex lg:flex! flex-col absolute z-40 left-0 top-0 lg:static lg:left-auto lg:top-auto lg:translate-x-0 h-[100dvh] overflow-y-scroll lg:overflow-y-auto no-scrollbar w-64 lg:w-20 lg:sidebar-expanded:!w-64 2xl:w-64! shrink-0 bg-[#456564] p-4 transition-all duration-200 ease-in-out ${
+          className={`flex lg:flex! flex-col absolute z-40 left-0 top-0 lg:static lg:left-auto lg:top-auto lg:translate-x-0 h-[100dvh] overflow-y-scroll lg:overflow-y-auto no-scrollbar w-64 lg:w-20 lg:sidebar-expanded:!w-64 2xl:w-64! shrink-0 bg-[#456564] p-4 transition-all duration-200 ease-in-out relative ${
             sidebarOpen ? "translate-x-0" : "-translate-x-64"
-          } ${variant === "v2" ? "border-r border-white/10" : "shadow-xs"}`}
+          } ${handleHovered && !sidebarExpanded ? "lg:shadow-[2px_0_0_0_#456564] 2xl:shadow-none" : ""} ${variant === "v2" ? "border-r border-white/10" : "shadow-xs"}`}
         >
           {/* Sidebar header */}
           <div className="flex justify-between mb-10 pr-3 sm:px-2">
@@ -1095,7 +1101,9 @@ function Sidebar({sidebarOpen, setSidebarOpen, variant = "default"}) {
                 className={`rounded-lg ${
                   (canManageUsers && pathname.includes("users")) ||
                   pathname.includes("settings/billing") ||
-                  pathname.includes("settings/configuration")
+                  pathname.includes("settings/configuration") ||
+                  pathname.includes("settings/support") ||
+                  pathname.includes("support-management")
                     ? "bg-white/[0.08]"
                     : ""
                 }`}
@@ -1137,6 +1145,38 @@ function Sidebar({sidebarOpen, setSidebarOpen, variant = "default"}) {
                           Configuration
                         </NavLink>
                       </li>
+                      <li>
+                        <NavLink
+                          end
+                          to={accountUrl ? `/${accountUrl}/settings/support` : "/settings/support"}
+                          className={({isActive}) =>
+                            `flex items-center px-2 py-1.5 rounded mx-1 text-xs transition-colors ${
+                              isActive
+                                ? "text-emerald-400"
+                                : "text-gray-100 hover:bg-gray-700"
+                            }`
+                          }
+                        >
+                          Support
+                        </NavLink>
+                      </li>
+                      {canManageUsers && (
+                        <li>
+                          <NavLink
+                            end
+                            to={accountUrl ? `/${accountUrl}/support-management` : "/support-management"}
+                            className={({isActive}) =>
+                              `flex items-center px-2 py-1.5 rounded mx-1 text-xs transition-colors ${
+                                isActive
+                                  ? "text-emerald-400"
+                                  : "text-gray-100 hover:bg-gray-700"
+                              }`
+                            }
+                          >
+                            Support Management
+                          </NavLink>
+                        </li>
+                      )}
                       {canManageUsers && (
                         <li>
                           <NavLink
@@ -1261,6 +1301,54 @@ function Sidebar({sidebarOpen, setSidebarOpen, variant = "default"}) {
                           </NavLink>
                         </SidebarTooltip>
                       </li>
+                      <li>
+                        <SidebarTooltip show={showTooltip} label="Support">
+                          <NavLink
+                            end
+                            to={accountUrl ? `/${accountUrl}/settings/support` : "/settings/support"}
+                            aria-label="Support"
+                            className={({isActive}) =>
+                              `flex items-center pl-4 pr-3 py-2 rounded-lg transition-all duration-200 lg:justify-center lg:sidebar-expanded:justify-start 2xl:justify-start ${
+                                isActive
+                                  ? "text-white [&_svg]:text-white"
+                                  : "text-white/70 hover:text-white [&_svg]:text-white/50"
+                              }`
+                            }
+                          >
+                            <svg className="shrink-0" width="16" height="16" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                              <path d="M21 15C21 15.5304 20.7893 16.0391 20.4142 16.4142C20.0391 16.7893 19.5304 17 19 17H7L3 21V5C3 4.46957 3.21071 3.96086 3.58579 3.58579C3.96086 3.21071 4.46957 3 5 3H19C19.5304 3 20.0391 3.21071 20.4142 3.58579C20.7893 3.96086 21 4.46957 21 5V15Z" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
+                            </svg>
+                            <span className="text-sm font-medium ml-4 min-w-0 whitespace-nowrap lg:ml-0 lg:max-w-0 lg:overflow-hidden lg:opacity-0 lg:sidebar-expanded:ml-4 lg:sidebar-expanded:max-w-none lg:sidebar-expanded:overflow-visible lg:sidebar-expanded:opacity-100 2xl:ml-4 2xl:max-w-none 2xl:overflow-visible 2xl:opacity-100 duration-200">
+                              Support
+                            </span>
+                          </NavLink>
+                        </SidebarTooltip>
+                      </li>
+                      {canManageUsers && (
+                        <li>
+                          <SidebarTooltip show={showTooltip} label="Support Management">
+                            <NavLink
+                              end
+                              to={accountUrl ? `/${accountUrl}/support-management` : "/support-management"}
+                              aria-label="Support Management"
+                              className={({isActive}) =>
+                                `flex items-center pl-4 pr-3 py-2 rounded-lg transition-all duration-200 lg:justify-center lg:sidebar-expanded:justify-start 2xl:justify-start ${
+                                  isActive || pathname.includes("support-management")
+                                    ? "text-white [&_svg]:text-white"
+                                    : "text-white/70 hover:text-white [&_svg]:text-white/50"
+                                }`
+                              }
+                            >
+                              <svg className="shrink-0" width="16" height="16" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                                <path d="M21 15C21 15.5304 20.7893 16.0391 20.4142 16.4142C20.0391 16.7893 19.5304 17 19 17H7L3 21V5C3 4.46957 3.21071 3.96086 3.58579 3.58579C3.96086 3.21071 4.46957 3 5 3H19C19.5304 3 20.0391 3.21071 20.4142 3.58579C20.7893 3.96086 21 4.46957 21 5V15Z" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
+                              </svg>
+                              <span className="text-sm font-medium ml-4 min-w-0 whitespace-nowrap lg:ml-0 lg:max-w-0 lg:overflow-hidden lg:opacity-0 lg:sidebar-expanded:ml-4 lg:sidebar-expanded:max-w-none lg:sidebar-expanded:overflow-visible lg:sidebar-expanded:opacity-100 2xl:ml-4 2xl:max-w-none 2xl:overflow-visible 2xl:opacity-100 duration-200">
+                                Support Management
+                              </span>
+                            </NavLink>
+                          </SidebarTooltip>
+                        </li>
+                      )}
                       {canManageUsers && (
                         <li>
                           <SidebarTooltip show={showTooltip} label="Users">
@@ -1312,6 +1400,14 @@ function Sidebar({sidebarOpen, setSidebarOpen, variant = "default"}) {
               </div>
             </div>
           </div>
+
+          {/* Collapse hover: overlay on right edge to simulate shrink (matches main content bg) */}
+          {handleHovered && sidebarExpanded && (
+            <div
+              className="absolute right-0 top-0 bottom-0 w-[2px] bg-gray-50 dark:bg-gray-900 pointer-events-none hidden lg:block 2xl:hidden transition-opacity duration-150"
+              aria-hidden
+            />
+          )}
         </div>
 
         {/* Stripe-style edge handle: dark vertical line → bare chevron on hover */}
@@ -1319,21 +1415,25 @@ function Sidebar({sidebarOpen, setSidebarOpen, variant = "default"}) {
           type="button"
           onClick={() => setSidebarExpanded(!sidebarExpanded)}
           aria-label={sidebarExpanded ? "Collapse sidebar" : "Expand sidebar"}
+          onMouseEnter={() => setHandleHovered(true)}
+          onMouseLeave={() => setHandleHovered(false)}
+          onFocus={() => setHandleHovered(true)}
+          onBlur={() => setHandleHovered(false)}
           className="group/handle absolute right-0 top-0 h-full w-7 translate-x-[80%] z-20 hidden lg:flex 2xl:hidden items-center justify-center cursor-col-resize focus:outline-none"
         >
-          {/* Idle state: dark vertical line */}
+          {/* Idle state: dark vertical line (gray-400/60) */}
           <span className="block h-8 w-[3.5px] rounded-full bg-gray-400/60 transition-all duration-150 group-hover/handle:opacity-0 group-focus-visible/handle:opacity-0" />
-          {/* Hover/focus state: bare chevron icon */}
+          {/* Hover/focus state: chevrons same gray as handle but slightly darker (gray-500) */}
           <span className="absolute inset-0 flex items-center justify-center opacity-0 transition-opacity duration-150 group-hover/handle:opacity-100 group-focus-visible/handle:opacity-100">
             {sidebarExpanded ? (
               <ChevronLeft
-                className="h-5 w-5 text-gray-500 group-hover/handle:text-gray-700 transition-colors"
-                strokeWidth={2.5}
+                className="h-6 w-6 text-gray-500 transition-colors duration-150 group-hover/handle:text-gray-600 group-active/handle:text-gray-600"
+                strokeWidth={2}
               />
             ) : (
               <ChevronRight
-                className="h-5 w-5 text-gray-500 group-hover/handle:text-gray-700 transition-colors"
-                strokeWidth={2.5}
+                className="h-6 w-6 text-gray-500 transition-colors duration-150 group-hover/handle:text-gray-600 group-active/handle:text-gray-600"
+                strokeWidth={2}
               />
             )}
           </span>

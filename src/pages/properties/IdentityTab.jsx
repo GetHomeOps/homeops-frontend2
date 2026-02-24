@@ -191,6 +191,7 @@ function IdentityTab({
   addressInputRef,
   placesLoaded,
   placesError,
+  AutocompleteWrapper,
 }) {
   return (
     <div className="space-y-4">
@@ -213,29 +214,57 @@ function IdentityTab({
           </div>
 
           <div className="md:col-span-3">
-            <Field
-              inputRef={addressInputRef}
-              uncontrolled
-              label="Address"
-              name="address"
-              value={
-                propertyData.address ||
-                propertyData.fullAddress ||
-                [
-                  propertyData.address,
-                  propertyData.city,
-                  propertyData.state,
-                  propertyData.zip,
-                ]
-                  .filter(Boolean)
-                  .join(", ") ||
-                ""
-              }
-              placeholder="Start typing an address to search..."
-              required
-              error={errors.address || placesError}
-              hint={placesLoaded ? "Autocomplete active" : undefined}
-            />
+            {AutocompleteWrapper ? (
+              <AutocompleteWrapper>
+                <Field
+                  inputRef={addressInputRef}
+                  uncontrolled
+                  label="Address"
+                  name="address"
+                  value={
+                    propertyData.address ||
+                    propertyData.fullAddress ||
+                    [
+                      propertyData.address,
+                      propertyData.city,
+                      propertyData.state,
+                      propertyData.zip,
+                    ]
+                      .filter(Boolean)
+                      .join(", ") ||
+                    ""
+                  }
+                  placeholder="Start typing an address to search..."
+                  required
+                  error={errors.address || placesError}
+                  hint={placesLoaded ? "Autocomplete active" : undefined}
+                />
+              </AutocompleteWrapper>
+            ) : (
+              <Field
+                inputRef={addressInputRef}
+                uncontrolled
+                label="Address"
+                name="address"
+                value={
+                  propertyData.address ||
+                  propertyData.fullAddress ||
+                  [
+                    propertyData.address,
+                    propertyData.city,
+                    propertyData.state,
+                    propertyData.zip,
+                  ]
+                    .filter(Boolean)
+                    .join(", ") ||
+                  ""
+                }
+                placeholder="Start typing an address to search..."
+                required
+                error={errors.address || placesError}
+                hint={placesLoaded ? "Autocomplete active" : undefined}
+              />
+            )}
           </div>
 
           <div className="md:col-span-2">

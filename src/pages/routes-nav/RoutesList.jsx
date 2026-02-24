@@ -12,6 +12,7 @@ import PublicRoute from "./PublicRoute";
 // Public pages (no sidebar/navbar for unauthenticated users)
 import Signin from "../auth/Signin";
 import Signup from "../auth/Signup";
+import AuthCallback from "../auth/AuthCallback";
 
 // Private pages (sidebar/navbar only when authenticated, guarded by ProtectedRoute)
 import Account from "../accountSettings/Account";
@@ -50,6 +51,8 @@ import GrowthDashboard from "../dashboard/GrowthDashboard";
 import InvitationsList from "../invitations/InvitationsList";
 import BillingPage from "../settings/BillingPage";
 import ConfigurationPage from "../settings/ConfigurationPage";
+import Support from "../support/Support";
+import SupportManagement from "../support/SupportManagement";
 
 function RoutesList() {
   const {currentUser, isLoading} = useAuth();
@@ -83,6 +86,7 @@ function RoutesList() {
           </PublicRoute>
         }
       />
+      <Route path="/auth/callback" element={<AuthCallback />} />
     </>
   );
 
@@ -121,6 +125,7 @@ function RoutesList() {
       <Route path="/:accountUrl/invitations" element={<ProtectedRoute><InvitationsList /></ProtectedRoute>} />
       <Route path="/:accountUrl/settings/billing" element={<ProtectedRoute><BillingPage /></ProtectedRoute>} />
       <Route path="/:accountUrl/settings/configuration" element={<ProtectedRoute><ConfigurationPage /></ProtectedRoute>} />
+      <Route path="/:accountUrl/settings/support" element={<ProtectedRoute><Support /></ProtectedRoute>} />
       <Route
         path="/:accountUrl/contacts"
         element={
@@ -327,6 +332,14 @@ function RoutesList() {
           <ProtectedRoute>
             <SubscriptionProduct />
           </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/:accountUrl/support-management"
+        element={
+          <AdminRoute>
+            <SupportManagement />
+          </AdminRoute>
         }
       />
       <Route

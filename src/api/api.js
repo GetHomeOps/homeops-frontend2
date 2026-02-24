@@ -1,5 +1,6 @@
-const BASE_URL =
+export const API_BASE_URL =
   import.meta.env.VITE_BASE_URL || "http://localhost:3000";
+const BASE_URL = API_BASE_URL;
 
 const TOKEN_STORAGE_KEY = "app-token";
 const REFRESH_TOKEN_STORAGE_KEY = "app-refresh-token";
@@ -116,8 +117,31 @@ class AppApi {
   }
 
   static async login(data) {
-    let res = await this.request(`auth/token`, data, "POST");
+    const res = await this.request(`auth/token`, data, "POST");
+    if (res.mfaRequired && (res.mfaTicket || res.mfaPendingToken)) {
+      return {
+        mfaRequired: true,
+        mfaTicket: res.mfaTicket || res.mfaPendingToken,
+      };
+    }
     return { accessToken: res.accessToken, refreshToken: res.refreshToken };
+  }
+
+  static async verifyMfa(mfaTicket, codeOrBackupCode) {
+    const res = await fetch(`${BASE_URL}/auth/mfa/verify`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${mfaTicket}`,
+      },
+      body: JSON.stringify({ codeOrBackupCode, tokenOrBackupCode: codeOrBackupCode }),
+    });
+    if (!res.ok) {
+      const errBody = await res.json().catch(() => ({}));
+      const message = errBody?.error?.message ?? res.statusText;
+      throw new ApiError(Array.isArray(message) ? message : [message], res.status);
+    }
+    return res.json();
   }
 
   static async signup(data) {
@@ -226,6 +250,24 @@ class AppApi {
 
   static async changePassword(currentPassword, newPassword) {
     return this.request(`auth/change-password`, { currentPassword, newPassword }, "POST");
+  }
+
+  /* --------- MFA --------- */
+
+  static async getMfaStatus() {
+    return this.request("mfa/status");
+  }
+
+  static async mfaSetup() {
+    return this.request("mfa/setup", {}, "POST");
+  }
+
+  static async mfaConfirm(token) {
+    return this.request("mfa/confirm", { token }, "POST");
+  }
+
+  static async mfaDisable({ codeOrBackupCode, password }) {
+    return this.request("mfa/disable", { codeOrBackupCode, password }, "POST");
   }
 
   static async revokeRefreshToken(refreshToken) {
@@ -612,6 +654,38 @@ class AppApi {
 
   static async removeProfessionalPhoto(professionalId, photoId) {
     return this.request(`professionals/${professionalId}/photos/${photoId}`, {}, "DELETE");
+  }
+
+  /* --------- Support Tickets --------- */
+
+  static async createSupportTicket(data) {
+    const res = await this.request("support-tickets", data, "POST");
+    return res.ticket;
+  }
+
+  static async getMySupportTickets() {
+    const res = await this.request("support-tickets/my");
+    return res.tickets ?? [];
+  }
+
+  static async getAllSupportTickets() {
+    const res = await this.request("support-tickets");
+    return res.tickets ?? [];
+  }
+
+  static async getSupportTicket(id) {
+    const res = await this.request(`support-tickets/${id}`);
+    return res.ticket;
+  }
+
+  static async updateSupportTicket(id, data) {
+    const res = await this.request(`support-tickets/${id}`, data, "PATCH");
+    return res.ticket;
+  }
+
+  static async getSupportAssignmentAdmins() {
+    const res = await this.request("support-tickets/assignment-admins");
+    return res.admins ?? [];
   }
 }
 

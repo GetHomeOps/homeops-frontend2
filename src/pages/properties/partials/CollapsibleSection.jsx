@@ -23,6 +23,7 @@ function CollapsibleSection({
   onScheduleInspection,
   progress = {filled: 0, total: 0, percent: 0},
   propertyId,
+  propertyData = {},
   systemsToShow = [],
 }) {
   const isComplete = progress.percent >= 100;
@@ -133,6 +134,7 @@ function CollapsibleSection({
                 onNewInstallChange={onNewInstallChange}
                 onScheduleInspection={onScheduleInspection}
                 propertyId={propertyId}
+                propertyData={propertyData}
                 systemsToShow={systemsToShow}
               />
             </div>
