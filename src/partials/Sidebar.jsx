@@ -23,6 +23,8 @@ function SubmenuFlyout({
   flyoutContent,
   children,
   alignTop = false,
+  alignBottom = false,
+  layoutShiftKey,
 }) {
   const [open, setOpen] = useState(false);
   const [coords, setCoords] = useState({top: 0, left: 0});
@@ -46,16 +48,25 @@ function SubmenuFlyout({
     closeTimeoutRef.current = setTimeout(() => setOpen(false), 150);
   }, [clearCloseTimeout]);
 
-  const [centered, setCentered] = useState(!alignTop);
+  const aligned = alignTop || alignBottom;
+  const [centered, setCentered] = useState(!aligned);
   const updatePosition = useCallback(() => {
     if (!triggerRef.current) return;
     const rect = triggerRef.current.getBoundingClientRect();
     const flyoutGap = 8;
     const left = rect.right + flyoutGap;
-    const top = alignTop ? rect.top : rect.top + rect.height / 2;
+    let top;
+    if (alignBottom) {
+      const flyoutHeight = flyoutRef.current?.offsetHeight || 180;
+      top = rect.bottom - flyoutHeight;
+    } else if (alignTop) {
+      top = rect.top;
+    } else {
+      top = rect.top + rect.height / 2;
+    }
     setCoords({top, left});
-    setCentered(!alignTop);
-  }, [alignTop]);
+    setCentered(!aligned);
+  }, [alignTop, alignBottom, aligned]);
 
   useEffect(() => {
     if (!open || !triggerRef.current || !flyoutRef.current) return;
@@ -64,10 +75,19 @@ function SubmenuFlyout({
     const viewportHeight = window.innerHeight;
     const minTop = 8;
     const maxTop = viewportHeight - flyoutHeight - 8;
+    const flyoutGap = 8;
+    const left = rect.right + flyoutGap;
     let top;
-    if (alignTop) {
-      top = rect.top;
+    if (alignBottom) {
+      top = rect.bottom - flyoutHeight;
       top = Math.max(minTop, Math.min(maxTop, top));
+    } else if (alignTop) {
+      top = rect.top;
+      if (top + flyoutHeight > viewportHeight - 8) {
+        top = Math.max(minTop, rect.top - flyoutHeight);
+      } else {
+        top = Math.max(minTop, Math.min(maxTop, top));
+      }
     } else {
       top = rect.top + rect.height / 2 - flyoutHeight / 2;
       if (top < minTop || top > maxTop) {
@@ -75,8 +95,8 @@ function SubmenuFlyout({
         setCentered(false);
       }
     }
-    setCoords((prev) => ({...prev, top}));
-  }, [open, alignTop]);
+    setCoords({top, left});
+  }, [open, alignTop, alignBottom, layoutShiftKey]);
 
   const handleTriggerEnter = () => {
     clearCloseTimeout();
@@ -108,7 +128,7 @@ function SubmenuFlyout({
           style={{
             top: coords.top,
             left: coords.left,
-            transform: !alignTop && centered ? "translateY(-50%)" : "none",
+            transform: !aligned && centered ? "translateY(-50%)" : "none",
           }}
         >
           <Transition
@@ -145,23 +165,28 @@ function SubmenuFlyout({
 /**
  * Sidebar tooltip — when sidebar is collapsed, shows label on hover.
  */
-function SidebarTooltip({show, label, children}) {
+function SidebarTooltip({show, label, children, layoutShiftKey}) {
   const [open, setOpen] = useState(false);
   const [coords, setCoords] = useState({top: 0, left: 0});
   const triggerRef = useRef(null);
-
-  useEffect(() => {
-    if (!show) setOpen(false);
-  }, [show]);
 
   const updatePosition = useCallback(() => {
     if (!triggerRef.current) return;
     const rect = triggerRef.current.getBoundingClientRect();
     setCoords({
-      top: rect.top + rect.height / 2,
+      top: rect.top,
       left: rect.right + 12,
     });
   }, []);
+
+  useEffect(() => {
+    if (!show) setOpen(false);
+  }, [show]);
+
+  // Re-position when layout shifts (e.g. resize handle hover causes sidebar translate)
+  useEffect(() => {
+    if (show && open) updatePosition();
+  }, [show, open, layoutShiftKey, updatePosition]);
 
   const handleEnter = () => {
     updatePosition();
@@ -186,7 +211,6 @@ function SidebarTooltip({show, label, children}) {
           style={{
             top: coords.top,
             left: coords.left,
-            transform: "translateY(-50%)",
           }}
         >
           <Transition
@@ -344,7 +368,7 @@ function Sidebar({sidebarOpen, setSidebarOpen, variant = "default"}) {
         : `${linkBase} ${linkInactive}`;
 
     return (
-      <SidebarTooltip key={item.id} show={showTooltip} label={item.label}>
+      <SidebarTooltip key={item.id} show={showTooltip} label={item.label} layoutShiftKey={handleHovered}>
         <NavLink
           end
           to={path}
@@ -380,6 +404,7 @@ function Sidebar({sidebarOpen, setSidebarOpen, variant = "default"}) {
         type="button"
         onClick={(e) => {
           if (e.target.closest("a")) return;
+          if (showTooltip) return; // Collapsed: flyout shows submenu, don't expand (avoids layout shift / flyover drop)
           setOpen(!open);
         }}
         aria-label={group.label}
@@ -411,7 +436,7 @@ function Sidebar({sidebarOpen, setSidebarOpen, variant = "default"}) {
     );
 
     const wrapped = flyoutContent ? (
-      <SubmenuFlyout show={showTooltip} title={group.label} flyoutContent={flyoutContent}>
+      <SubmenuFlyout show={showTooltip} title={group.label} flyoutContent={flyoutContent} alignBottom={group.id === "settings"} alignTop={group.id !== "settings"} layoutShiftKey={handleHovered}>
         {button}
       </SubmenuFlyout>
     ) : (
@@ -498,7 +523,7 @@ function Sidebar({sidebarOpen, setSidebarOpen, variant = "default"}) {
   };
 
   return (
-    <div className="min-w-fit">
+    <div className="w-0 shrink-0 lg:w-auto lg:min-w-fit">
       <div
         className={`fixed inset-0 bg-gray-900/30 z-40 lg:hidden lg:z-auto transition-opacity duration-200 ${
           sidebarOpen ? "opacity-100" : "opacity-0 pointer-events-none"
@@ -600,7 +625,7 @@ function Sidebar({sidebarOpen, setSidebarOpen, variant = "default"}) {
           onMouseLeave={() => setHandleHovered(false)}
           onFocus={() => setHandleHovered(true)}
           onBlur={() => setHandleHovered(false)}
-          className="group/handle absolute right-0 top-0 h-full w-7 translate-x-[80%] z-20 hidden lg:flex 2xl:hidden items-center justify-center cursor-col-resize focus:outline-none"
+          className="group/handle absolute right-0 top-1/2 h-16 w-7 -translate-y-1/2 translate-x-[80%] z-50 hidden lg:flex 2xl:hidden items-center justify-center cursor-col-resize focus:outline-none"
         >
           <span className="block h-8 w-[3.5px] rounded-full bg-gray-400/60 transition-all duration-150 group-hover/handle:opacity-0 group-focus-visible/handle:opacity-0" />
           <span className="absolute inset-0 flex items-center justify-center opacity-0 transition-opacity duration-150 group-hover/handle:opacity-100 group-focus-visible/handle:opacity-100">

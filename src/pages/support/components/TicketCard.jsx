@@ -3,21 +3,19 @@ import { format } from "date-fns";
 import StatusBadge, { SUPPORT_STATUS_LABELS, FEEDBACK_STATUS_LABELS } from "./StatusBadge";
 import PriorityBadge from "./PriorityBadge";
 
-/**
- * Reusable ticket card for Kanban columns.
- * Supports both support and feedback ticket types.
- * Entire card is draggable with visual feedback (shadow/elevation) during drag.
- * Click opens the detail panel (ignored when user was dragging).
- */
+const CLICK_THRESHOLD_PX = 5;
+
 function TicketCard({
   ticket,
   onClick,
   onDragStart,
   onDragEnd,
   isDragging,
-  variant = "support", // 'support' | 'feedback'
+  variant = "support",
 }) {
+  const mouseDownPos = useRef(null);
   const didDragRef = useRef(false);
+
   const labels = variant === "feedback" ? FEEDBACK_STATUS_LABELS : SUPPORT_STATUS_LABELS;
   const typeBadgeClass =
     ticket.type === "feedback"
@@ -25,6 +23,11 @@ function TicketCard({
       : "bg-sky-100 dark:bg-sky-900/30 text-sky-800 dark:text-sky-300";
 
   const tierBadgeClass = "bg-gray-100 dark:bg-gray-700/50 text-gray-700 dark:text-gray-300";
+
+  function handleMouseDown(e) {
+    mouseDownPos.current = { x: e.clientX, y: e.clientY };
+    didDragRef.current = false;
+  }
 
   function handleDragStart(e) {
     didDragRef.current = true;
@@ -35,31 +38,36 @@ function TicketCard({
 
   function handleDragEnd(e) {
     onDragEnd?.(e);
-    setTimeout(() => { didDragRef.current = false; }, 0);
   }
 
-  function handleOpenDetail(e) {
-    if (didDragRef.current) return;
+  function handleClick(e) {
+    if (didDragRef.current) {
+      didDragRef.current = false;
+      return;
+    }
+    if (mouseDownPos.current) {
+      const dx = Math.abs(e.clientX - mouseDownPos.current.x);
+      const dy = Math.abs(e.clientY - mouseDownPos.current.y);
+      if (dx > CLICK_THRESHOLD_PX || dy > CLICK_THRESHOLD_PX) return;
+    }
     e.stopPropagation();
     onClick?.();
   }
 
   return (
     <div
-      className="cursor-pointer"
-      onClick={handleOpenDetail}
+      draggable
+      onMouseDown={handleMouseDown}
+      onClick={handleClick}
+      onDragStart={handleDragStart}
+      onDragEnd={handleDragEnd}
+      className={`rounded-lg border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 p-3 cursor-grab active:cursor-grabbing hover:border-gray-300 dark:hover:border-gray-600 transition-all select-none touch-none ${
+        isDragging
+          ? "opacity-90 scale-[1.02] shadow-xl ring-2 ring-violet-400/50 dark:ring-violet-500/50 z-50"
+          : "shadow-sm hover:shadow-md"
+      }`}
     >
-      <div
-        draggable
-        onDragStart={handleDragStart}
-        onDragEnd={handleDragEnd}
-        className={`rounded-lg border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 p-3 cursor-grab active:cursor-grabbing hover:border-gray-300 dark:hover:border-gray-600 transition-all select-none touch-none ${
-          isDragging
-            ? "opacity-90 scale-[1.02] shadow-xl ring-2 ring-violet-400/50 dark:ring-violet-500/50 z-50"
-            : "shadow-sm hover:shadow-md"
-        }`}
-      >
-        <div className="min-w-0">
+      <div className="min-w-0">
         <div className="flex flex-wrap gap-1.5 mb-2">
           <span className={`inline-flex items-center rounded px-1.5 py-0.5 text-xs font-medium capitalize ${typeBadgeClass}`}>
             {ticket.type || variant}
@@ -79,7 +87,6 @@ function TicketCard({
         </p>
         <div className="mt-2">
           <StatusBadge status={ticket.status} labels={labels} />
-        </div>
         </div>
       </div>
     </div>

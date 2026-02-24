@@ -1,4 +1,5 @@
-import React, {useState, useEffect, useMemo, useCallback} from "react";
+import React, {useState, useEffect, useMemo, useCallback, useRef} from "react";
+import {createPortal} from "react-dom";
 import {useNavigate, useParams} from "react-router-dom";
 import useCurrentAccount from "../../../hooks/useCurrentAccount";
 import {
@@ -11,6 +12,8 @@ import {
   Clock,
   Bell,
   Star,
+  MessageSquare,
+  Loader2,
 } from "lucide-react";
 import ModalBlank from "../../../components/ModalBlank";
 import DatePickerInput from "../../../components/DatePickerInput";
@@ -20,14 +23,39 @@ const STEPS = [
   {id: "type", label: "Type"},
   {id: "professional", label: "Professional"},
   {id: "details", label: "Details"},
+  {id: "message", label: "Message"},
 ];
+
+function generateMessageTemplate(propertyName, systemName, date, scheduleType) {
+  const formattedDate = date
+    ? new Date(date).toLocaleDateString("en-US", {
+        weekday: "long",
+        year: "numeric",
+        month: "long",
+        day: "numeric",
+      })
+    : "[date not set]";
+  const action =
+    scheduleType === "inspection"
+      ? "schedule an inspection"
+      : "schedule maintenance";
+  return `Hi,
+
+I'd like to ${action} for the ${systemName} system at ${propertyName || "my property"}.
+
+Proposed date: ${formattedDate}
+
+Please let me know if this works for you, or suggest an alternative time.
+
+Thank you!`;
+}
 
 /* ──────────────────────────── Step Indicator ──────────────────────────── */
 
 function StepIndicator({currentStep, steps}) {
   return (
     <div className="mb-6">
-      <div className="flex items-start">
+      <div className="flex items-center">
         {steps.map((step, idx) => {
           const isActive = idx === currentStep;
           const isCompleted = idx < currentStep;
@@ -35,16 +63,16 @@ function StepIndicator({currentStep, steps}) {
             <React.Fragment key={step.id}>
               {idx > 0 && (
                 <div
-                  className={`flex-shrink-0 h-px w-4 sm:w-8 self-[18px] transition-colors duration-200 ${
+                  className={`flex-shrink-0 h-0.5 w-4 sm:w-8 mx-0.5 self-center transition-colors duration-200 ${
                     idx <= currentStep
                       ? "bg-[#456564]"
                       : "bg-gray-200 dark:bg-gray-600"
                   }`}
                 />
               )}
-              <div className="flex-1 min-w-0 flex flex-col items-center">
+              <div className="flex flex-col items-center flex-shrink-0">
                 <div
-                  className={`w-8 h-8 rounded-full flex items-center justify-center text-sm font-semibold border-2 transition-all duration-200 flex-shrink-0 ${
+                  className={`w-8 h-8 rounded-full flex items-center justify-center text-sm font-semibold border-2 transition-all duration-200 ${
                     isCompleted
                       ? "border-[#456564] bg-[#456564] text-white"
                       : isActive
@@ -59,7 +87,7 @@ function StepIndicator({currentStep, steps}) {
                   )}
                 </div>
                 <span
-                  className={`text-[10px] sm:text-xs font-medium mt-1.5 text-center leading-tight max-w-full truncate px-0.5 ${
+                  className={`text-[10px] sm:text-xs font-medium mt-1.5 text-center leading-tight max-w-[72px] truncate ${
                     isActive || isCompleted
                       ? "text-[#456564] dark:text-[#7aa3a2]"
                       : "text-gray-400 dark:text-gray-500"
@@ -139,6 +167,9 @@ function ProfessionalStep({
   onBrowseDirectory,
   professionalsPath,
 }) {
+  const triggerRef = useRef(null);
+  const [dropdownRect, setDropdownRect] = useState(null);
+
   const filteredContacts = useMemo(() => {
     if (!contacts?.length) return [];
     let list = contacts;
@@ -173,6 +204,117 @@ function ProfessionalStep({
   const showSearchDropdown =
     searchFocused &&
     (suggestedContacts.length > 0 || suggestedSaved.length > 0 || hasSearchQuery);
+
+  useEffect(() => {
+    if (showSearchDropdown && triggerRef.current) {
+      const rect = triggerRef.current.getBoundingClientRect();
+      setDropdownRect({
+        top: rect.bottom + 4,
+        left: rect.left,
+        width: rect.width,
+      });
+    } else {
+      setDropdownRect(null);
+    }
+  }, [showSearchDropdown, suggestedContacts.length, suggestedSaved.length]);
+
+  const dropdownContent = showSearchDropdown && dropdownRect && (
+    <div
+      className="fixed py-2 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-600 rounded-lg shadow-lg z-[250] max-h-64 overflow-y-auto"
+      style={{
+        top: dropdownRect.top,
+        left: dropdownRect.left,
+        width: dropdownRect.width,
+        minWidth: 200,
+      }}
+    >
+      {suggestedContacts.length > 0 && (
+        <div className="px-3 py-1.5">
+          <p className="text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide flex items-center gap-1.5">
+            <Users className="w-3.5 h-3.5" />
+            My Contacts
+          </p>
+          <div className="mt-1 space-y-0.5">
+            {suggestedContacts.map((c) => (
+              <button
+                key={`contact-${c.id}`}
+                type="button"
+                onClick={() => {
+                  setSelectedProfessional({
+                    id: `contact-${c.id}`,
+                    sourceId: c.id,
+                    name: c.name,
+                    source: "contact",
+                  });
+                  setProfessionalSearch("");
+                }}
+                className="w-full flex items-center gap-3 px-3 py-2 rounded-md text-left hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors"
+              >
+                <div className="w-7 h-7 rounded-full bg-gray-200 dark:bg-gray-600 flex items-center justify-center text-xs font-medium text-gray-600 dark:text-gray-300">
+                  {c.name?.charAt(0)?.toUpperCase() || "?"}
+                </div>
+                <div className="min-w-0 flex-1">
+                  <p className="text-sm font-medium text-gray-800 dark:text-gray-200 truncate">
+                    {c.name}
+                  </p>
+                  {(c.phone || c.email) && (
+                    <p className="text-xs text-gray-500 dark:text-gray-400 truncate">
+                      {c.phone || c.email}
+                    </p>
+                  )}
+                </div>
+              </button>
+            ))}
+          </div>
+        </div>
+      )}
+      {suggestedSaved.length > 0 && (
+        <div className={`px-3 py-1.5 ${suggestedContacts.length > 0 ? "border-t border-gray-100 dark:border-gray-700" : ""}`}>
+          <p className="text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide flex items-center gap-1.5">
+            <Star className="w-3.5 h-3.5 text-amber-500" />
+            Saved Professionals
+          </p>
+          <div className="mt-1 space-y-0.5">
+            {suggestedSaved.map((p) => (
+              <button
+                key={`pro-${p.id}`}
+                type="button"
+                onClick={() => {
+                  setSelectedProfessional({
+                    id: `pro-${p.id}`,
+                    sourceId: p.id,
+                    name: proDisplayName(p),
+                    source: "professional",
+                  });
+                  setProfessionalSearch("");
+                }}
+                className="w-full flex items-center gap-3 px-3 py-2 rounded-md text-left hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors"
+              >
+                <div className="w-7 h-7 rounded-full bg-gray-200 dark:bg-gray-600 flex items-center justify-center text-xs font-medium text-gray-600 dark:text-gray-300">
+                  {proDisplayName(p)?.charAt(0)?.toUpperCase() || "?"}
+                </div>
+                <div className="min-w-0 flex-1">
+                  <p className="text-sm font-medium text-gray-800 dark:text-gray-200 truncate">
+                    {proDisplayName(p)}
+                  </p>
+                  {p.category_name && (
+                    <p className="text-xs text-gray-500 dark:text-gray-400 truncate">
+                      {p.category_name}
+                    </p>
+                  )}
+                </div>
+              </button>
+            ))}
+          </div>
+        </div>
+      )}
+      {hasSearchQuery && suggestedContacts.length === 0 && suggestedSaved.length === 0 && (
+        <p className="px-4 py-3 text-sm text-gray-500 dark:text-gray-400">
+          No matches found. Try a different search or browse the directory.
+        </p>
+      )}
+    </div>
+  );
 
   return (
     <div className="space-y-5">
@@ -215,7 +357,7 @@ function ProfessionalStep({
 
       {hasProfessional === true && (
         <div className="space-y-4">
-          <div className="relative">
+          <div className="relative" ref={triggerRef}>
             <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1.5">
               <span className="flex items-center gap-1.5">
                 <Search className="w-4 h-4 text-[#456564]" />
@@ -235,98 +377,7 @@ function ProfessionalStep({
                 autoComplete="off"
               />
             </div>
-            {showSearchDropdown && (
-              <div
-                className="absolute left-0 right-0 mt-1 py-2 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-600 rounded-lg shadow-lg z-[210] max-h-64 overflow-y-auto"
-                style={{top: "100%"}}
-              >
-                {suggestedContacts.length > 0 && (
-                  <div className="px-3 py-1.5">
-                    <p className="text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide flex items-center gap-1.5">
-                      <Users className="w-3.5 h-3.5" />
-                      My Contacts
-                    </p>
-                    <div className="mt-1 space-y-0.5">
-                      {suggestedContacts.map((c) => (
-                        <button
-                          key={`contact-${c.id}`}
-                          type="button"
-                          onClick={() => {
-                            setSelectedProfessional({
-                              id: `contact-${c.id}`,
-                              sourceId: c.id,
-                              name: c.name,
-                              source: "contact",
-                            });
-                            setProfessionalSearch("");
-                          }}
-                          className="w-full flex items-center gap-3 px-3 py-2 rounded-md text-left hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors"
-                        >
-                          <div className="w-7 h-7 rounded-full bg-gray-200 dark:bg-gray-600 flex items-center justify-center text-xs font-medium text-gray-600 dark:text-gray-300">
-                            {c.name?.charAt(0)?.toUpperCase() || "?"}
-                          </div>
-                          <div className="min-w-0 flex-1">
-                            <p className="text-sm font-medium text-gray-800 dark:text-gray-200 truncate">
-                              {c.name}
-                            </p>
-                            {(c.phone || c.email) && (
-                              <p className="text-xs text-gray-500 dark:text-gray-400 truncate">
-                                {c.phone || c.email}
-                              </p>
-                            )}
-                          </div>
-                        </button>
-                      ))}
-                    </div>
-                  </div>
-                )}
-                {suggestedSaved.length > 0 && (
-                  <div className={`px-3 py-1.5 ${suggestedContacts.length > 0 ? "border-t border-gray-100 dark:border-gray-700" : ""}`}>
-                    <p className="text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide flex items-center gap-1.5">
-                      <Star className="w-3.5 h-3.5 text-amber-500" />
-                      Saved Professionals
-                    </p>
-                    <div className="mt-1 space-y-0.5">
-                      {suggestedSaved.map((p) => (
-                        <button
-                          key={`pro-${p.id}`}
-                          type="button"
-                          onClick={() => {
-                            setSelectedProfessional({
-                              id: `pro-${p.id}`,
-                              sourceId: p.id,
-                              name: proDisplayName(p),
-                              source: "professional",
-                            });
-                            setProfessionalSearch("");
-                          }}
-                          className="w-full flex items-center gap-3 px-3 py-2 rounded-md text-left hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors"
-                        >
-                          <div className="w-7 h-7 rounded-full bg-gray-200 dark:bg-gray-600 flex items-center justify-center text-xs font-medium text-gray-600 dark:text-gray-300">
-                            {proDisplayName(p)?.charAt(0)?.toUpperCase() || "?"}
-                          </div>
-                          <div className="min-w-0 flex-1">
-                            <p className="text-sm font-medium text-gray-800 dark:text-gray-200 truncate">
-                              {proDisplayName(p)}
-                            </p>
-                            {p.category_name && (
-                              <p className="text-xs text-gray-500 dark:text-gray-400 truncate">
-                                {p.category_name}
-                              </p>
-                            )}
-                          </div>
-                        </button>
-                      ))}
-                    </div>
-                  </div>
-                )}
-                {hasSearchQuery && suggestedContacts.length === 0 && suggestedSaved.length === 0 && (
-                  <p className="px-4 py-3 text-sm text-gray-500 dark:text-gray-400">
-                    No matches found. Try a different search or browse the directory.
-                  </p>
-                )}
-              </div>
-            )}
+            {createPortal(dropdownContent, document.body)}
           </div>
 
           {selectedProfessional && (
@@ -373,10 +424,6 @@ function DetailsStep({
   setScheduledDate,
   scheduledTime,
   setScheduledTime,
-  notes,
-  setNotes,
-  reminderEnabled,
-  setReminderEnabled,
 }) {
   return (
     <div className="space-y-5">
@@ -401,6 +448,7 @@ function DetailsStep({
             name="scheduledDate"
             value={scheduledDate}
             onChange={(e) => setScheduledDate(e.target.value)}
+            popoverClassName="z-[250]"
           />
         </div>
         <div>
@@ -418,55 +466,137 @@ function DetailsStep({
           />
         </div>
       </div>
+    </div>
+  );
+}
+
+/* ──────────────────── Step 4: Message your contractor ──────────────────── */
+
+const ALERT_OPTIONS = [
+  {id: "1d", label: "1 day before"},
+  {id: "3d", label: "3 days before"},
+  {id: "1w", label: "1 week before"},
+  {id: "2w", label: "2 weeks before"},
+];
+
+function MessageStep({
+  messageBody,
+  setMessageBody,
+  alertEnabled,
+  setAlertEnabled,
+  alertTiming,
+  setAlertTiming,
+  alertDate,
+  setAlertDate,
+  alertTime,
+  setAlertTime,
+}) {
+  return (
+    <div className="space-y-6">
+      <div>
+        <h3 className="text-base font-semibold text-gray-900 dark:text-white mb-1">
+          Message your contractor
+        </h3>
+        <p className="text-sm text-gray-500 dark:text-gray-400">
+          Add a message to send with the scheduling request.
+        </p>
+      </div>
 
       <div>
         <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1.5">
-          Notes (optional)
+          <span className="flex items-center gap-1.5">
+            <MessageSquare className="w-4 h-4 text-[#456564]" />
+            Message
+          </span>
         </label>
         <textarea
-          value={notes}
-          onChange={(e) => setNotes(e.target.value)}
-          placeholder="Add any notes for this appointment..."
-          rows={3}
-          className="form-input w-full resize-none"
+          value={messageBody}
+          onChange={(e) => setMessageBody(e.target.value)}
+          placeholder="Hi, I'd like to schedule..."
+          rows={6}
+          className="form-input w-full resize-none text-sm leading-relaxed"
         />
       </div>
 
-      <div className="flex items-center justify-between p-3 rounded-lg border border-gray-200 dark:border-gray-600 bg-gray-50 dark:bg-gray-700/30">
-        <div className="flex items-center gap-2">
-          <Bell className="w-4 h-4 text-[#456564]" />
-          <div>
-            <p className="text-sm font-medium text-gray-800 dark:text-gray-200">
-              Reminder
-            </p>
-            <p className="text-xs text-gray-500 dark:text-gray-400">
-              24 hours before
-            </p>
+      <div className="border-t border-gray-200 dark:border-gray-700 pt-5">
+        <div className="flex items-center justify-between mb-3">
+          <div className="flex items-center gap-2">
+            <Bell className="w-4 h-4 text-[#456564]" />
+            <span className="text-sm font-medium text-gray-700 dark:text-gray-300">
+              Set up alert/reminder
+            </span>
           </div>
-        </div>
-        <button
-          type="button"
-          role="switch"
-          aria-checked={reminderEnabled}
-          onClick={() => setReminderEnabled(!reminderEnabled)}
-          className={`relative w-11 h-6 rounded-full transition-colors ${
-            reminderEnabled
-              ? "bg-[#456564]"
-              : "bg-gray-300 dark:bg-gray-600"
-          }`}
-        >
-          <span
-            className={`absolute top-1 w-4 h-4 rounded-full bg-white shadow transition-transform ${
-              reminderEnabled ? "left-6" : "left-1"
+          <button
+            type="button"
+            role="switch"
+            aria-checked={alertEnabled}
+            onClick={() => setAlertEnabled(!alertEnabled)}
+            className={`relative w-11 h-6 rounded-full transition-colors ${
+              alertEnabled ? "bg-[#456564]" : "bg-gray-300 dark:bg-gray-600"
             }`}
-          />
-        </button>
+          >
+            <span
+              className={`absolute top-1 w-4 h-4 rounded-full bg-white shadow transition-transform ${
+                alertEnabled ? "left-6" : "left-1"
+              }`}
+            />
+          </button>
+        </div>
+        {alertEnabled && (
+          <div className="space-y-3 mt-3">
+            <div>
+              <label className="block text-xs font-medium text-gray-500 dark:text-gray-400 mb-1">
+                Remind me
+              </label>
+              <select
+                value={alertTiming}
+                onChange={(e) => setAlertTiming(e.target.value)}
+                className="form-select w-full text-sm"
+              >
+                {ALERT_OPTIONS.map((opt) => (
+                  <option key={opt.id} value={opt.id}>
+                    {opt.label}
+                  </option>
+                ))}
+              </select>
+            </div>
+            <div className="grid grid-cols-2 gap-3">
+              <div>
+                <label className="block text-xs font-medium text-gray-500 dark:text-gray-400 mb-1">
+                  Or pick specific date
+                </label>
+                <DatePickerInput
+                  name="alertDate"
+                  value={alertDate}
+                  onChange={(e) => setAlertDate(e.target.value)}
+                  popoverClassName="z-[250]"
+                />
+              </div>
+              <div>
+                <label className="block text-xs font-medium text-gray-500 dark:text-gray-400 mb-1">
+                  Time
+                </label>
+                <input
+                  type="time"
+                  value={alertTime}
+                  onChange={(e) => setAlertTime(e.target.value)}
+                  className="form-input w-full text-sm"
+                />
+              </div>
+            </div>
+          </div>
+        )}
       </div>
     </div>
   );
 }
 
 /* ═══════════════════════════ Main Modal ═══════════════════════════ */
+
+function getCurrentTimeHHMM() {
+  const now = new Date();
+  return `${String(now.getHours()).padStart(2, "0")}:${String(now.getMinutes()).padStart(2, "0")}`;
+}
 
 function ScheduleSystemModal({
   isOpen,
@@ -475,6 +605,8 @@ function ScheduleSystemModal({
   systemType,
   contacts = [],
   onSchedule,
+  propertyId,
+  propertyData = {},
 }) {
   const navigate = useNavigate();
   const {accountUrl: paramAccountUrl} = useParams();
@@ -482,6 +614,7 @@ function ScheduleSystemModal({
   const accountUrl = paramAccountUrl || currentAccount?.url || "";
   const [currentStep, setCurrentStep] = useState(0);
   const [showSuccess, setShowSuccess] = useState(false);
+  const [saving, setSaving] = useState(false);
 
   const [scheduleType, setScheduleType] = useState(null);
   const [hasProfessional, setHasProfessional] = useState(null);
@@ -491,9 +624,17 @@ function ScheduleSystemModal({
 
   const [scheduledDate, setScheduledDate] = useState("");
   const [scheduledTime, setScheduledTime] = useState("");
-  const [notes, setNotes] = useState("");
-  const [reminderEnabled, setReminderEnabled] = useState(true);
+  const [messageBody, setMessageBody] = useState("");
+  const [alertEnabled, setAlertEnabled] = useState(true);
+  const [alertTiming, setAlertTiming] = useState("3d");
+  const [alertDate, setAlertDate] = useState("");
+  const [alertTime, setAlertTime] = useState("");
 
+  const propertyName =
+    propertyData?.propertyName ||
+    propertyData?.name ||
+    propertyData?.identity?.propertyName ||
+    "";
   const professionalsPath = accountUrl ? `/${accountUrl}/professionals` : "/professionals";
 
   useEffect(() => {
@@ -507,16 +648,31 @@ function ScheduleSystemModal({
     if (isOpen) {
       setCurrentStep(0);
       setShowSuccess(false);
+      setSaving(false);
       setScheduleType(null);
       setHasProfessional(null);
       setSelectedProfessional(null);
       setProfessionalSearch("");
       setScheduledDate("");
       setScheduledTime("");
-      setNotes("");
-      setReminderEnabled(true);
+      setMessageBody("");
+      setAlertEnabled(true);
+      setAlertTiming("3d");
+      setAlertDate("");
+      setAlertTime("");
     }
   }, [isOpen]);
+
+  const messageTemplateSetRef = useRef(false);
+  useEffect(() => {
+    if (currentStep === 3 && !messageTemplateSetRef.current) {
+      setMessageBody(
+        generateMessageTemplate(propertyName, systemLabel, scheduledDate, scheduleType),
+      );
+      messageTemplateSetRef.current = true;
+    }
+    if (currentStep !== 3) messageTemplateSetRef.current = false;
+  }, [currentStep, scheduledDate, scheduleType, systemLabel, propertyName]);
 
   const handleBrowseDirectory = useCallback(() => {
     onClose(false);
@@ -542,10 +698,56 @@ function ScheduleSystemModal({
     return true;
   };
 
-  const handleSubmit = () => {
+  const handleSubmit = async () => {
+    const effectiveTime = scheduledTime?.trim() || getCurrentTimeHHMM();
     if (scheduledDate && onSchedule) {
       onSchedule(scheduledDate);
     }
+
+    const propId = propertyId ?? propertyData?.id ?? propertyData?.identity?.id;
+    if (propId && scheduledDate) {
+      let alertTimingVal = "3d";
+      let alertCustomDaysVal = null;
+      if (alertEnabled) {
+        if (alertDate) {
+          const scheduled = new Date(scheduledDate);
+          const alert = new Date(alertDate);
+          const diffMs = scheduled - alert;
+          const diffDays = Math.max(1, Math.floor(diffMs / (24 * 60 * 60 * 1000)));
+          alertTimingVal = "custom";
+          alertCustomDaysVal = diffDays;
+        } else {
+          alertTimingVal = alertTiming;
+        }
+      }
+
+      const eventPayload = {
+        system_key: systemType || "general",
+        system_name: systemLabel,
+        contractor_id: selectedProfessional?.sourceId ?? null,
+        contractor_source: selectedProfessional?.source ?? null,
+        contractor_name: selectedProfessional?.name ?? null,
+        scheduled_date: scheduledDate,
+        scheduled_time: effectiveTime,
+        recurrence_type: "one-time",
+        alert_timing: alertEnabled ? alertTimingVal : "3d",
+        alert_custom_days: alertCustomDaysVal,
+        email_reminder: alertEnabled,
+        message_enabled: !!messageBody?.trim(),
+        message_body: messageBody?.trim() || null,
+        timezone: Intl.DateTimeFormat().resolvedOptions().timeZone,
+      };
+
+      setSaving(true);
+      try {
+        await AppApi.createMaintenanceEvent(propId, eventPayload);
+      } catch (err) {
+        console.error("Failed to create maintenance event:", err);
+      } finally {
+        setSaving(false);
+      }
+    }
+
     setShowSuccess(true);
     setTimeout(() => {
       setShowSuccess(false);
@@ -648,10 +850,20 @@ function ScheduleSystemModal({
               setScheduledDate={setScheduledDate}
               scheduledTime={scheduledTime}
               setScheduledTime={setScheduledTime}
-              notes={notes}
-              setNotes={setNotes}
-              reminderEnabled={reminderEnabled}
-              setReminderEnabled={setReminderEnabled}
+            />
+          )}
+          {currentStep === 3 && (
+            <MessageStep
+              messageBody={messageBody}
+              setMessageBody={setMessageBody}
+              alertEnabled={alertEnabled}
+              setAlertEnabled={setAlertEnabled}
+              alertTiming={alertTiming}
+              setAlertTiming={setAlertTiming}
+              alertDate={alertDate}
+              setAlertDate={setAlertDate}
+              alertTime={alertTime}
+              setAlertTime={setAlertTime}
             />
           )}
         </div>
@@ -677,10 +889,17 @@ function ScheduleSystemModal({
             <button
               type="button"
               onClick={handleSubmit}
-              disabled={!canAdvance()}
-              className="px-4 py-2 rounded-lg text-sm font-medium bg-[#456564] hover:bg-[#34514f] text-white disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+              disabled={!scheduledDate || saving}
+              className="px-4 py-2 rounded-lg text-sm font-medium bg-[#456564] hover:bg-[#34514f] text-white disabled:opacity-50 disabled:cursor-not-allowed transition-colors flex items-center gap-2"
             >
-              Schedule
+              {saving ? (
+                <>
+                  <Loader2 className="w-4 h-4 animate-spin" />
+                  Saving...
+                </>
+              ) : (
+                "Schedule"
+              )}
             </button>
           )}
         </div>

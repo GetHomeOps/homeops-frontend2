@@ -14,6 +14,7 @@ function SystemActionButtons({
   onNewInstallChange,
   onScheduleInspection,
   propertyId,
+  propertyData = {},
   systemsToShow = [],
 }) {
   const [showInstallerCard, setShowInstallerCard] = useState(false);
@@ -122,6 +123,8 @@ function SystemActionButtons({
           systemType={systemType}
           contacts={contacts}
           onSchedule={onScheduleInspection}
+          propertyId={propertyId}
+          propertyData={propertyData}
         />
       </div>
 

@@ -1190,22 +1190,21 @@ function PropertyFormContainer() {
         currentAccount={currentAccount}
         propertyId={
           uid !== "new"
-            ? state.property?.identity?.id ?? state.property?.id ?? uid
+            ? (state.property?.identity?.id ?? state.property?.id ?? uid)
             : null
         }
         systems={state.formData.systems}
         onInvite={async ({email: inviteEmail, role, permissions}) => {
           const propertyId =
             uid !== "new"
-              ? state.property?.identity?.id ?? state.property?.id ?? uid
+              ? (state.property?.identity?.id ?? state.property?.id ?? uid)
               : null;
           if (
             propertyId &&
             currentAccount?.id &&
             typeof AppApi.createInvitation === "function"
           ) {
-            const intendedRole =
-              role === "agent" ? "editor" : "editor";
+            const intendedRole = role === "agent" ? "editor" : "editor";
             await AppApi.createInvitation({
               type: "property",
               inviteeEmail: inviteEmail,
@@ -1397,7 +1396,7 @@ function PropertyFormContainer() {
 
       <div className="flex justify-between items-center mb-2">
         {/* Report and Share buttons - Left aligned (similar to Contact in UserFormContainer) */}
-        <div className="flex items-center gap-3 ml-4">
+        <div className="flex items-center gap-3 sm:ml-4">
           <button
             type="button"
             className="flex items-center gap-2 px-3 py-2 bg-transparent border border-gray-300 dark:border-gray-600 rounded-lg text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-800/50 hover:border-gray-400 dark:hover:border-gray-500 hover:text-gray-900 dark:hover:text-gray-100 transition-all duration-200"

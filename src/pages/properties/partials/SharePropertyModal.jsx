@@ -1,10 +1,4 @@
-import React, {
-  useState,
-  useEffect,
-  useRef,
-  useMemo,
-  useCallback,
-} from "react";
+import React, {useState, useEffect, useRef, useMemo, useCallback} from "react";
 import {
   UserPlus,
   Mail,
@@ -15,6 +9,7 @@ import {
   Home,
   Shield,
   Scale,
+  Briefcase,
 } from "lucide-react";
 import ModalBlank from "../../../components/ModalBlank";
 import {PROPERTY_SYSTEMS} from "../constants/propertySystems";
@@ -23,12 +18,13 @@ const EMAIL_REGEX =
   /^[a-zA-Z0-9.!#$%&'*+/=?^_`{|}~-]+@[a-zA-Z0-9](?:[a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?(?:\.[a-zA-Z0-9](?:[a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?)*$/;
 
 const TABS = [
-  {id: "me", label: "Me", icon: User, description: "Account Owner / creator"},
+  {id: "owner", label: "Owner", icon: User, description: "Property owner"},
+  {id: "agent", label: "Agent", icon: Briefcase, description: "Invite agent"},
   {
     id: "homeowner",
-    label: "Homeowner / Agent",
+    label: "Home Owner",
     icon: Home,
-    description: "Invite with role",
+    description: "Invite home owner",
   },
   {
     id: "insurance",
@@ -160,9 +156,7 @@ function SearchableEmailField({
       return;
     }
     if (e.key === "ArrowDown") {
-      setHighlightIndex((i) =>
-        i < options.length - 1 ? i + 1 : i,
-      );
+      setHighlightIndex((i) => (i < options.length - 1 ? i + 1 : i));
       e.preventDefault();
       return;
     }
@@ -293,11 +287,15 @@ function PermissionToggle({
             onClick={() => onChange(systemId, opt.id)}
             onKeyDown={(e) => {
               if (e.key === "ArrowLeft" && opt.id !== "none") {
-                const idx = PERMISSION_OPTIONS.findIndex((o) => o.id === opt.id);
+                const idx = PERMISSION_OPTIONS.findIndex(
+                  (o) => o.id === opt.id,
+                );
                 if (idx > 0) onChange(systemId, PERMISSION_OPTIONS[idx - 1].id);
               }
               if (e.key === "ArrowRight" && opt.id !== "none") {
-                const idx = PERMISSION_OPTIONS.findIndex((o) => o.id === opt.id);
+                const idx = PERMISSION_OPTIONS.findIndex(
+                  (o) => o.id === opt.id,
+                );
                 if (idx < PERMISSION_OPTIONS.length - 1)
                   onChange(systemId, PERMISSION_OPTIONS[idx + 1].id);
               }
@@ -328,7 +326,7 @@ function SharePropertyModal({
   systems = [],
   onInvite,
 }) {
-  const [activeTab, setActiveTab] = useState("me");
+  const [activeTab, setActiveTab] = useState("owner");
   const [email, setEmail] = useState("");
   const [role, setRole] = useState("homeowner");
   const [permissions, setPermissions] = useState({});
@@ -381,7 +379,7 @@ function SharePropertyModal({
 
   useEffect(() => {
     if (modalOpen) {
-      setActiveTab("me");
+      setActiveTab("owner");
       setEmail("");
       setRole("homeowner");
       setPermissions({});
@@ -389,6 +387,12 @@ function SharePropertyModal({
       setSuccessType(null);
     }
   }, [modalOpen]);
+
+  /* Sync role when switching between Agent and Home Owner tabs */
+  useEffect(() => {
+    if (activeTab === "agent") setRole("agent");
+    if (activeTab === "homeowner") setRole("homeowner");
+  }, [activeTab]);
 
   const handleBlur = useCallback(() => {
     if (effectiveEmail && !EMAIL_REGEX.test(effectiveEmail)) {
@@ -426,7 +430,7 @@ function SharePropertyModal({
 
   const showSuccessOverlay = successType !== null;
   const isComingSoon = activeTab === "insurance" || activeTab === "attorney";
-  const showInviteActions = activeTab === "homeowner";
+  const showInviteActions = activeTab === "homeowner" || activeTab === "agent";
 
   return (
     <ModalBlank
@@ -533,7 +537,7 @@ function SharePropertyModal({
                 </div>
               )}
 
-              {activeTab === "me" && !isComingSoon && (
+              {activeTab === "owner" && !isComingSoon && (
                 <div className="space-y-6">
                   <div className="flex items-center gap-4 p-4 rounded-xl bg-[#456564]/5 dark:bg-[#5a7a78]/10 border border-[#456564]/20 dark:border-[#5a7a78]/30">
                     <div className="w-12 h-12 rounded-full bg-[#456564] dark:bg-[#5a7a78] flex items-center justify-center text-white font-semibold shrink-0">
@@ -547,45 +551,25 @@ function SharePropertyModal({
                         {currentUser?.email}
                       </p>
                       <span className="inline-flex items-center gap-1 mt-1 px-2 py-0.5 rounded-md bg-[#456564]/20 dark:bg-[#5a7a78]/30 text-[#456564] dark:text-[#5a7a78] text-xs font-semibold">
-                        Account Owner
+                        Owner
                       </span>
                     </div>
                   </div>
                   <p className="text-sm text-gray-500 dark:text-gray-400">
-                    You are the account owner and have full access to this property.
+                    You are the property owner and have full access to this
+                    property.
                   </p>
                 </div>
               )}
 
-              {activeTab === "homeowner" && !isComingSoon && (
+              {(activeTab === "homeowner" || activeTab === "agent") &&
+                !isComingSoon && (
                 <div className="space-y-6">
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                      Role
-                    </label>
-                    <div
-                      className="flex rounded-lg p-0.5 bg-gray-100 dark:bg-gray-700/50 border border-gray-200 dark:border-gray-600"
-                      role="radiogroup"
-                      aria-label="Invitee role"
-                    >
-                      {ROLES.map((r) => (
-                        <button
-                          key={r.id}
-                          type="button"
-                          role="radio"
-                          aria-checked={role === r.id}
-                          onClick={() => setRole(r.id)}
-                          className={`flex-1 px-4 py-2.5 text-sm font-medium rounded-md transition-colors ${
-                            role === r.id
-                              ? "bg-white dark:bg-gray-600 text-[#456564] dark:text-[#5a7a78] shadow-sm border border-gray-200 dark:border-gray-500"
-                              : "text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300"
-                          }`}
-                        >
-                          {r.label}
-                        </button>
-                      ))}
-                    </div>
-                  </div>
+                  <p className="text-sm text-gray-500 dark:text-gray-400">
+                    {activeTab === "agent"
+                      ? "Invite an agent to collaborate on this property."
+                      : "Invite a home owner to collaborate on this property."}
+                  </p>
 
                   <div>
                     <label

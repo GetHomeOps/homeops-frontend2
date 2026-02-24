@@ -30,6 +30,7 @@ export default function DatePickerInput({
   className = "form-input w-full",
   placeholder = "",
   disabled = false,
+  popoverClassName,
   ...props
 }) {
   const [open, setOpen] = React.useState(false);
@@ -111,7 +112,7 @@ export default function DatePickerInput({
         </div>
       </PopoverTrigger>
       <PopoverContent
-        className="w-[280px] p-0"
+        className={cn("w-[280px] p-0", popoverClassName)}
         align="start"
         side="bottom"
         sideOffset={4}

@@ -1,4 +1,5 @@
-import React, {useState, useEffect, useMemo, useCallback} from "react";
+import React, {useState, useEffect, useMemo, useCallback, useRef} from "react";
+import {createPortal} from "react-dom";
 import {useNavigate, useParams} from "react-router-dom";
 import {
   X,
@@ -99,7 +100,7 @@ async function getAIMaintenanceAdvice(context) {
 function StepIndicator({currentStep, steps}) {
   return (
     <div className="mb-6">
-      <div className="flex items-start">
+      <div className="flex items-center">
         {steps.map((step, idx) => {
           const isActive = idx === currentStep;
           const isCompleted = idx < currentStep;
@@ -107,16 +108,16 @@ function StepIndicator({currentStep, steps}) {
             <React.Fragment key={step.id}>
               {idx > 0 && (
                 <div
-                  className={`flex-shrink-0 h-px w-4 sm:w-8 self-[18px] transition-colors duration-200 ${
+                  className={`flex-shrink-0 h-0.5 w-4 sm:w-8 mx-0.5 self-center transition-colors duration-200 ${
                     idx <= currentStep
                       ? "bg-[#456564]"
                       : "bg-gray-200 dark:bg-gray-600"
                   }`}
                 />
               )}
-              <div className="flex-1 min-w-0 flex flex-col items-center">
+              <div className="flex flex-col items-center flex-shrink-0">
                 <div
-                  className={`w-8 h-8 rounded-full flex items-center justify-center text-sm font-semibold border-2 transition-all duration-200 flex-shrink-0 ${
+                  className={`w-8 h-8 rounded-full flex items-center justify-center text-sm font-semibold border-2 transition-all duration-200 ${
                     isCompleted
                       ? "border-[#456564] bg-[#456564] text-white"
                       : isActive
@@ -131,7 +132,7 @@ function StepIndicator({currentStep, steps}) {
                   )}
                 </div>
                 <span
-                  className={`text-[10px] sm:text-xs font-medium mt-1.5 text-center leading-tight max-w-full truncate px-0.5 ${
+                  className={`text-[10px] sm:text-xs font-medium mt-1.5 text-center leading-tight max-w-[72px] truncate ${
                     isActive || isCompleted
                       ? "text-[#456564] dark:text-[#7aa3a2]"
                       : "text-gray-400 dark:text-gray-500"
@@ -240,6 +241,8 @@ function ContractorStep({
   const proDisplayName = (p) =>
     p.company_name || `${p.first_name} ${p.last_name}`;
 
+  const triggerRef = useRef(null);
+  const [dropdownRect, setDropdownRect] = useState(null);
   const [searchFocused, setSearchFocused] = useState(false);
   const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
   const isCustomEmail = contractorSearch.trim() && emailRegex.test(contractorSearch.trim());
@@ -251,6 +254,150 @@ function ContractorStep({
       suggestedFavorites.length > 0 ||
       isCustomEmail ||
       (!!contractorSearch && suggestedContacts.length === 0 && suggestedFavorites.length === 0));
+
+  useEffect(() => {
+    if (showSearchDropdown && triggerRef.current) {
+      const rect = triggerRef.current.getBoundingClientRect();
+      setDropdownRect({
+        top: rect.bottom + 4,
+        left: rect.left,
+        width: rect.width,
+      });
+    } else {
+      setDropdownRect(null);
+    }
+  }, [showSearchDropdown, suggestedContacts.length, suggestedFavorites.length, isCustomEmail]);
+
+  const dropdownContent = showSearchDropdown && dropdownRect && (
+    <div
+      className="fixed py-2 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-600 rounded-lg shadow-lg z-[250] max-h-64 overflow-y-auto"
+      style={{
+        top: dropdownRect.top,
+        left: dropdownRect.left,
+        width: dropdownRect.width,
+        minWidth: 200,
+      }}
+    >
+      {suggestedContacts.length > 0 && (
+        <div className="px-3 py-1.5">
+          <p className="text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide flex items-center gap-1.5">
+            <Users className="w-3.5 h-3.5" />
+            My Contacts
+          </p>
+          <div className="mt-1 space-y-0.5">
+            {suggestedContacts.map((c) => (
+              <button
+                key={`sug-contact-${c.id}`}
+                type="button"
+                onClick={() => {
+                  setSelectedContractor({
+                    id: `contact-${c.id}`,
+                    sourceId: c.id,
+                    name: c.name,
+                    source: "contact",
+                  });
+                  setContractorSearch("");
+                }}
+                className="w-full flex items-center gap-3 px-3 py-2 rounded-md text-left hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors"
+              >
+                <div className="w-7 h-7 rounded-full bg-gray-200 dark:bg-gray-600 flex items-center justify-center text-xs font-medium text-gray-600 dark:text-gray-300">
+                  {c.name?.charAt(0)?.toUpperCase() || "?"}
+                </div>
+                <div className="min-w-0 flex-1">
+                  <p className="text-sm font-medium text-gray-800 dark:text-gray-200 truncate">
+                    {c.name}
+                  </p>
+                  {(c.phone || c.email) && (
+                    <p className="text-xs text-gray-500 dark:text-gray-400 truncate">
+                      {c.phone || c.email}
+                    </p>
+                  )}
+                </div>
+              </button>
+            ))}
+          </div>
+        </div>
+      )}
+      {suggestedFavorites.length > 0 && (
+        <div className={`px-3 py-1.5 ${suggestedContacts.length > 0 ? "border-t border-gray-100 dark:border-gray-700" : ""}`}>
+          <p className="text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide flex items-center gap-1.5">
+            <Star className="w-3.5 h-3.5 text-amber-500" />
+            Favorite Professionals
+          </p>
+          <div className="mt-1 space-y-0.5">
+            {suggestedFavorites.map((p) => (
+              <button
+                key={`sug-pro-${p.id}`}
+                type="button"
+                onClick={() => {
+                  setSelectedContractor({
+                    id: `pro-${p.id}`,
+                    sourceId: p.id,
+                    name: proDisplayName(p),
+                    source: "professional",
+                  });
+                  setContractorSearch("");
+                }}
+                className="w-full flex items-center gap-3 px-3 py-2 rounded-md text-left hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors"
+              >
+                <div className="w-7 h-7 rounded-full bg-gray-200 dark:bg-gray-600 flex items-center justify-center text-xs font-medium text-gray-600 dark:text-gray-300">
+                  {proDisplayName(p)?.charAt(0)?.toUpperCase() || "?"}
+                </div>
+                <div className="min-w-0 flex-1">
+                  <p className="text-sm font-medium text-gray-800 dark:text-gray-200 truncate">
+                    {proDisplayName(p)}
+                  </p>
+                  {p.category_name && (
+                    <p className="text-xs text-gray-500 dark:text-gray-400 truncate">
+                      {p.category_name}
+                    </p>
+                  )}
+                </div>
+              </button>
+            ))}
+          </div>
+        </div>
+      )}
+      {isCustomEmail && (
+        <div className="px-3 py-1.5 border-t border-gray-100 dark:border-gray-700">
+          <button
+            type="button"
+            onClick={() => {
+              setSelectedContractor({
+                id: "custom-email",
+                sourceId: null,
+                name: contractorSearch.trim(),
+                email: contractorSearch.trim(),
+                source: "custom",
+              });
+              setContractorSearch("");
+            }}
+            className="w-full flex items-center gap-3 px-3 py-2 rounded-md text-left hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors"
+          >
+            <div className="w-7 h-7 rounded-full bg-[#456564]/20 flex items-center justify-center">
+              <Mail className="w-3.5 h-3.5 text-[#456564] dark:text-[#7aa3a2]" />
+            </div>
+            <div className="min-w-0 flex-1">
+              <p className="text-sm font-medium text-gray-800 dark:text-gray-200">
+                Use email: {contractorSearch.trim()}
+              </p>
+              <p className="text-xs text-gray-500 dark:text-gray-400">
+                Add as contractor (not in contacts)
+              </p>
+            </div>
+          </button>
+        </div>
+      )}
+      {contractorSearch &&
+        suggestedContacts.length === 0 &&
+        suggestedFavorites.length === 0 &&
+        !isCustomEmail && (
+          <p className="px-4 py-3 text-sm text-gray-500 dark:text-gray-400">
+            No matches. Type a valid email to add as contractor.
+          </p>
+        )}
+    </div>
+  );
 
   return (
     <div className="space-y-5">
@@ -296,7 +443,7 @@ function ContractorStep({
       {hasContractor === true && (
         <div className="space-y-4">
           {/* Search bar with dropdown suggestions */}
-          <div className="relative">
+          <div className="relative" ref={triggerRef}>
             <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1.5">
               <span className="flex items-center gap-1.5">
                 <Search className="w-4 h-4 text-[#456564]" />
@@ -308,143 +455,18 @@ function ContractorStep({
               <input
                 type="text"
                 value={contractorSearch}
-              onChange={(e) => setContractorSearch(e.target.value)}
-              onFocus={(e) => {
-                setSearchFocused(true);
-                e.target.select?.();
-              }}
-              onBlur={() => setTimeout(() => setSearchFocused(false), 150)}
-              placeholder="Search by name or type any email..."
+                onChange={(e) => setContractorSearch(e.target.value)}
+                onFocus={(e) => {
+                  setSearchFocused(true);
+                  e.target.select?.();
+                }}
+                onBlur={() => setTimeout(() => setSearchFocused(false), 150)}
+                placeholder="Search by name or type any email..."
                 className="form-input w-full pl-9 text-sm"
                 autoComplete="off"
               />
             </div>
-            {/* Dropdown suggestions */}
-            {showSearchDropdown && (
-              <div
-                className="absolute left-0 right-0 mt-1 py-2 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-600 rounded-lg shadow-lg z-[210] max-h-64 overflow-y-auto"
-                style={{top: "100%"}}
-              >
-                {suggestedContacts.length > 0 && (
-                  <div className="px-3 py-1.5">
-                    <p className="text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide flex items-center gap-1.5">
-                      <Users className="w-3.5 h-3.5" />
-                      My Contacts
-                    </p>
-                    <div className="mt-1 space-y-0.5">
-                      {suggestedContacts.map((c) => (
-                        <button
-                          key={`sug-contact-${c.id}`}
-                          type="button"
-                          onClick={() => {
-                            setSelectedContractor({
-                              id: `contact-${c.id}`,
-                              sourceId: c.id,
-                              name: c.name,
-                              source: "contact",
-                            });
-                            setContractorSearch("");
-                          }}
-                          className="w-full flex items-center gap-3 px-3 py-2 rounded-md text-left hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors"
-                        >
-                          <div className="w-7 h-7 rounded-full bg-gray-200 dark:bg-gray-600 flex items-center justify-center text-xs font-medium text-gray-600 dark:text-gray-300">
-                            {c.name?.charAt(0)?.toUpperCase() || "?"}
-                          </div>
-                          <div className="min-w-0 flex-1">
-                            <p className="text-sm font-medium text-gray-800 dark:text-gray-200 truncate">
-                              {c.name}
-                            </p>
-                            {(c.phone || c.email) && (
-                              <p className="text-xs text-gray-500 dark:text-gray-400 truncate">
-                                {c.phone || c.email}
-                              </p>
-                            )}
-                          </div>
-                        </button>
-                      ))}
-                    </div>
-                  </div>
-                )}
-                {suggestedFavorites.length > 0 && (
-                  <div className="px-3 py-1.5 border-t border-gray-100 dark:border-gray-700">
-                    <p className="text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide flex items-center gap-1.5">
-                      <Star className="w-3.5 h-3.5 text-amber-500" />
-                      Favorite Professionals
-                    </p>
-                    <div className="mt-1 space-y-0.5">
-                      {suggestedFavorites.map((p) => (
-                        <button
-                          key={`sug-pro-${p.id}`}
-                          type="button"
-                          onClick={() => {
-                            setSelectedContractor({
-                              id: `pro-${p.id}`,
-                              sourceId: p.id,
-                              name: proDisplayName(p),
-                              source: "professional",
-                            });
-                            setContractorSearch("");
-                          }}
-                          className="w-full flex items-center gap-3 px-3 py-2 rounded-md text-left hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors"
-                        >
-                          <div className="w-7 h-7 rounded-full bg-gray-200 dark:bg-gray-600 flex items-center justify-center text-xs font-medium text-gray-600 dark:text-gray-300">
-                            {proDisplayName(p)?.charAt(0)?.toUpperCase() || "?"}
-                          </div>
-                          <div className="min-w-0 flex-1">
-                            <p className="text-sm font-medium text-gray-800 dark:text-gray-200 truncate">
-                              {proDisplayName(p)}
-                            </p>
-                            {p.category_name && (
-                              <p className="text-xs text-gray-500 dark:text-gray-400 truncate">
-                                {p.category_name}
-                              </p>
-                            )}
-                          </div>
-                        </button>
-                      ))}
-                    </div>
-                  </div>
-                )}
-                {isCustomEmail && (
-                  <div className="px-3 py-1.5 border-t border-gray-100 dark:border-gray-700">
-                    <button
-                      type="button"
-                      onClick={() => {
-                        setSelectedContractor({
-                          id: "custom-email",
-                          sourceId: null,
-                          name: contractorSearch.trim(),
-                          email: contractorSearch.trim(),
-                          source: "custom",
-                        });
-                        setContractorSearch("");
-                      }}
-                      className="w-full flex items-center gap-3 px-3 py-2 rounded-md text-left hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors"
-                    >
-                      <div className="w-7 h-7 rounded-full bg-[#456564]/20 flex items-center justify-center">
-                        <Mail className="w-3.5 h-3.5 text-[#456564] dark:text-[#7aa3a2]" />
-                      </div>
-                      <div className="min-w-0 flex-1">
-                        <p className="text-sm font-medium text-gray-800 dark:text-gray-200">
-                          Use email: {contractorSearch.trim()}
-                        </p>
-                        <p className="text-xs text-gray-500 dark:text-gray-400">
-                          Add as contractor (not in contacts)
-                        </p>
-                      </div>
-                    </button>
-                  </div>
-                )}
-                {contractorSearch &&
-                  suggestedContacts.length === 0 &&
-                  suggestedFavorites.length === 0 &&
-                  !isCustomEmail && (
-                    <p className="px-4 py-3 text-sm text-gray-500 dark:text-gray-400">
-                      No matches. Type a valid email to add as contractor.
-                    </p>
-                  )}
-              </div>
-            )}
+            {createPortal(dropdownContent, document.body)}
           </div>
 
           {/* Selected contractor display */}
@@ -1040,7 +1062,12 @@ function MaintenanceScheduleModal({
       contractor_source: selectedContractor?.source ?? null,
       contractor_name: selectedContractor?.name ?? null,
       scheduled_date: scheduledDate,
-      scheduled_time: scheduledTime || null,
+      scheduled_time: (() => {
+        const t = scheduledTime?.trim();
+        if (t) return t;
+        const n = new Date();
+        return `${String(n.getHours()).padStart(2, "0")}:${String(n.getMinutes()).padStart(2, "0")}`;
+      })(),
       recurrence_type: recurrenceType,
       recurrence_interval_value:
         recurrenceType === "custom" ? customIntervalValue : null,
