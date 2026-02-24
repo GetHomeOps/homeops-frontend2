@@ -7,6 +7,7 @@ import {API_BASE_URL} from "../../api/api";
 import "../../i18n";
 
 import Logo from "../../images/logo-no-bg.png";
+import MountRainier from "../../images/MountRainier.png";
 
 function Signin() {
   const navigate = useNavigate();
@@ -116,8 +117,15 @@ function Signin() {
   }
 
   return (
-    <main className="min-h-[100dvh] bg-gray-50 dark:bg-gray-900 flex flex-col">
-      <div className="flex-1 flex flex-col items-center justify-center px-4 py-8">
+    <main className="min-h-[100dvh] flex flex-col relative overflow-hidden">
+      {/* Blurred backdrop */}
+      <div
+        className="absolute inset-0 bg-cover bg-center bg-no-repeat"
+        style={{ backgroundImage: `url(${MountRainier})` }}
+      />
+      <div className="absolute inset-0 bg-white/30 dark:bg-gray-900/30" />
+
+      <div className="relative flex-1 flex flex-col items-center justify-center px-4 py-8">
         <div className="w-full max-w-sm">
           <div className="flex justify-center mb-8">
             <Link className="block" to="/">

@@ -432,12 +432,25 @@ function SharePropertyModal({
   const isComingSoon = activeTab === "insurance" || activeTab === "attorney";
   const showInviteActions = activeTab === "homeowner" || activeTab === "agent";
 
+  /* If you are an agent, show only Home Owner to invite (not Agent). If homeowner, show only Agent (not Home Owner). */
+  const currentRole = (currentUser?.role ?? "").toLowerCase();
+  const isAgent = ["agent", "admin", "super_admin"].includes(currentRole);
+  const isHomeowner = currentRole === "homeowner";
+  const visibleTabs = useMemo(() => {
+    return TABS.filter((tab) => {
+      if (tab.disabled) return true;
+      if (tab.id === "agent" && isAgent) return false; /* Agent cannot invite another agent */
+      if (tab.id === "homeowner" && isHomeowner) return false; /* Homeowner cannot invite another homeowner */
+      return true;
+    });
+  }, [isAgent, isHomeowner]);
+
   return (
     <ModalBlank
       id="share-property-modal"
       modalOpen={modalOpen}
       setModalOpen={setModalOpen}
-      contentClassName="max-w-lg min-w-[20rem] max-h-[90vh] flex flex-col"
+      contentClassName="max-w-2xl min-w-[24rem] max-h-[90vh] flex flex-col"
     >
       <div
         className={`relative flex flex-col flex-1 min-h-0 overflow-hidden ${
@@ -494,7 +507,7 @@ function SharePropertyModal({
 
             {/* Tabs */}
             <div className="flex border-b border-gray-200 dark:border-gray-700 overflow-x-auto shrink-0">
-              {TABS.map((tab) => {
+              {visibleTabs.map((tab) => {
                 const Icon = tab.icon;
                 return (
                   <button
