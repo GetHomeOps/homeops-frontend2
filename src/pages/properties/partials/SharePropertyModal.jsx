@@ -10,6 +10,9 @@ import {
   Shield,
   Scale,
   Briefcase,
+  Settings,
+  Wrench,
+  FileText,
 } from "lucide-react";
 import ModalBlank from "../../../components/ModalBlank";
 import {PROPERTY_SYSTEMS} from "../constants/propertySystems";
@@ -51,6 +54,25 @@ const PERMISSION_OPTIONS = [
   {id: "edit", label: "Edit"},
   {id: "view", label: "View"},
   {id: "none", label: "None"},
+];
+
+/** Max homeowner/household slots per plan (owner + co-owners + view-only). Free: 1 owner only; Maintain: 2; Win: unlimited. */
+const HOMEOWNER_SLOT_LIMITS = {
+  free: 1,
+  maintain: 2,
+  win: null, /* unlimited */
+};
+
+const HOMEOWNER_INVITE_TYPES = [
+  {id: "co_owner", label: "Co-owner", description: "Full edit access"},
+  {id: "view_only", label: "View-only household member", description: "View access only"},
+];
+
+/** Access sections for permission toggles (Systems, Maintenance, Docs) */
+const ACCESS_SECTIONS = [
+  {id: "systems", label: "Systems", icon: Settings},
+  {id: "maintenance", label: "Maintenance", icon: Wrench},
+  {id: "documents", label: "Docs", icon: FileText},
 ];
 
 function SearchableEmailField({
@@ -261,23 +283,25 @@ function PermissionToggle({
   onChange,
   systemId,
   systemName,
+  icon: Icon,
   "aria-label": ariaLabel,
 }) {
   return (
     <div
-      className="flex items-center justify-between gap-3 py-2.5 pl-3 pr-2 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700/30 transition-colors"
+      className="flex items-center justify-between gap-4"
       role="group"
       aria-label={ariaLabel}
     >
-      <span className="text-sm text-gray-700 dark:text-gray-300 truncate">
+      <span className="flex items-center gap-2 text-sm font-medium text-gray-700 dark:text-gray-300 truncate shrink-0">
+        {Icon && <Icon className="w-4 h-4 text-[#456564] dark:text-[#5a7a78]" />}
         {systemName}
       </span>
       <div
-        className="flex rounded-lg p-0.5 bg-gray-100 dark:bg-gray-700/50 border border-gray-200 dark:border-gray-600 shrink-0"
+        className="inline-flex rounded-lg overflow-hidden border border-gray-200 dark:border-gray-600 shrink-0"
         role="radiogroup"
         aria-label={`${systemName} permission`}
       >
-        {PERMISSION_OPTIONS.map((opt) => (
+        {PERMISSION_OPTIONS.map((opt, idx) => (
           <button
             key={opt.id}
             type="button"
@@ -286,24 +310,17 @@ function PermissionToggle({
             tabIndex={value === opt.id ? 0 : -1}
             onClick={() => onChange(systemId, opt.id)}
             onKeyDown={(e) => {
-              if (e.key === "ArrowLeft" && opt.id !== "none") {
-                const idx = PERMISSION_OPTIONS.findIndex(
-                  (o) => o.id === opt.id,
-                );
-                if (idx > 0) onChange(systemId, PERMISSION_OPTIONS[idx - 1].id);
-              }
-              if (e.key === "ArrowRight" && opt.id !== "none") {
-                const idx = PERMISSION_OPTIONS.findIndex(
-                  (o) => o.id === opt.id,
-                );
-                if (idx < PERMISSION_OPTIONS.length - 1)
-                  onChange(systemId, PERMISSION_OPTIONS[idx + 1].id);
-              }
+              if (e.key === "ArrowLeft" && idx > 0)
+                onChange(systemId, PERMISSION_OPTIONS[idx - 1].id);
+              if (e.key === "ArrowRight" && idx < PERMISSION_OPTIONS.length - 1)
+                onChange(systemId, PERMISSION_OPTIONS[idx + 1].id);
             }}
-            className={`px-3 py-1.5 text-xs font-medium rounded-md transition-colors ${
+            className={`px-4 py-2 text-xs font-medium transition-colors ${
+              idx > 0 ? "border-l border-gray-200 dark:border-gray-600" : ""
+            } ${
               value === opt.id
-                ? "bg-white dark:bg-gray-600 text-[#456564] dark:text-[#5a7a78] shadow-sm border border-gray-200 dark:border-gray-500"
-                : "text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300"
+                ? "bg-[#456564] dark:bg-[#5a7a78] text-white"
+                : "bg-white dark:bg-gray-800 text-gray-600 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-700/50"
             }`}
           >
             {opt.label}
@@ -319,6 +336,7 @@ function SharePropertyModal({
   setModalOpen,
   propertyAddress = "",
   contacts = [],
+  users = [],
   teamMembers = [],
   currentUser,
   currentAccount,
@@ -329,27 +347,17 @@ function SharePropertyModal({
   const [activeTab, setActiveTab] = useState("owner");
   const [email, setEmail] = useState("");
   const [role, setRole] = useState("homeowner");
+  const [homeownerInviteType, setHomeownerInviteType] = useState("co_owner");
   const [permissions, setPermissions] = useState({});
   const [emailError, setEmailError] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [successType, setSuccessType] = useState(null);
 
-  const allSystems = useMemo(() => {
+  const allSystemIds = useMemo(() => {
     const selectedIds = systems?.selectedSystemIds ?? [];
     const customNames = systems?.customSystemNames ?? [];
-    const predefined =
-      selectedIds.length > 0
-        ? selectedIds
-            .map((id) => {
-              const sys = PROPERTY_SYSTEMS.find((s) => s.id === id);
-              return sys ? {id: sys.id, name: sys.name} : null;
-            })
-            .filter(Boolean)
-        : PROPERTY_SYSTEMS.map((s) => ({id: s.id, name: s.name}));
-    const custom = customNames.map((name) => ({
-      id: `custom-${name}`,
-      name,
-    }));
+    const predefined = selectedIds.length > 0 ? selectedIds : PROPERTY_SYSTEMS.map((s) => s.id);
+    const custom = customNames.map((name) => `custom-${name}`);
     return [...predefined, ...custom];
   }, [systems?.selectedSystemIds, systems?.customSystemNames]);
 
@@ -357,23 +365,20 @@ function SharePropertyModal({
   const isValidEmail = EMAIL_REGEX.test(effectiveEmail);
   const canSubmit = isValidEmail && !emailError;
 
-  const applyToAll = useCallback(
-    (perm) => {
-      const next = {};
-      allSystems.forEach((s) => {
-        next[s.id] = perm;
-      });
-      setPermissions(next);
-    },
-    [allSystems],
-  );
+  const applyToAll = useCallback((perm) => {
+    const next = {};
+    ACCESS_SECTIONS.forEach((s) => {
+      next[s.id] = perm;
+    });
+    setPermissions(next);
+  }, []);
 
-  const handlePermissionChange = useCallback((systemId, value) => {
-    setPermissions((prev) => ({...prev, [systemId]: value}));
+  const handlePermissionChange = useCallback((sectionId, value) => {
+    setPermissions((prev) => ({...prev, [sectionId]: value}));
   }, []);
 
   const getPermission = useCallback(
-    (systemId) => permissions[systemId] ?? "none",
+    (sectionId) => permissions[sectionId] ?? "none",
     [permissions],
   );
 
@@ -382,6 +387,7 @@ function SharePropertyModal({
       setActiveTab("owner");
       setEmail("");
       setRole("homeowner");
+      setHomeownerInviteType("co_owner");
       setPermissions({});
       setEmailError("");
       setSuccessType(null);
@@ -394,6 +400,37 @@ function SharePropertyModal({
     if (activeTab === "homeowner") setRole("homeowner");
   }, [activeTab]);
 
+  /* Homeowner slot limits by plan */
+  const currentRole = (currentUser?.role ?? "").toLowerCase();
+  const isAgent = ["agent", "admin", "super_admin"].includes(currentRole);
+  const isAdminOrSuperAdmin = ["admin", "super_admin"].includes(currentRole);
+
+  /* For admin/super_admin only: merge existing users (with emails) into contacts for the email field */
+  const effectiveContacts = useMemo(() => {
+    if (!isAdminOrSuperAdmin || !users?.length) return contacts;
+    const contactEmails = new Set(
+      (contacts ?? []).map((c) => (c.email ?? "").trim().toLowerCase()).filter(Boolean),
+    );
+    const usersAsContacts = (users ?? [])
+      .filter((u) => u.email?.trim())
+      .filter((u) => !contactEmails.has(u.email.trim().toLowerCase()))
+      .map((u) => ({
+        id: u.id,
+        name: u.name ?? u.email,
+        email: u.email?.trim() ?? u.email,
+      }));
+    return [...(contacts ?? []), ...usersAsContacts];
+  }, [contacts, users, isAdminOrSuperAdmin]);
+  const isHomeowner = currentRole === "homeowner";
+  const subscriptionTier = (currentUser?.subscriptionTier ?? currentUser?.subscription_tier ?? "free").toLowerCase();
+  const maxHomeownerSlots = HOMEOWNER_SLOT_LIMITS[subscriptionTier] ?? HOMEOWNER_SLOT_LIMITS.free;
+  const homeownerCount = useMemo(() => {
+    return (teamMembers ?? []).filter(
+      (m) => (m.role ?? "").toLowerCase() === "homeowner" || m._pending,
+    ).length;
+  }, [teamMembers]);
+  const atHomeownerLimit = maxHomeownerSlots != null && homeownerCount >= maxHomeownerSlots;
+
   const handleBlur = useCallback(() => {
     if (effectiveEmail && !EMAIL_REGEX.test(effectiveEmail)) {
       setEmailError("Please enter a valid email address.");
@@ -404,16 +441,31 @@ function SharePropertyModal({
 
   const handleInvite = async () => {
     if (!canSubmit || isSubmitting) return;
+    if (activeTab === "homeowner" && atHomeownerLimit) return;
     setEmailError("");
     setIsSubmitting(true);
     try {
       const perSystemPerms = {};
-      allSystems.forEach((s) => {
-        perSystemPerms[s.id] = getPermission(s.id);
-      });
+      const isViewOnly = activeTab === "homeowner" && homeownerInviteType === "view_only";
+      if (isViewOnly) {
+        ACCESS_SECTIONS.forEach((s) => {
+          perSystemPerms[s.id] = "view";
+        });
+        allSystemIds.forEach((id) => {
+          perSystemPerms[id] = "view";
+        });
+      } else {
+        ACCESS_SECTIONS.forEach((s) => {
+          perSystemPerms[s.id] = getPermission(s.id);
+        });
+        allSystemIds.forEach((id) => {
+          perSystemPerms[id] = getPermission("systems");
+        });
+      }
       await onInvite?.({
         email: effectiveEmail,
         role,
+        homeownerInviteType: activeTab === "homeowner" ? homeownerInviteType : undefined,
         permissions: perSystemPerms,
       });
       setSuccessType("invite");
@@ -432,18 +484,15 @@ function SharePropertyModal({
   const isComingSoon = activeTab === "insurance" || activeTab === "attorney";
   const showInviteActions = activeTab === "homeowner" || activeTab === "agent";
 
-  /* If you are an agent, show only Home Owner to invite (not Agent). If homeowner, show only Agent (not Home Owner). */
-  const currentRole = (currentUser?.role ?? "").toLowerCase();
-  const isAgent = ["agent", "admin", "super_admin"].includes(currentRole);
-  const isHomeowner = currentRole === "homeowner";
+  /* Regular agents see only Home Owner tab; admin/super_admin see both Agent and Home Owner; homeowners see both. */
+  const isRegularAgent = currentRole === "agent";
   const visibleTabs = useMemo(() => {
     return TABS.filter((tab) => {
       if (tab.disabled) return true;
-      if (tab.id === "agent" && isAgent) return false; /* Agent cannot invite another agent */
-      if (tab.id === "homeowner" && isHomeowner) return false; /* Homeowner cannot invite another homeowner */
+      if (tab.id === "agent" && isRegularAgent) return false; /* Regular agent cannot invite another agent */
       return true;
     });
-  }, [isAgent, isHomeowner]);
+  }, [isRegularAgent]);
 
   return (
     <ModalBlank
@@ -506,7 +555,7 @@ function SharePropertyModal({
             </div>
 
             {/* Tabs */}
-            <div className="flex border-b border-gray-200 dark:border-gray-700 overflow-x-auto shrink-0">
+            <div className="flex border-b border-gray-200 dark:border-gray-700 overflow-x-auto shrink-0 mx-6 md:mx-8">
               {visibleTabs.map((tab) => {
                 const Icon = tab.icon;
                 return (
@@ -578,11 +627,46 @@ function SharePropertyModal({
               {(activeTab === "homeowner" || activeTab === "agent") &&
                 !isComingSoon && (
                 <div className="space-y-6">
+                  {activeTab === "homeowner" && atHomeownerLimit && maxHomeownerSlots != null && (
+                    <div className="p-4 rounded-xl bg-gray-100 dark:bg-gray-700/50 border border-gray-200 dark:border-gray-600 text-sm text-gray-700 dark:text-gray-300">
+                      You&apos;ve reached your plan limit for household members ({homeownerCount} of {maxHomeownerSlots}). Upgrade your plan to add more.
+                    </div>
+                  )}
                   <p className="text-sm text-gray-500 dark:text-gray-400">
                     {activeTab === "agent"
                       ? "Invite an agent to collaborate on this property."
-                      : "Invite a home owner to collaborate on this property."}
+                      : isHomeowner
+                        ? "Add a co-owner or view-only household member."
+                        : "Invite a home owner to collaborate on this property."}
                   </p>
+
+                  {activeTab === "homeowner" && isHomeowner && (
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                        Type
+                      </label>
+                      <div className="flex gap-3 flex-wrap">
+                        {HOMEOWNER_INVITE_TYPES.map((opt) => (
+                          <button
+                            key={opt.id}
+                            type="button"
+                            onClick={() => setHomeownerInviteType(opt.id)}
+                            disabled={atHomeownerLimit}
+                            className={`px-4 py-2.5 rounded-lg text-sm font-medium transition-colors ${
+                              homeownerInviteType === opt.id
+                                ? "bg-[#456564] dark:bg-[#5a7a78] text-white"
+                                : "bg-gray-100 dark:bg-gray-700/50 text-gray-700 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-700"
+                            } ${atHomeownerLimit ? "opacity-50 cursor-not-allowed" : ""}`}
+                          >
+                            <span className="block">{opt.label}</span>
+                            <span className={`block text-xs mt-0.5 ${homeownerInviteType === opt.id ? "text-white/90" : "text-gray-500 dark:text-gray-400"}`}>
+                              {opt.description}
+                            </span>
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+                  )}
 
                   <div>
                     <label
@@ -592,7 +676,7 @@ function SharePropertyModal({
                       Email address
                     </label>
                     <SearchableEmailField
-                      contacts={contacts}
+                      contacts={effectiveContacts}
                       value={email}
                       onChange={setEmail}
                       onBlur={handleBlur}
@@ -600,14 +684,15 @@ function SharePropertyModal({
                       error={emailError}
                       aria-label="Invitee email"
                       aria-invalid={!!emailError}
+                      disabled={activeTab === "homeowner" && atHomeownerLimit}
                     />
                   </div>
 
-                  {allSystems.length > 0 && (
+                  {(activeTab === "agent" || (activeTab === "homeowner" && !isHomeowner)) && (
                     <div>
                       <div className="flex items-center justify-between mb-3">
                         <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">
-                          Permissions by system
+                          Access restrictions
                         </label>
                         <div className="flex items-center gap-1.5">
                           <span className="text-xs text-gray-500 dark:text-gray-400">
@@ -625,17 +710,21 @@ function SharePropertyModal({
                           ))}
                         </div>
                       </div>
-                      <div className="space-y-0.5 max-h-48 overflow-y-auto rounded-lg border border-gray-200 dark:border-gray-600 p-1">
-                        {allSystems.map((s) => (
-                          <PermissionToggle
-                            key={s.id}
-                            systemId={s.id}
-                            systemName={s.name}
-                            value={getPermission(s.id)}
-                            onChange={handlePermissionChange}
-                            aria-label={`${s.name} permission`}
-                          />
-                        ))}
+                      <div className="space-y-4">
+                        {ACCESS_SECTIONS.map((s) => {
+                          const Icon = s.icon;
+                          return (
+                            <PermissionToggle
+                              key={s.id}
+                              systemId={s.id}
+                              systemName={s.label}
+                              value={getPermission(s.id)}
+                              onChange={handlePermissionChange}
+                              aria-label={`${s.label} permission`}
+                              icon={Icon}
+                            />
+                          );
+                        })}
                       </div>
                     </div>
                   )}
@@ -655,7 +744,7 @@ function SharePropertyModal({
                 <button
                   type="button"
                   onClick={handleInvite}
-                  disabled={!canSubmit || isSubmitting}
+                  disabled={!canSubmit || isSubmitting || (activeTab === "homeowner" && atHomeownerLimit)}
                   className="btn bg-[#456564] hover:bg-[#3d5857] dark:bg-[#5a7a78] dark:hover:bg-[#4d6a68] text-white disabled:opacity-50 disabled:cursor-not-allowed"
                 >
                   {isSubmitting ? (

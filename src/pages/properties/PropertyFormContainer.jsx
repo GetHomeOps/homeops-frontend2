@@ -1185,6 +1185,7 @@ function PropertyFormContainer() {
           ""
         }
         contacts={contacts ?? []}
+        users={users ?? []}
         teamMembers={homeopsTeam}
         currentUser={currentUser}
         currentAccount={currentAccount}
@@ -1194,7 +1195,7 @@ function PropertyFormContainer() {
             : null
         }
         systems={state.formData.systems}
-        onInvite={async ({email: inviteEmail, role, permissions}) => {
+        onInvite={async ({email: inviteEmail, role, homeownerInviteType, permissions}) => {
           const propertyId =
             uid !== "new"
               ? (state.property?.identity?.id ?? state.property?.id ?? uid)
@@ -1204,7 +1205,12 @@ function PropertyFormContainer() {
             currentAccount?.id &&
             typeof AppApi.createInvitation === "function"
           ) {
-            const intendedRole = role === "agent" ? "editor" : "editor";
+            const intendedRole =
+              role === "agent"
+                ? "editor"
+                : homeownerInviteType === "view_only"
+                  ? "viewer"
+                  : "editor";
             await AppApi.createInvitation({
               type: "property",
               inviteeEmail: inviteEmail,
