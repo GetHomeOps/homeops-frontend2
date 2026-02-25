@@ -5,7 +5,7 @@ import { ChevronRight } from "lucide-react";
 const PLACEHOLDER_IMG = "data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7";
 import useCurrentAccount from "../../../hooks/useCurrentAccount";
 
-function CategorySectionRow({ title, categories, location }) {
+function CategorySectionRow({ title, categories, location, searchBasePath = "professionals/search" }) {
   const scrollRef = useRef(null);
   const navigate = useNavigate();
   const { currentAccount } = useCurrentAccount();
@@ -22,7 +22,7 @@ function CategorySectionRow({ title, categories, location }) {
     params.set("category", category.id);
     if (location?.city) params.set("city", location.city);
     if (location?.state) params.set("state", location.state);
-    const base = accountUrl ? `/${accountUrl}/professionals/search` : "/professionals/search";
+    const base = accountUrl ? `/${accountUrl}/${searchBasePath}` : `/${searchBasePath}`;
     navigate(`${base}?${params.toString()}`);
   };
 

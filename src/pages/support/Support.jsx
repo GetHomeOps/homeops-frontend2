@@ -53,7 +53,7 @@ function Support() {
     if (!id) return;
     setDetailModalOpen(true);
     AppApi.getSupportTicket(id)
-      .then((res) => setSelectedTicket(res.ticket))
+      .then((ticket) => setSelectedTicket(ticket))
       .catch(() => {
         setDetailModalOpen(false);
         setSelectedTicket(null);

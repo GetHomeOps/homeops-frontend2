@@ -721,6 +721,7 @@ function Calendar() {
             event={selectedEvent}
             isOpen={detailModalOpen}
             onClose={setDetailModalOpen}
+            onDeleted={refreshEvents}
           />
           <CalendarScheduleModal
             isOpen={scheduleModalOpen}

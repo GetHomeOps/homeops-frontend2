@@ -14,12 +14,13 @@ import ContactContext from "../../context/ContactContext";
 function CalendarScheduleModal({isOpen, onClose, onScheduled, initialDate = "", initialTime = ""}) {
   const navigate = useNavigate();
   const {accountUrl} = useParams();
-  const {properties, getPropertyById} = useContext(PropertyContext);
+  const {properties, getPropertyById, getSystemsByPropertyId} = useContext(PropertyContext);
   const {contacts = []} = useContext(ContactContext);
 
   const [selectedPropertyId, setSelectedPropertyId] = useState("");
   const [selectedSystem, setSelectedSystem] = useState(null);
   const [propertyData, setPropertyData] = useState(null);
+  const [propertySystems, setPropertySystems] = useState([]);
   const [loadingProperty, setLoadingProperty] = useState(false);
   const [showScheduleModal, setShowScheduleModal] = useState(false);
 
@@ -28,6 +29,7 @@ function CalendarScheduleModal({isOpen, onClose, onScheduled, initialDate = "", 
       setSelectedPropertyId("");
       setSelectedSystem(null);
       setPropertyData(null);
+      setPropertySystems([]);
       setShowScheduleModal(false);
     }
   }, [isOpen]);
@@ -35,22 +37,43 @@ function CalendarScheduleModal({isOpen, onClose, onScheduled, initialDate = "", 
   useEffect(() => {
     if (!selectedPropertyId || !getPropertyById) {
       setPropertyData(null);
+      setPropertySystems([]);
       return;
     }
     let cancelled = false;
     setLoadingProperty(true);
+    setSelectedSystem(null);
     getPropertyById(selectedPropertyId)
-      .then((data) => {
-        if (!cancelled) setPropertyData(data || null);
+      .then(async (data) => {
+        if (cancelled) return;
+        const prop = data || null;
+        setPropertyData(prop);
+        const propId = prop?.id ?? prop?.property_uid ?? selectedPropertyId;
+        if (getSystemsByPropertyId) {
+          try {
+            const systemsArr = await getSystemsByPropertyId(propId);
+            if (!cancelled) {
+              const systems = (systemsArr ?? []).filter((s) => s.included !== false);
+              setPropertySystems(systems);
+            }
+          } catch {
+            if (!cancelled) setPropertySystems([]);
+          }
+        } else {
+          setPropertySystems([]);
+        }
       })
       .catch(() => {
-        if (!cancelled) setPropertyData(null);
+        if (!cancelled) {
+          setPropertyData(null);
+          setPropertySystems([]);
+        }
       })
       .finally(() => {
         if (!cancelled) setLoadingProperty(false);
       });
     return () => { cancelled = true; };
-  }, [selectedPropertyId]); // getPropertyById omitted - stable from context
+  }, [selectedPropertyId]); // getPropertyById, getSystemsByPropertyId omitted - stable from context
 
   const handleContinue = () => {
     if (selectedPropertyId && selectedSystem && propertyData) {
@@ -74,29 +97,28 @@ function CalendarScheduleModal({isOpen, onClose, onScheduled, initialDate = "", 
 
   const professionalsPath = accountUrl ? `/${accountUrl}/professionals` : "/professionals";
 
-  if (showScheduleModal && selectedSystem && propertyData) {
-    return (
-      <MaintenanceScheduleModal
-        isOpen={true}
-        onClose={handleScheduleClose}
-        systemType={selectedSystem.id}
-        systemLabel={selectedSystem.name}
-        propertyData={propertyData}
-        contacts={contacts}
-        onSchedule={() => onScheduled?.()}
-        initialScheduledDate={initialDate}
-        initialScheduledTime={initialTime}
-      />
-    );
-  }
-
   return (
     <ModalBlank
       id="calendar-schedule-modal"
       modalOpen={isOpen}
       setModalOpen={onClose}
-      contentClassName="max-w-md"
+      contentClassName={showScheduleModal ? "max-w-2xl" : "max-w-md"}
     >
+      {showScheduleModal && selectedSystem && propertyData ? (
+        <MaintenanceScheduleModal
+          isOpen={true}
+          onClose={handleScheduleClose}
+          systemType={selectedSystem.id}
+          systemLabel={selectedSystem.name}
+          propertyData={propertyData}
+          propertyIdFallback={selectedPropertyId}
+          contacts={contacts}
+          onSchedule={() => onScheduled?.()}
+          initialScheduledDate={initialDate}
+          initialScheduledTime={initialTime}
+          embedded={true}
+        />
+      ) : (
       <div className="p-6">
         <div className="flex items-center justify-between mb-6">
           <div className="flex items-center gap-3">
@@ -136,14 +158,24 @@ function CalendarScheduleModal({isOpen, onClose, onScheduled, initialDate = "", 
               className="form-select w-full"
             >
               <option value="">Select a property</option>
-              {(properties || []).map((p) => {
-                const pid = p.property_uid ?? p.id ?? p.uid;
-                return (
-                  <option key={pid} value={pid}>
-                    {p.identity?.propertyName || p.name || `Property ${pid}`}
-                  </option>
-                );
-              })}
+              {(properties || [])
+                .slice()
+                .sort((a, b) =>
+                  (a.passport_id || a.identity?.propertyName || a.name || "").localeCompare(
+                    b.passport_id || b.identity?.propertyName || b.name || "",
+                  ),
+                )
+                .map((p) => {
+                  const pid = p.property_uid ?? p.id ?? p.uid;
+                  const name = p.identity?.propertyName || p.name || `Property ${pid}`;
+                  const passportId = p.passport_id ?? p.passportId ?? "";
+                  const label = passportId ? `${name} (${passportId})` : name;
+                  return (
+                    <option key={pid} value={pid}>
+                      {label}
+                    </option>
+                  );
+                })}
             </select>
             {!properties?.length && (
               <p className="mt-1.5 text-xs text-amber-600 dark:text-amber-400">
@@ -177,13 +209,31 @@ function CalendarScheduleModal({isOpen, onClose, onScheduled, initialDate = "", 
                 setSelectedSystem(sys || null);
               }}
               className="form-select w-full"
+              disabled={!selectedPropertyId || loadingProperty}
             >
-              <option value="">Select a system</option>
-              {PROPERTY_SYSTEMS.map((sys) => (
-                <option key={sys.id} value={sys.id}>
-                  {sys.name}
-                </option>
-              ))}
+              <option value="">
+                {!selectedPropertyId
+                  ? "Select a property first"
+                  : loadingProperty
+                    ? "Loading systems..."
+                    : propertySystems.length === 0
+                      ? "No systems configured for this property"
+                      : "Select a system"}
+              </option>
+              {(() => {
+                const systemKeys = propertySystems.map(
+                  (s) => s.system_key ?? s.systemKey,
+                ).filter(Boolean);
+                const systemsToShow =
+                  systemKeys.length > 0
+                    ? PROPERTY_SYSTEMS.filter((sys) => systemKeys.includes(sys.id))
+                    : [];
+                return systemsToShow.map((sys) => (
+                  <option key={sys.id} value={sys.id}>
+                    {sys.name}
+                  </option>
+                ));
+              })()}
             </select>
           </div>
         </div>
@@ -206,6 +256,7 @@ function CalendarScheduleModal({isOpen, onClose, onScheduled, initialDate = "", 
           </button>
         </div>
       </div>
+      )}
     </ModalBlank>
   );
 }

@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from "react";
 import { format } from "date-fns";
+import { ArrowLeft } from "lucide-react";
 import ModalBlank from "../../../components/ModalBlank";
 import StatusBadge, { SUPPORT_STATUS_LABELS, FEEDBACK_STATUS_LABELS } from "./StatusBadge";
 import PriorityBadge from "./PriorityBadge";
@@ -38,13 +39,14 @@ const SLA_BY_TIER = {
 
 /**
  * Reusable ticket form container for support and feedback.
- * Renders as a modal with header, user panel, details, activity timeline, and response section.
+ * Renders as a modal (default) or full page (asPage=true, Odoo-style).
  */
 function TicketFormContainer({
   ticket,
   admins = [],
   variant = "support", // 'support' | 'feedback'
   readOnly = false, // true = user viewing own ticket (no admin controls)
+  asPage = false, // true = full page layout (no modal), for Odoo-style navigation
   onClose,
   onStatusChange,
   onAssign,
@@ -102,34 +104,50 @@ function TicketFormContainer({
       : []),
   ].sort((a, b) => new Date(a.timestamp || 0) - new Date(b.timestamp || 0));
 
-  return (
-    <ModalBlank id="ticket-form-modal" modalOpen={!!ticket} setModalOpen={onClose} contentClassName="max-w-3xl">
-      <div className="max-h-[90vh] overflow-y-auto">
-        {/* Header */}
-        <div className="sticky top-0 z-10 bg-white dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700 px-6 py-4 flex items-start justify-between gap-4">
-          <div className="min-w-0 flex-1">
-            <div className="flex flex-wrap items-center gap-2">
-              <h2 className="text-lg font-bold text-gray-800 dark:text-gray-100">#{ticket?.id}</h2>
-              <span className="text-gray-500 dark:text-gray-400">·</span>
-              <h2 className="text-lg font-bold text-gray-800 dark:text-gray-100 truncate">{ticket?.subject}</h2>
-            </div>
-            <div className="flex flex-wrap gap-2 mt-2">
-              <StatusBadge status={statusDisplay} labels={labels} />
-              {variant === "support" && <PriorityBadge priority={priority} />}
-              <span className="text-xs text-gray-500 dark:text-gray-400">
-                Created {ticket?.createdAt && format(new Date(ticket.createdAt), "MMM d, yyyy HH:mm")}
-              </span>
-              <span className="text-xs text-gray-500 dark:text-gray-400">
-                Updated {ticket?.updatedAt && format(new Date(ticket.updatedAt), "MMM d, yyyy HH:mm")}
-              </span>
-            </div>
-          </div>
-          <button type="button" onClick={onClose} className="text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 shrink-0">
-            <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 20 20">
-              <path fillRule="evenodd" d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z" clipRule="evenodd" />
-            </svg>
-          </button>
+  const backButton = (
+    <button
+      type="button"
+      onClick={onClose}
+      className="inline-flex items-center gap-2 text-sm font-medium text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white transition-colors"
+    >
+      <ArrowLeft className="w-4 h-4" />
+      Back to list
+    </button>
+  );
+
+  const header = (
+    <div className="sticky top-0 z-10 bg-white dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700 px-6 py-4 flex items-start justify-between gap-4">
+      <div className="min-w-0 flex-1">
+        {asPage && <div className="mb-3">{backButton}</div>}
+        <div className="flex flex-wrap items-center gap-2">
+          <h2 className="text-lg font-bold text-gray-800 dark:text-gray-100">#{ticket?.id}</h2>
+          <span className="text-gray-500 dark:text-gray-400">·</span>
+          <h2 className="text-lg font-bold text-gray-800 dark:text-gray-100 truncate">{ticket?.subject}</h2>
         </div>
+        <div className="flex flex-wrap gap-2 mt-2">
+          <StatusBadge status={statusDisplay} labels={labels} />
+          {variant === "support" && <PriorityBadge priority={priority} />}
+          <span className="text-xs text-gray-500 dark:text-gray-400">
+            Created {ticket?.createdAt && format(new Date(ticket.createdAt), "MMM d, yyyy HH:mm")}
+          </span>
+          <span className="text-xs text-gray-500 dark:text-gray-400">
+            Updated {ticket?.updatedAt && format(new Date(ticket.updatedAt), "MMM d, yyyy HH:mm")}
+          </span>
+        </div>
+      </div>
+      {!asPage && (
+        <button type="button" onClick={onClose} className="text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 shrink-0">
+          <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 20 20">
+            <path fillRule="evenodd" d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z" clipRule="evenodd" />
+          </svg>
+        </button>
+      )}
+    </div>
+  );
+
+  const content = (
+    <>
+      {header}
 
         <div className="p-6 space-y-6">
           {/* User Info Panel (admin only) */}
@@ -348,7 +366,20 @@ function TicketFormContainer({
           </section>
           )}
         </div>
+    </>
+  );
+
+  if (asPage) {
+    return (
+      <div className="max-w-3xl mx-auto">
+        <div className="overflow-y-auto">{content}</div>
       </div>
+    );
+  }
+
+  return (
+    <ModalBlank id="ticket-form-modal" modalOpen={!!ticket} setModalOpen={onClose} contentClassName="max-w-3xl">
+      <div className="max-h-[90vh] overflow-y-auto">{content}</div>
     </ModalBlank>
   );
 }

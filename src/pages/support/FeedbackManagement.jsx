@@ -1,10 +1,10 @@
 import React, {useState, useEffect, useCallback, useMemo} from "react";
+import {useParams, useNavigate} from "react-router-dom";
 import Header from "../../partials/Header";
 import Sidebar from "../../partials/Sidebar";
 import AppApi from "../../api/api";
 import {
   TicketCard,
-  TicketFormContainer,
   KanbanColumn,
   FilterDropdownWithPills,
 } from "./components";
@@ -21,14 +21,13 @@ const SORT_OPTIONS = [
 ];
 
 function FeedbackManagement() {
+  const {accountUrl} = useParams();
+  const navigate = useNavigate();
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [tickets, setTickets] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
-  const [selectedTicket, setSelectedTicket] = useState(null);
-  const [detailModalOpen, setDetailModalOpen] = useState(false);
   const [admins, setAdmins] = useState([]);
-  const [updating, setUpdating] = useState(false);
   const [draggedTicket, setDraggedTicket] = useState(null);
   const [dragOverColumn, setDragOverColumn] = useState(null);
 
@@ -43,13 +42,6 @@ function FeedbackManagement() {
       const list = await AppApi.getAllSupportTickets();
       const filtered = (list || []).filter((t) => t.type === "feedback");
       setTickets(filtered);
-      setSelectedTicket((prev) => {
-        if (!prev) return prev;
-        const updated = filtered.find((t) => t.id === prev.id);
-        return updated
-          ? {...updated, status: feedbackToColumnStatus(updated.status)}
-          : prev;
-      });
     } catch (err) {
       setError(err.message || "Failed to load feedback");
       setTickets([]);
@@ -165,79 +157,16 @@ function FeedbackManagement() {
 
   async function handleStatusChange(ticketId, newStatus) {
     const backendStatus = columnToFeedbackStatus(newStatus);
-    setUpdating(true);
     try {
       await AppApi.updateSupportTicket(ticketId, {status: backendStatus});
       await fetchTickets();
-      if (selectedTicket?.id === ticketId) {
-        setSelectedTicket((prev) =>
-          prev ? {...prev, status: newStatus} : null,
-        );
-      }
     } catch (err) {
       setError(err.message || "Failed to update");
-    } finally {
-      setUpdating(false);
     }
-  }
-
-  async function handleAssign(ticketId, assignedTo) {
-    setUpdating(true);
-    try {
-      await AppApi.updateSupportTicket(ticketId, {
-        assignedTo: assignedTo || null,
-      });
-      await fetchTickets();
-      if (selectedTicket?.id === ticketId) {
-        setSelectedTicket((prev) =>
-          prev ? {...prev, assignedTo: assignedTo || null} : null,
-        );
-      }
-    } catch (err) {
-      setError(err.message || "Failed to assign");
-    } finally {
-      setUpdating(false);
-    }
-  }
-
-  async function handleInternalNotes(ticketId, internalNotes) {
-    setUpdating(true);
-    try {
-      await AppApi.updateSupportTicket(ticketId, {internalNotes});
-      await fetchTickets();
-      if (selectedTicket?.id === ticketId) {
-        setSelectedTicket((prev) => (prev ? {...prev, internalNotes} : null));
-      }
-    } catch (err) {
-      setError(err.message || "Failed to save notes");
-    } finally {
-      setUpdating(false);
-    }
-  }
-
-  function handleConvertToSupportTicket() {
-    setDetailModalOpen(false);
-    setSelectedTicket(null);
-  }
-
-  function handleSendAndMarkInProgress(ticketId) {
-    handleStatusChange(ticketId, "in_progress");
-    setDetailModalOpen(false);
-    setSelectedTicket(null);
-  }
-
-  function handleSendAndResolve(ticketId) {
-    handleStatusChange(ticketId, "completed");
-    setDetailModalOpen(false);
-    setSelectedTicket(null);
   }
 
   function openDetail(ticket) {
-    setSelectedTicket({
-      ...ticket,
-      status: feedbackToColumnStatus(ticket.status),
-    });
-    setDetailModalOpen(true);
+    navigate(`/${accountUrl}/feedback-management/${ticket.id}`);
   }
 
   function handleDragStart(e, ticket) {
@@ -290,7 +219,7 @@ function FeedbackManagement() {
                   Feedback Management
                 </h1>
                 <p className="mt-0.5 text-sm text-gray-500 dark:text-gray-400">
-                  Manage feature requests. Paid tiers are prioritized.
+                  Click a ticket to open it. Use the grip handle to drag between columns.
                 </p>
               </div>
               <button
@@ -365,26 +294,6 @@ function FeedbackManagement() {
           )}
         </main>
       </div>
-
-      {detailModalOpen && selectedTicket && (
-        <TicketFormContainer
-          ticket={selectedTicket}
-          admins={admins}
-          variant="feedback"
-          onClose={() => {
-            setDetailModalOpen(false);
-            setSelectedTicket(null);
-          }}
-          onStatusChange={handleStatusChange}
-          onAssign={handleAssign}
-          onInternalNotes={handleInternalNotes}
-          onSendAndMarkInProgress={handleSendAndMarkInProgress}
-          onSendAndResolve={handleSendAndResolve}
-          onConvertToSupportTicket={handleConvertToSupportTicket}
-          onRefresh={fetchTickets}
-          updating={updating}
-        />
-      )}
     </div>
   );
 }

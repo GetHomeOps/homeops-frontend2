@@ -487,6 +487,14 @@ class AppApi {
     return res.event;
   }
 
+  /**
+   * Delete a maintenance event.
+   * @param {string|number} eventId - maintenance event id
+   */
+  static async deleteMaintenanceEvent(eventId) {
+    await this.request(`maintenance-events/${eventId}`, {}, "DELETE");
+  }
+
   /* --------- Documents --------- */
 
   static async getPresignedPreviewUrl(key) {

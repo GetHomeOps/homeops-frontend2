@@ -20,6 +20,9 @@ function ProfessionalsDirectorySample() {
   const accountUrl = currentAccount?.url || "";
 
   const savedPros = MOCK_PROFESSIONALS.filter((p) => p.saved).slice(0, 4);
+  const featuredPros = [...MOCK_PROFESSIONALS]
+    .sort((a, b) => (b.rating || 0) - (a.rating || 0))
+    .slice(0, 8);
 
   const goToMyPros = () => {
     navigate(accountUrl ? `/${accountUrl}/my-professionals` : "/my-professionals");
@@ -30,8 +33,8 @@ function ProfessionalsDirectorySample() {
     if (location?.city) params.set("city", location.city);
     if (location?.state) params.set("state", location.state);
     const base = accountUrl
-      ? `/${accountUrl}/professionals/search`
-      : "/professionals/search";
+      ? `/${accountUrl}/professionals-sample/search`
+      : "/professionals-sample/search";
     navigate(`${base}?${params.toString()}`);
   };
 
@@ -120,6 +123,39 @@ function ProfessionalsDirectorySample() {
               </section>
             )}
 
+            {/* Featured Professionals — top-rated from mock data */}
+            {featuredPros.length > 0 && (
+              <section className="mb-10">
+                <div className="flex items-center justify-between mb-4">
+                  <div>
+                    <h2 className="text-xl font-bold text-gray-900 dark:text-white">
+                      Featured Professionals
+                    </h2>
+                    <p className="text-sm text-gray-500 dark:text-gray-400 mt-0.5">
+                      Top-rated pros in your area
+                    </p>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={goToSearch}
+                    className="inline-flex items-center gap-1 text-xs font-medium text-[#456564] hover:text-[#34514f] dark:text-[#7aa3a2] transition-colors"
+                  >
+                    View all
+                    <ArrowRight className="w-3.5 h-3.5" />
+                  </button>
+                </div>
+                <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
+                  {featuredPros.map((pro) => (
+                    <ProfessionalCard
+                      key={pro.id}
+                      professional={pro}
+                      variant="grid"
+                    />
+                  ))}
+                </div>
+              </section>
+            )}
+
             {/* Service Categories — Houzz-style sections with photos */}
             <section>
               <div className="mb-6">
@@ -140,6 +176,7 @@ function ProfessionalsDirectorySample() {
                     title={section.title}
                     categories={categories}
                     location={location}
+                    searchBasePath="professionals-sample/search"
                   />
                 );
               })}

@@ -1854,6 +1854,7 @@ function PropertyFormContainer() {
             {state.activeTab === "systems" && (
               <SystemsTab
                 propertyData={mergedFormData}
+                propertyIdFallback={uid !== "new" ? uid : undefined}
                 handleInputChange={handleChange}
                 visibleSystemIds={visibleSystemIds}
                 customSystemsData={

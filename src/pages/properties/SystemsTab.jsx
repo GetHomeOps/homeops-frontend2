@@ -29,6 +29,7 @@ import Tooltip from "../../utils/Tooltip";
 
 function SystemsTab({
   propertyData,
+  propertyIdFallback,
   handleInputChange,
   visibleSystemIds,
   customSystemsData = {},
@@ -168,7 +169,12 @@ function SystemsTab({
     return [general, ...selected, ...custom].filter(Boolean);
   }, [visibleSystemIdsForUpload, customSystemNames]);
 
-  const propertyId = propertyData?.id ?? propertyData?.identity?.id;
+  const propertyId =
+    propertyData?.id ??
+    propertyData?.identity?.id ??
+    propertyData?.property_uid ??
+    propertyData?.identity?.property_uid ??
+    propertyIdFallback;
 
   return (
     <div className="space-y-4">

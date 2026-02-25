@@ -1,6 +1,7 @@
-import React from "react";
-import {X, MapPin, User, FileText, Calendar, Clock} from "lucide-react";
+import React, {useState} from "react";
+import {X, MapPin, User, FileText, Calendar, Clock, Trash2, Loader2} from "lucide-react";
 import ModalBlank from "../../components/ModalBlank";
+import AppApi from "../../api/api";
 
 /**
  * Normalized calendar event shape (from API).
@@ -19,7 +20,28 @@ import ModalBlank from "../../components/ModalBlank";
  * @property {string|null} [nextScheduledDate]
  */
 
-function EventDetailModal({event, isOpen, onClose}) {
+function EventDetailModal({event, isOpen, onClose, onDeleted}) {
+  const [deleting, setDeleting] = useState(false);
+  const canDelete =
+    event?.type === "maintenance" &&
+    event?.id != null &&
+    !String(event.id).startsWith("system-");
+
+  const handleDelete = async () => {
+    if (!canDelete || deleting) return;
+    if (!window.confirm("Are you sure you want to delete this event?")) return;
+    setDeleting(true);
+    try {
+      await AppApi.deleteMaintenanceEvent(event.id);
+      onDeleted?.();
+      onClose(false);
+    } catch (err) {
+      console.error("Failed to delete event:", err);
+    } finally {
+      setDeleting(false);
+    }
+  };
+
   const statusLabel = event
     ? event.status === "scheduled"
       ? "Scheduled"
@@ -197,6 +219,24 @@ function EventDetailModal({event, isOpen, onClose}) {
                     })}
                   </p>
                 </div>
+              </div>
+            )}
+
+            {canDelete && (
+              <div className="pt-4 border-t border-gray-200 dark:border-gray-700">
+                <button
+                  type="button"
+                  onClick={handleDelete}
+                  disabled={deleting}
+                  className="inline-flex items-center gap-2 px-3 py-2 text-sm font-medium text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-lg transition-colors disabled:opacity-50"
+                >
+                  {deleting ? (
+                    <Loader2 className="w-4 h-4 animate-spin" />
+                  ) : (
+                    <Trash2 className="w-4 h-4" />
+                  )}
+                  Delete event
+                </button>
               </div>
             )}
           </div>

@@ -5,7 +5,6 @@ import Sidebar from "../../partials/Sidebar";
 import AppApi from "../../api/api";
 import {
   TicketCard,
-  TicketFormContainer,
   KanbanColumn,
   FilterDropdownWithPills,
 } from "./components";
@@ -17,18 +16,15 @@ import {
 } from "./kanbanConfig";
 
 function SupportManagement() {
-  const {accountUrl, ticketId: ticketIdParam} = useParams();
+  const {accountUrl} = useParams();
   const navigate = useNavigate();
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [tickets, setTickets] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
-  const [selectedTicket, setSelectedTicket] = useState(null);
-  const [detailModalOpen, setDetailModalOpen] = useState(false);
-  const [admins, setAdmins] = useState([]);
-  const [updating, setUpdating] = useState(false);
   const [draggedTicket, setDraggedTicket] = useState(null);
   const [dragOverColumn, setDragOverColumn] = useState(null);
+  const [admins, setAdmins] = useState([]);
 
   const [searchQuery, setSearchQuery] = useState("");
   const [activeFilters, setActiveFilters] = useState([]);
@@ -40,17 +36,6 @@ function SupportManagement() {
       const list = await AppApi.getAllSupportTickets();
       const filtered = (list || []).filter((t) => t.type === "support");
       setTickets(filtered);
-      setSelectedTicket((prev) => {
-        if (!prev) return prev;
-        const updated = filtered.find((t) => t.id === prev.id);
-        return updated
-          ? {
-              ...updated,
-              status: supportToColumnStatus(updated.status),
-              priority: tierToPriority(updated.subscriptionTier),
-            }
-          : prev;
-      });
     } catch (err) {
       setError(err.message || "Failed to load tickets");
       setTickets([]);
@@ -197,104 +182,17 @@ function SupportManagement() {
 
   async function handleStatusChange(ticketId, newStatus) {
     const backendStatus = columnToSupportStatus(newStatus);
-    setUpdating(true);
     try {
       await AppApi.updateSupportTicket(ticketId, {status: backendStatus});
       await fetchTickets();
-      if (selectedTicket?.id === ticketId) {
-        setSelectedTicket((prev) =>
-          prev ? {...prev, status: newStatus} : null,
-        );
-      }
     } catch (err) {
       setError(err.message || "Failed to update");
-    } finally {
-      setUpdating(false);
     }
-  }
-
-  async function handleAssign(ticketId, assignedTo) {
-    setUpdating(true);
-    try {
-      await AppApi.updateSupportTicket(ticketId, {
-        assignedTo: assignedTo || null,
-      });
-      await fetchTickets();
-      if (selectedTicket?.id === ticketId) {
-        setSelectedTicket((prev) =>
-          prev ? {...prev, assignedTo: assignedTo || null} : null,
-        );
-      }
-    } catch (err) {
-      setError(err.message || "Failed to assign");
-    } finally {
-      setUpdating(false);
-    }
-  }
-
-  async function handleInternalNotes(ticketId, internalNotes) {
-    setUpdating(true);
-    try {
-      await AppApi.updateSupportTicket(ticketId, {internalNotes});
-      await fetchTickets();
-      if (selectedTicket?.id === ticketId) {
-        setSelectedTicket((prev) => (prev ? {...prev, internalNotes} : null));
-      }
-    } catch (err) {
-      setError(err.message || "Failed to save notes");
-    } finally {
-      setUpdating(false);
-    }
-  }
-
-  function handleSendAndMarkInProgress(ticketId) {
-    handleStatusChange(ticketId, "in_progress");
-    setDetailModalOpen(false);
-    setSelectedTicket(null);
-    navigate(`/${accountUrl}/support-management`);
-  }
-
-  function handleSendAndResolve(ticketId) {
-    handleStatusChange(ticketId, "completed");
-    setDetailModalOpen(false);
-    setSelectedTicket(null);
-    navigate(`/${accountUrl}/support-management`);
   }
 
   function openDetail(ticket) {
     navigate(`/${accountUrl}/support-management/${ticket.id}`);
   }
-
-  function closeDetail() {
-    setDetailModalOpen(false);
-    setSelectedTicket(null);
-    navigate(`/${accountUrl}/support-management`);
-  }
-
-  // Sync ticket resolution modal with URL
-  useEffect(() => {
-    if (!ticketIdParam) {
-      setDetailModalOpen(false);
-      setSelectedTicket(null);
-      return;
-    }
-    const id = Number(ticketIdParam);
-    if (!id) return;
-    setDetailModalOpen(true);
-    AppApi.getSupportTicket(id)
-      .then((res) => {
-        const t = res.ticket;
-        setSelectedTicket({
-          ...t,
-          status: supportToColumnStatus(t.status),
-          priority: tierToPriority(t.subscriptionTier),
-        });
-      })
-      .catch(() => {
-        setDetailModalOpen(false);
-        setSelectedTicket(null);
-      });
-  }, [ticketIdParam]);
 
   function handleDragStart(e, ticket) {
     setDraggedTicket(ticket);
@@ -346,7 +244,7 @@ function SupportManagement() {
                   Support Management
                 </h1>
                 <p className="mt-0.5 text-sm text-gray-500 dark:text-gray-400">
-                  Manage support tickets. Drag cards between columns.
+                  Click a ticket to open it. Use the grip handle to drag between columns.
                 </p>
               </div>
               <button
@@ -421,22 +319,6 @@ function SupportManagement() {
           )}
         </main>
       </div>
-
-      {detailModalOpen && selectedTicket && (
-        <TicketFormContainer
-          ticket={selectedTicket}
-          admins={admins}
-          variant="support"
-          onClose={closeDetail}
-          onStatusChange={handleStatusChange}
-          onAssign={handleAssign}
-          onInternalNotes={handleInternalNotes}
-          onSendAndMarkInProgress={handleSendAndMarkInProgress}
-          onSendAndResolve={handleSendAndResolve}
-          onRefresh={fetchTickets}
-          updating={updating}
-        />
-      )}
     </div>
   );
 }

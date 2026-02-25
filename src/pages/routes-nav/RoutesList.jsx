@@ -40,6 +40,7 @@ import SubscriptionProduct from "../subscriptions/SubscriptionProduct";
 import ProfessionalDirectory from "../professionals/ProfessionalDirectory";
 import ProfessionalsDirectorySample from "../professionals/ProfessionalsDirectorySample";
 import CategoryDirectoryPage from "../professionals/CategoryDirectoryPage";
+import CategoryDirectoryPageSample from "../professionals/CategoryDirectoryPageSample";
 import MyProfessionals from "../professionals/MyProfessionals";
 import ProfessionalProfile from "../professionals/ProfessionalProfile";
 import ProfessionalFormContainer from "../professionals/ProfessionalFormContainer";
@@ -57,6 +58,7 @@ import ConfigurationPage from "../settings/ConfigurationPage";
 import Support from "../support/Support";
 import SupportManagement from "../support/SupportManagement";
 import FeedbackManagement from "../support/FeedbackManagement";
+import TicketDetailPage from "../support/TicketDetailPage";
 import Calendar from "../calendar/Calendar";
 
 
@@ -316,10 +318,34 @@ function RoutesList() {
         }
       />
       <Route
+        path="/professionals-sample"
+        element={
+          <ProtectedRoute>
+            <ProfessionalsDirectorySample />
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/professionals-sample/search"
+        element={
+          <ProtectedRoute>
+            <CategoryDirectoryPageSample />
+          </ProtectedRoute>
+        }
+      />
+      <Route
         path="/:accountUrl/professionals-sample"
         element={
           <ProtectedRoute>
             <ProfessionalsDirectorySample />
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/:accountUrl/professionals-sample/search"
+        element={
+          <ProtectedRoute>
+            <CategoryDirectoryPageSample />
           </ProtectedRoute>
         }
       />
@@ -436,6 +462,14 @@ function RoutesList() {
         }
       />
       <Route
+        path="/:accountUrl/support-management/:ticketId"
+        element={
+          <AdminRoute>
+            <TicketDetailPage variant="support" />
+          </AdminRoute>
+        }
+      />
+      <Route
         path="/:accountUrl/support-management"
         element={
           <AdminRoute>
@@ -444,10 +478,10 @@ function RoutesList() {
         }
       />
       <Route
-        path="/:accountUrl/support-management/:ticketId"
+        path="/:accountUrl/feedback-management/:ticketId"
         element={
           <AdminRoute>
-            <SupportManagement />
+            <TicketDetailPage variant="feedback" />
           </AdminRoute>
         }
       />

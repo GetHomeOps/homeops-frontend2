@@ -915,10 +915,12 @@ function MaintenanceScheduleModal({
   systemType,
   systemLabel,
   propertyData = {},
+  propertyIdFallback,
   contacts = [],
   onSchedule,
   initialScheduledDate = "",
   initialScheduledTime = "",
+  embedded = false,
 }) {
   const navigate = useNavigate();
   const {accountUrl} = useParams();
@@ -1049,7 +1051,12 @@ function MaintenanceScheduleModal({
   };
 
   const handleSave = async () => {
-    const propertyId = propertyData?.property_uid ?? propertyData?.id ?? propertyData?.identity?.id;
+    // Backend maintenance_events.property_id expects integer (properties.id), not property_uid
+    const propertyId =
+      propertyData?.id ??
+      propertyData?.property_uid ??
+      propertyData?.identity?.id ??
+      propertyIdFallback;
 
     if (scheduledDate && onSchedule) {
       onSchedule(scheduledDate);
@@ -1084,28 +1091,20 @@ function MaintenanceScheduleModal({
     setSaving(true);
     try {
       await AppApi.createMaintenanceEvent(propertyId, eventPayload);
+      setShowSuccess(true);
+      setTimeout(() => {
+        setShowSuccess(false);
+        onClose(true);
+      }, 1400);
     } catch (err) {
       console.error("Failed to create maintenance event:", err);
     } finally {
       setSaving(false);
     }
-
-    setShowSuccess(true);
-    setTimeout(() => {
-      setShowSuccess(false);
-      onClose(false);
-    }, 1400);
   };
 
-  return (
-    <ModalBlank
-      id="maintenance-schedule-modal"
-      modalOpen={isOpen}
-      setModalOpen={onClose}
-      closeOnClickOutside={false}
-      contentClassName="max-w-2xl"
-    >
-      <div className="relative p-6">
+  const content = (
+    <div className="relative p-6">
         {showSuccess && <SuccessOverlay />}
 
         {/* Header */}
@@ -1251,6 +1250,21 @@ function MaintenanceScheduleModal({
           </div>
         </div>
       </div>
+  );
+
+  if (embedded) {
+    return content;
+  }
+
+  return (
+    <ModalBlank
+      id="maintenance-schedule-modal"
+      modalOpen={isOpen}
+      setModalOpen={onClose}
+      closeOnClickOutside={false}
+      contentClassName="max-w-2xl"
+    >
+      {content}
     </ModalBlank>
   );
 }

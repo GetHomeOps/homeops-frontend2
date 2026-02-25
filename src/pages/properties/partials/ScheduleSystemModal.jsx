@@ -615,6 +615,7 @@ function ScheduleSystemModal({
   const [currentStep, setCurrentStep] = useState(0);
   const [showSuccess, setShowSuccess] = useState(false);
   const [saving, setSaving] = useState(false);
+  const [submitError, setSubmitError] = useState(null);
 
   const [scheduleType, setScheduleType] = useState(null);
   const [hasProfessional, setHasProfessional] = useState(null);
@@ -649,6 +650,7 @@ function ScheduleSystemModal({
       setCurrentStep(0);
       setShowSuccess(false);
       setSaving(false);
+      setSubmitError(null);
       setScheduleType(null);
       setHasProfessional(null);
       setSelectedProfessional(null);
@@ -699,60 +701,76 @@ function ScheduleSystemModal({
   };
 
   const handleSubmit = async () => {
+    setSubmitError(null);
     const effectiveTime = scheduledTime?.trim() || getCurrentTimeHHMM();
     if (scheduledDate && onSchedule) {
       onSchedule(scheduledDate);
     }
 
-    const propId = propertyId ?? propertyData?.id ?? propertyData?.identity?.id;
-    if (propId && scheduledDate) {
-      let alertTimingVal = "3d";
-      let alertCustomDaysVal = null;
-      if (alertEnabled) {
-        if (alertDate) {
-          const scheduled = new Date(scheduledDate);
-          const alert = new Date(alertDate);
-          const diffMs = scheduled - alert;
-          const diffDays = Math.max(1, Math.floor(diffMs / (24 * 60 * 60 * 1000)));
-          alertTimingVal = "custom";
-          alertCustomDaysVal = diffDays;
-        } else {
-          alertTimingVal = alertTiming;
-        }
-      }
+    const propId =
+      propertyId ??
+      propertyData?.id ??
+      propertyData?.identity?.id ??
+      propertyData?.property_uid ??
+      propertyData?.identity?.property_uid;
 
-      const eventPayload = {
-        system_key: systemType || "general",
-        system_name: systemLabel,
-        contractor_id: selectedProfessional?.sourceId ?? null,
-        contractor_source: selectedProfessional?.source ?? null,
-        contractor_name: selectedProfessional?.name ?? null,
-        scheduled_date: scheduledDate,
-        scheduled_time: effectiveTime,
-        recurrence_type: "one-time",
-        alert_timing: alertEnabled ? alertTimingVal : "3d",
-        alert_custom_days: alertCustomDaysVal,
-        email_reminder: alertEnabled,
-        message_enabled: !!messageBody?.trim(),
-        message_body: messageBody?.trim() || null,
-        timezone: Intl.DateTimeFormat().resolvedOptions().timeZone,
-      };
+    if (!propId) {
+      setSubmitError("Property could not be identified. Please save the property first and try again.");
+      return;
+    }
 
-      setSaving(true);
-      try {
-        await AppApi.createMaintenanceEvent(propId, eventPayload);
-      } catch (err) {
-        console.error("Failed to create maintenance event:", err);
-      } finally {
-        setSaving(false);
+    if (!scheduledDate) {
+      setSubmitError("Please select a date.");
+      return;
+    }
+
+    let alertTimingVal = "3d";
+    let alertCustomDaysVal = null;
+    if (alertEnabled) {
+      if (alertDate) {
+        const scheduled = new Date(scheduledDate);
+        const alert = new Date(alertDate);
+        const diffMs = scheduled - alert;
+        const diffDays = Math.max(1, Math.floor(diffMs / (24 * 60 * 60 * 1000)));
+        alertTimingVal = "custom";
+        alertCustomDaysVal = diffDays;
+      } else {
+        alertTimingVal = alertTiming;
       }
     }
 
-    setShowSuccess(true);
-    setTimeout(() => {
-      setShowSuccess(false);
-      onClose(false);
-    }, 1200);
+    const eventPayload = {
+      system_key: systemType || "general",
+      system_name: systemLabel,
+      contractor_id: selectedProfessional?.sourceId ?? null,
+      contractor_source: selectedProfessional?.source ?? null,
+      contractor_name: selectedProfessional?.name ?? null,
+      scheduled_date: scheduledDate,
+      scheduled_time: effectiveTime,
+      recurrence_type: "one-time",
+      alert_timing: alertEnabled ? alertTimingVal : "3d",
+      alert_custom_days: alertCustomDaysVal,
+      email_reminder: alertEnabled,
+      message_enabled: !!messageBody?.trim(),
+      message_body: messageBody?.trim() || null,
+      timezone: Intl.DateTimeFormat().resolvedOptions().timeZone,
+    };
+
+    setSaving(true);
+    try {
+      await AppApi.createMaintenanceEvent(propId, eventPayload);
+      setShowSuccess(true);
+      setTimeout(() => {
+        setShowSuccess(false);
+        onClose(false);
+      }, 1200);
+    } catch (err) {
+      console.error("Failed to create maintenance event:", err);
+      const msg = err?.messages?.[0] ?? err?.message ?? "Failed to save. Please try again.";
+      setSubmitError(typeof msg === "string" ? msg : "Failed to save. Please try again.");
+    } finally {
+      setSaving(false);
+    }
   };
 
   if (showSuccess) {
@@ -867,6 +885,12 @@ function ScheduleSystemModal({
             />
           )}
         </div>
+
+        {submitError && (
+          <div className="mt-4 p-3 rounded-lg bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 text-sm text-red-700 dark:text-red-300">
+            {submitError}
+          </div>
+        )}
 
         <div className="flex justify-between mt-6 pt-4 border-t border-gray-200 dark:border-gray-700">
           <button

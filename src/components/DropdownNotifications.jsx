@@ -1,6 +1,6 @@
 import React, {useState, useRef, useEffect} from "react";
 import {Link} from "react-router-dom";
-import {Bell, Calendar, AlertCircle, ChevronRight} from "lucide-react";
+import {Clock, Calendar, AlertCircle, ChevronRight} from "lucide-react";
 import Transition from "../utils/Transition";
 import AppApi from "../api/api";
 import useCurrentAccount from "../hooks/useCurrentAccount";
@@ -35,14 +35,13 @@ function DropdownNotifications({align = "right"}) {
   const accountUrl = currentAccount?.url || "";
   const calendarPath = accountUrl ? `/${accountUrl}/calendar` : "/calendar";
 
-  useEffect(() => {
-    if (!dropdownOpen) return;
-    setLoading(true);
+  const fetchUpcomingEvents = () => {
     const today = new Date();
     const end = new Date(today);
     end.setDate(end.getDate() + 14);
     const startStr = today.toISOString().slice(0, 10);
     const endStr = end.toISOString().slice(0, 10);
+    setLoading(true);
     AppApi.getCalendarEvents(startStr, endStr)
       .then((raw) => {
         setEvents(
@@ -53,6 +52,16 @@ function DropdownNotifications({align = "right"}) {
       })
       .catch(() => setEvents([]))
       .finally(() => setLoading(false));
+  };
+
+  useEffect(() => {
+    fetchUpcomingEvents();
+  }, []);
+
+  useEffect(() => {
+    if (dropdownOpen) {
+      fetchUpcomingEvents();
+    }
   }, [dropdownOpen]);
 
   useEffect(() => {
@@ -94,8 +103,8 @@ function DropdownNotifications({align = "right"}) {
         onClick={() => setDropdownOpen(!dropdownOpen)}
         aria-expanded={dropdownOpen}
       >
-        <span className="sr-only">Notifications</span>
-        <Bell className="w-5 h-5 text-gray-500 dark:text-gray-400" strokeWidth={1.75} />
+        <span className="sr-only">Upcoming events</span>
+        <Clock className="w-5 h-5 text-gray-500 dark:text-gray-400" strokeWidth={1.75} />
         {badgeCount > 0 && (
           <span className="absolute top-0.5 right-0.5 min-w-[18px] h-[18px] px-1 flex items-center justify-center text-[10px] font-semibold text-white bg-amber-500 dark:bg-amber-500 rounded-full">
             {badgeCount > 9 ? "9+" : badgeCount}
@@ -118,7 +127,7 @@ function DropdownNotifications({align = "right"}) {
         <div ref={dropdown} onFocus={() => setDropdownOpen(true)} onBlur={() => setDropdownOpen(false)}>
           <div className="px-4 py-3 border-b border-gray-200 dark:border-gray-700/60">
             <h3 className="text-sm font-semibold text-gray-900 dark:text-white">
-              Upcoming events & alerts
+              Upcoming events
             </h3>
           </div>
 
@@ -129,7 +138,7 @@ function DropdownNotifications({align = "right"}) {
               </div>
             ) : events.length === 0 ? (
               <div className="py-8 px-4 text-center text-sm text-gray-500 dark:text-gray-400">
-                <Bell className="w-10 h-10 mx-auto mb-2 text-gray-300 dark:text-gray-600" strokeWidth={1.5} />
+                <Clock className="w-10 h-10 mx-auto mb-2 text-gray-300 dark:text-gray-600" strokeWidth={1.5} />
                 <p>No upcoming events</p>
                 <Link
                   to={calendarPath}
