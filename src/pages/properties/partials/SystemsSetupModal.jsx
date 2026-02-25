@@ -369,8 +369,8 @@ function SystemsSetupModal({
       <div className="relative">
         {/* Horizontal step tracker */}
         {!showSuccess && visibleSteps.length > 1 && (
-          <div className="px-6 md:px-8 pt-5 pb-4">
-            <nav className="flex items-center" aria-label="Progress">
+          <div className="px-6 md:px-8 pt-6 pb-2">
+            <nav className="flex items-start justify-center max-w-md mx-auto" aria-label="Progress">
               {visibleSteps.map((stepId, idx) => {
                 const config = STEP_CONFIG[stepId];
                 const isActive = step === stepId;
@@ -382,13 +382,13 @@ function SystemsSetupModal({
                       type="button"
                       onClick={() => isClickable && goToStep(stepId)}
                       disabled={!isClickable}
-                      className={`group flex items-center gap-2 ${
+                      className={`group flex flex-col items-center gap-1.5 ${
                         isClickable ? "cursor-pointer" : "cursor-default"
                       }`}
                       aria-current={isActive ? "step" : undefined}
                     >
                       <span
-                        className={`flex items-center justify-center w-6 h-6 rounded-full text-xs font-semibold transition-all duration-200 ${
+                        className={`flex items-center justify-center w-7 h-7 rounded-full text-xs font-semibold transition-all duration-200 ${
                           isActive
                             ? "bg-[#456564] text-white ring-4 ring-[#456564]/10 dark:ring-[#456564]/20"
                             : isCompleted
@@ -403,7 +403,7 @@ function SystemsSetupModal({
                         )}
                       </span>
                       <span
-                        className={`text-sm font-medium transition-colors duration-200 ${
+                        className={`text-[11px] font-medium leading-tight text-center transition-colors duration-200 ${
                           isActive
                             ? "text-gray-900 dark:text-white"
                             : isCompleted
@@ -415,7 +415,7 @@ function SystemsSetupModal({
                       </span>
                     </button>
                     {idx < visibleSteps.length - 1 && (
-                      <div className="flex-1 flex items-center mx-3 md:mx-4">
+                      <div className="h-7 flex-1 flex items-center mx-1.5 sm:mx-2.5">
                         <div
                           className={`w-full h-px transition-colors duration-300 ${
                             currentStepIndex > idx
