@@ -492,14 +492,24 @@ function HomeownerHome() {
                     {t("welcome")}, {homeownerName}
                   </h2>
                   <p className="text-white/70 text-sm mb-4">
-                    No properties assigned yet. Your properties will appear here once they are set up by your agent.
+                    {t("homeownerHome.emptyState", {
+                      defaultValue:
+                        "You haven't created any properties yet. Create your first property to get started.",
+                    })}
                   </p>
                   <button
                     type="button"
-                    onClick={() => navigate(accountUrl ? `/${accountUrl}/properties` : "/")}
+                    onClick={() =>
+                      navigate(
+                        accountUrl ? `/${accountUrl}/properties/new` : "/",
+                      )
+                    }
                     className="inline-flex items-center gap-2 px-4 py-2 rounded-xl bg-white/10 text-white text-sm font-medium hover:bg-white/20 transition-colors"
                   >
-                    View properties
+                    <Plus className="w-4 h-4" />
+                    {t("homeownerHome.createProperty", {
+                      defaultValue: "Create property",
+                    })}
                   </button>
                 </div>
               )}

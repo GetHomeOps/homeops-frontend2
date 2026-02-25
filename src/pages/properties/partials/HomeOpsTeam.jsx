@@ -31,13 +31,7 @@ function HomeOpsTeam({teamMembers = [], onOpenShareModal}) {
 
   return (
     <section className="bg-white dark:bg-gray-800 rounded-2xl shadow-sm border border-gray-200 dark:border-gray-700 overflow-hidden">
-      <div
-        className="flex items-center justify-between px-6 md:px-8 pt-6 md:pt-8 pb-3 md:pb-4"
-        style={{
-          background:
-            "linear-gradient(to bottom, rgba(248,250,252,0.6) 0%, rgba(241,245,249,0.25) 50%, transparent 100%)",
-        }}
-      >
+      <div className="flex items-center justify-between px-6 md:px-8 pt-6 md:pt-8 pb-3 md:pb-4">
         <div>
           <h2 className="text-xl md:text-2xl font-bold text-gray-900 dark:text-white mb-0.5">
             Your Opsy team

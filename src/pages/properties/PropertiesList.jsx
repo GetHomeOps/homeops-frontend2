@@ -1053,7 +1053,33 @@ function PropertiesList() {
             </div>
 
             {/* ─── Content: Table or Grid ─────────────────────── */}
-            {viewMode === "list" ? (
+            {properties.length === 0 ? (
+              <div className="bg-white dark:bg-gray-800 shadow-xs rounded-xl border border-gray-200 dark:border-gray-700/60">
+                <div className="text-center py-16 px-6">
+                  <div className="inline-flex items-center justify-center w-16 h-16 rounded-full bg-gray-100 dark:bg-gray-700/60 mb-4">
+                    <svg className="w-8 h-8 text-gray-400 dark:text-gray-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-4 0a1 1 0 01-1-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 01-1 1h-2z" />
+                    </svg>
+                  </div>
+                  <p className="text-lg font-medium text-gray-800 dark:text-gray-200 mb-2">
+                    {t("propertiesEmptyState.title", {defaultValue: "No properties yet"})}
+                  </p>
+                  <p className="text-gray-500 dark:text-gray-400 mb-6 max-w-sm mx-auto">
+                    {t("propertiesEmptyState.message", {defaultValue: "Create your first property to get started."})}
+                  </p>
+                  <button
+                    type="button"
+                    onClick={handleNewProperty}
+                    className="btn bg-gray-900 text-gray-100 hover:bg-gray-800 dark:bg-gray-100 dark:text-gray-800 dark:hover:bg-white"
+                  >
+                    <svg className="fill-current shrink-0" width="16" height="16" viewBox="0 0 16 16">
+                      <path d="M15 7H9V1c0-.6-.4-1-1-1S7 .4 7 1v6H1c-.6 0-1 .4-1 1s.4 1 1 1h6v6c0 .6.4 1 1 1s1-.4 1-1V9h6c.6 0 1-.4 1-1s-.4-1-1-1z" />
+                    </svg>
+                    <span className="ml-2">{t("addProperty")}</span>
+                  </button>
+                </div>
+              </div>
+            ) : viewMode === "list" ? (
               <DataTable
                 items={paginatedProperties}
                 columns={columns}
