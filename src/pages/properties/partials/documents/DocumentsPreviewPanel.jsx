@@ -11,6 +11,7 @@ import {
   PanelRightClose,
   ChevronDown,
   ChevronUp,
+  Sparkles,
 } from "lucide-react";
 
 function formatDate(dateString) {
@@ -37,6 +38,7 @@ function DocumentsPreviewPanel({
   onClose,
   onOpenInNewTab,
   onDelete,
+  onOpenAIReport,
   getDocumentIcon,
   getFileTypeColor,
   systemCategories = [],
@@ -171,6 +173,18 @@ function DocumentsPreviewPanel({
                   <ExternalLink className="w-3.5 h-3.5" />
                   Open in new tab
                 </button>
+                {(selectedDocument.system === "inspectionReport" ||
+                  selectedDocument.type === "inspection") &&
+                  onOpenAIReport && (
+                  <button
+                    onClick={onOpenAIReport}
+                    className="w-full btn-sm border border-[#456564] text-[#456564] dark:border-[#5a7a78] dark:text-[#5a7a78] hover:bg-[#456564]/10 dark:hover:bg-[#5a7a78]/20 flex items-center justify-center gap-1.5"
+                    title="View report analysis in AI"
+                  >
+                    <Sparkles className="w-3.5 h-3.5" />
+                    AI Report Analysis
+                  </button>
+                )}
                 <button
                   onClick={() => onDelete?.(selectedDocument.id)}
                   className="w-full btn-sm border-gray-200 dark:border-gray-700 hover:border-red-300 dark:hover:border-red-700 text-red-600 dark:text-red-400 flex items-center justify-center gap-1.5"
@@ -216,6 +230,18 @@ function DocumentsPreviewPanel({
               <span className="text-sm font-medium text-gray-700 dark:text-gray-300 truncate min-w-0 flex-1">
                 {selectedDocument.name}
               </span>
+              {(selectedDocument.system === "inspectionReport" ||
+                selectedDocument.type === "inspection") &&
+                onOpenAIReport && (
+                <button
+                  onClick={onOpenAIReport}
+                  className="btn-sm border border-[#456564] text-[#456564] dark:border-[#5a7a78] dark:text-[#5a7a78] hover:bg-[#456564]/10 flex items-center gap-1 px-2 py-1 text-xs flex-shrink-0"
+                  title="View report analysis in AI"
+                >
+                  <Sparkles className="w-3.5 h-3.5" />
+                  AI
+                </button>
+              )}
               <button
                 onClick={() => onOpenInNewTab?.(selectedDocument)}
                 className="btn-sm bg-emerald-600 hover:bg-emerald-700 text-white flex items-center gap-1 px-2 py-1 text-xs flex-shrink-0"

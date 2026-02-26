@@ -18,6 +18,7 @@ function CircularProgress({
   label = "HPS",
   className = "",
   colorClass = "text-green-400 dark:text-green-500",
+  innerTextClass = "text-white",
 }) {
   const radius = (size - strokeWidth) / 2;
   const circumference = radius * 2 * Math.PI;
@@ -58,10 +59,10 @@ function CircularProgress({
         />
       </svg>
       <div className="relative z-10 flex flex-col items-center justify-center">
-        <div className="text-2xl font-bold text-white leading-none">
+        <div className={`text-2xl font-bold leading-none ${innerTextClass}`}>
           {percentage}
         </div>
-        <div className="text-[10px] font-semibold text-white uppercase tracking-wider mt-0.5">
+        <div className={`text-[10px] font-semibold uppercase tracking-wider mt-0.5 ${innerTextClass}`}>
           {label}
         </div>
       </div>

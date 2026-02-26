@@ -1,4 +1,4 @@
-import React, {useState, useEffect, useCallback} from "react";
+import React, {useState, useEffect, useCallback, useRef} from "react";
 import {
   Plus,
   X,
@@ -19,7 +19,9 @@ import {
   STANDARD_CUSTOM_SYSTEM_FIELDS,
 } from "../constants/propertySystems";
 import useGooglePlacesAutocomplete from "../../../hooks/useGooglePlacesAutocomplete";
+import useDocumentUpload from "../../../hooks/useDocumentUpload";
 import AppApi from "../../../api/api";
+import AIFindingsPanel from "./AIFindingsPanel";
 
 /** Step definitions for the stepper. Order matters. */
 const STEP_IDS = ["identity", "details", "inspection", "systems"];
@@ -110,6 +112,7 @@ const AI_FIELD_GROUPS = [
 function SystemsSetupModal({
   modalOpen,
   setModalOpen,
+  propertyId = null,
   selectedSystemIds = [],
   customSystems = [],
   isNewProperty = false,
@@ -117,6 +120,8 @@ function SystemsSetupModal({
   formData = {},
   onIdentityFieldsChange,
   onSave,
+  onSaveProperty,
+  onScheduleMaintenance,
 }) {
   const initialIds = selectedSystemIds ?? [];
   const [selected, setSelected] = useState(new Set(initialIds));
@@ -149,6 +154,19 @@ function SystemsSetupModal({
   const [hasPredicted, setHasPredicted] = useState(false);
   const [inspectionReportAvailable, setInspectionReportAvailable] = useState(null);
   const [inspectionFiles, setInspectionFiles] = useState([]);
+  const [uploadedDocs, setUploadedDocs] = useState([]);
+  const [analysisJobId, setAnalysisJobId] = useState(null);
+  const [analysisStatus, setAnalysisStatus] = useState(null);
+  const [analysisProgress, setAnalysisProgress] = useState(null);
+  const [analysisError, setAnalysisError] = useState(null);
+  const [analysisResult, setAnalysisResult] = useState(null);
+  const [selectedSuggestedSystems, setSelectedSuggestedSystems] = useState(new Set());
+  const [savingProperty, setSavingProperty] = useState(false);
+  const [savePropertyError, setSavePropertyError] = useState(null);
+  const pollIntervalRef = useRef(null);
+  const hasAppliedSuggestedRef = useRef(false);
+
+  const {uploadDocument, isUploading, progress: uploadProgress, error: uploadError} = useDocumentUpload();
 
   const handlePlaceSelected = useCallback((parsed) => {
     setIdentityFields((prev) => ({
@@ -207,6 +225,20 @@ function SystemsSetupModal({
     setHasPredicted(false);
     setInspectionReportAvailable(null);
     setInspectionFiles([]);
+    setUploadedDocs([]);
+    setAnalysisJobId(null);
+    setAnalysisStatus(null);
+    setAnalysisProgress(null);
+    setAnalysisError(null);
+    setAnalysisResult(null);
+    setSelectedSuggestedSystems(new Set());
+    setSavingProperty(false);
+    setSavePropertyError(null);
+    hasAppliedSuggestedRef.current = false;
+    if (pollIntervalRef.current) {
+      clearInterval(pollIntervalRef.current);
+      pollIntervalRef.current = null;
+    }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [modalOpen, skipIdentityStep, isNewProperty]);
 
@@ -219,7 +251,7 @@ function SystemsSetupModal({
     setStep("details");
   };
 
-  const handleDetailsContinue = () => {
+  const handleDetailsContinue = async () => {
     const payload = {...identityFields};
     for (const group of AI_FIELD_GROUPS) {
       for (const f of group.fields) {
@@ -230,7 +262,21 @@ function SystemsSetupModal({
       }
     }
     onIdentityFieldsChange?.(payload);
-    setStep("inspection");
+
+    if (isNewProperty && onSaveProperty) {
+      setSavingProperty(true);
+      setSavePropertyError(null);
+      try {
+        await onSaveProperty(payload);
+        setStep("inspection");
+      } catch (err) {
+        setSavePropertyError(err?.message || "Failed to save property. Please try again.");
+      } finally {
+        setSavingProperty(false);
+      }
+    } else {
+      setStep("inspection");
+    }
   };
 
   const handleLookupProperty = async () => {
@@ -337,26 +383,189 @@ function SystemsSetupModal({
     setStep("systems");
   };
 
+  // Pre-select recommended systems when first reaching Systems step
+  useEffect(() => {
+    if (step !== "systems" || !analysisResult?.suggestedSystemsToAdd?.length || hasAppliedSuggestedRef.current) return;
+    hasAppliedSuggestedRef.current = true;
+    const suggestedIds = analysisResult.suggestedSystemsToAdd
+      .map((s) => {
+        const raw = String(s.systemType || "").trim();
+        const match = PROPERTY_SYSTEMS.find(
+          (sys) => sys.id === raw || sys.id.toLowerCase() === raw.toLowerCase(),
+        );
+        return match?.id;
+      })
+      .filter(Boolean);
+    if (suggestedIds.length === 0) return;
+    setSelected((prev) => {
+      const next = new Set(prev);
+      suggestedIds.forEach((id) => next.add(id));
+      return next;
+    });
+  }, [step, analysisResult?.suggestedSystemsToAdd]);
+
   const handleSkipSystems = () => {
     persistSystems();
     setModalOpen(false);
   };
 
-  // Dummy file upload handlers (backend integration later)
-  const handleInspectionFileDrop = (e) => {
-    e.preventDefault();
-    const files = Array.from(e.dataTransfer?.files ?? []);
-    setInspectionFiles((prev) => [...prev, ...files]);
-  };
+  // Poll analysis job status
+  useEffect(() => {
+    if (!analysisJobId) return;
+    const poll = async () => {
+      try {
+        const data = await AppApi.getInspectionAnalysisJob(analysisJobId);
+        setAnalysisStatus(data.status);
+        setAnalysisProgress(data.progress);
+        setAnalysisError(data.errorMessage || null);
+        if (data.status === "completed" && data.result) {
+          setAnalysisResult(data.result);
+          if (pollIntervalRef.current) {
+            clearInterval(pollIntervalRef.current);
+            pollIntervalRef.current = null;
+          }
+        } else if (data.status === "failed") {
+          if (pollIntervalRef.current) {
+            clearInterval(pollIntervalRef.current);
+            pollIntervalRef.current = null;
+          }
+        }
+      } catch (err) {
+        setAnalysisError(err?.message || "Failed to fetch analysis status");
+        if (pollIntervalRef.current) {
+          clearInterval(pollIntervalRef.current);
+          pollIntervalRef.current = null;
+        }
+      }
+    };
+    poll();
+    pollIntervalRef.current = setInterval(poll, 2500);
+    return () => {
+      if (pollIntervalRef.current) {
+        clearInterval(pollIntervalRef.current);
+      }
+    };
+  }, [analysisJobId]);
 
-  const handleInspectionFileSelect = (e) => {
-    const files = Array.from(e.target?.files ?? []);
-    setInspectionFiles((prev) => [...prev, ...files]);
-    e.target.value = "";
-  };
+  const startAnalysisForDoc = useCallback(
+    async (s3Key, fileName, mimeType) => {
+      if (!propertyId) return;
+      try {
+        const jobId = await AppApi.startInspectionAnalysis(propertyId, {
+          s3Key,
+          fileName,
+          mimeType,
+        });
+        setAnalysisJobId(jobId);
+        setAnalysisStatus("queued");
+      } catch (err) {
+        setAnalysisError(err?.message || "Failed to start analysis");
+      }
+    },
+    [propertyId]
+  );
+
+  const handleInspectionFileDrop = useCallback(
+    async (e) => {
+      e.preventDefault();
+      const files = Array.from(e.dataTransfer?.files ?? []).filter(
+        (f) => f.type === "application/pdf" || f.type.startsWith("image/")
+      );
+      if (!propertyId || files.length === 0) return;
+      for (const file of files) {
+        const result = await uploadDocument(file);
+        if (result?.key) {
+          const docDate = new Date().toISOString().slice(0, 10);
+          await AppApi.createPropertyDocument({
+            property_id: propertyId,
+            document_name: file.name,
+            document_date: docDate,
+            document_key: result.key,
+            document_type: "inspection",
+            system_key: "inspectionReport",
+          });
+          setUploadedDocs((prev) => [...prev, {key: result.key, name: file.name, type: file.type}]);
+          if (file.type === "application/pdf") {
+            startAnalysisForDoc(result.key, file.name, file.type);
+            break;
+          }
+        }
+      }
+    },
+    [propertyId, uploadDocument, startAnalysisForDoc]
+  );
+
+  const handleInspectionFileSelect = useCallback(
+    async (e) => {
+      const files = Array.from(e.target?.files ?? []);
+      e.target.value = "";
+      if (!propertyId || files.length === 0) return;
+      for (const file of files) {
+        const result = await uploadDocument(file);
+        if (result?.key) {
+          const docDate = new Date().toISOString().slice(0, 10);
+          await AppApi.createPropertyDocument({
+            property_id: propertyId,
+            document_name: file.name,
+            document_date: docDate,
+            document_key: result.key,
+            document_type: "inspection",
+            system_key: "inspectionReport",
+          });
+          setUploadedDocs((prev) => [...prev, {key: result.key, name: file.name, type: file.type}]);
+          if (file.type === "application/pdf") {
+            startAnalysisForDoc(result.key, file.name, file.type);
+            break;
+          }
+        }
+      }
+    },
+    [propertyId, uploadDocument, startAnalysisForDoc]
+  );
 
   const removeInspectionFile = (index) => {
-    setInspectionFiles((prev) => prev.filter((_, i) => i !== index));
+    setUploadedDocs((prev) => {
+      const next = prev.filter((_, i) => i !== index);
+      if (next.length === 0) {
+        setAnalysisJobId(null);
+        setAnalysisStatus(null);
+        setAnalysisResult(null);
+        setAnalysisError(null);
+      }
+      return next;
+    });
+  };
+
+  const handleRetryAnalysis = useCallback(() => {
+    const lastPdf = uploadedDocs.find((d) => d.type === "application/pdf");
+    if (lastPdf && propertyId) {
+      setAnalysisError(null);
+      startAnalysisForDoc(lastPdf.key, lastPdf.name, lastPdf.type);
+    }
+  }, [uploadedDocs, propertyId, startAnalysisForDoc]);
+
+  const toggleSuggestedSystem = (sysKey) => {
+    setSelectedSuggestedSystems((prev) => {
+      const next = new Set(prev);
+      if (next.has(sysKey)) next.delete(sysKey);
+      else next.add(sysKey);
+      return next;
+    });
+  };
+
+  const handleAddSelectedSystems = () => {
+    const toAdd = [...selectedSuggestedSystems];
+    setSelected((prev) => {
+      const next = new Set(prev);
+      toAdd.forEach((id) => next.add(id));
+      return next;
+    });
+    setSelectedSuggestedSystems(new Set());
+  };
+
+  const handleScheduleFromAi = (item) => {
+    onScheduleMaintenance?.(item);
+    setModalOpen(false);
   };
 
   return (
@@ -669,11 +878,18 @@ function SystemsSetupModal({
               </div>
             )}
 
+            {savePropertyError && (
+              <div className="flex items-center gap-1.5 text-sm text-red-500 dark:text-red-400">
+                <AlertCircle className="w-4 h-4 flex-shrink-0" />
+                <span>{savePropertyError}</span>
+              </div>
+            )}
             <div className="flex justify-between gap-3 pt-2">
               <button
                 type="button"
                 onClick={() => setStep("identity")}
-                className="btn border border-gray-200 dark:border-gray-600 hover:bg-gray-50 dark:hover:bg-gray-700 text-gray-700 dark:text-gray-300"
+                disabled={savingProperty}
+                className="btn border border-gray-200 dark:border-gray-600 hover:bg-gray-50 dark:hover:bg-gray-700 text-gray-700 dark:text-gray-300 disabled:opacity-60"
               >
                 Back
               </button>
@@ -690,9 +906,17 @@ function SystemsSetupModal({
                 <button
                   type="button"
                   onClick={handleDetailsContinue}
-                  className="btn bg-[#456564] hover:bg-[#34514f] text-white"
+                  disabled={savingProperty}
+                  className="btn bg-[#456564] hover:bg-[#34514f] text-white inline-flex items-center gap-2 disabled:opacity-60"
                 >
-                  Continue
+                  {savingProperty ? (
+                    <>
+                      <Loader2 className="w-4 h-4 animate-spin" />
+                      Saving property…
+                    </>
+                  ) : (
+                    "Continue"
+                  )}
                 </button>
               </div>
             </div>
@@ -986,54 +1210,92 @@ function SystemsSetupModal({
 
             {/* File upload (shown when Yes) */}
             {inspectionReportAvailable === true && (
-              <div
-                className="rounded-2xl border-2 border-dashed border-gray-300 dark:border-gray-600 bg-gray-50/50 dark:bg-gray-800/30 p-8 transition-all duration-300"
-                style={{animation: "systemsStepFadeIn 0.3s ease-out forwards"}}
-              >
+              <div className="space-y-4">
+                {!propertyId && (
+                  <p className="text-xs text-amber-600 dark:text-amber-400">
+                    Save the property first to upload and analyze inspection reports.
+                  </p>
+                )}
                 <div
-                  className="relative flex flex-col items-center justify-center min-h-[160px] py-6"
-                  onDragOver={(e) => e.preventDefault()}
-                  onDragLeave={(e) => e.preventDefault()}
-                  onDrop={handleInspectionFileDrop}
+                  className="rounded-2xl border-2 border-dashed border-gray-300 dark:border-gray-600 bg-gray-50/50 dark:bg-gray-800/30 p-8 transition-all duration-300"
+                  style={{animation: "systemsStepFadeIn 0.3s ease-out forwards"}}
                 >
-                  <input
-                    type="file"
-                    multiple
-                    accept=".pdf,.doc,.docx,image/*"
-                    onChange={handleInspectionFileSelect}
-                    className="absolute inset-0 w-full h-full opacity-0 cursor-pointer z-10"
-                    id="inspection-file-input"
-                  />
-                  <Upload className="w-12 h-12 text-gray-400 dark:text-gray-500 mb-4" />
-                  <p className="text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-                    Drag & drop your inspection report here
-                  </p>
-                  <p className="text-xs text-gray-500 dark:text-gray-400 mb-4">
-                    or click to browse (PDF, DOC, images)
-                  </p>
-                  {inspectionFiles.length > 0 && (
-                    <div className="w-full max-w-sm space-y-2 mt-4">
-                      {inspectionFiles.map((file, idx) => (
-                        <div
-                          key={`${file.name}-${idx}`}
-                          className="flex items-center justify-between gap-2 px-3 py-2 rounded-lg bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-600"
-                        >
-                          <span className="text-sm text-gray-700 dark:text-gray-300 truncate flex-1">
-                            {file.name}
-                          </span>
-                          <button
-                            type="button"
-                            onClick={() => removeInspectionFile(idx)}
-                            className="p-1 rounded hover:bg-gray-200 dark:hover:bg-gray-600 text-gray-500"
-                            aria-label={`Remove ${file.name}`}
+                  <div
+                    className="relative flex flex-col items-center justify-center min-h-[160px] py-6"
+                    onDragOver={(e) => e.preventDefault()}
+                    onDragLeave={(e) => e.preventDefault()}
+                    onDrop={propertyId ? handleInspectionFileDrop : (e) => e.preventDefault()}
+                  >
+                    <input
+                      type="file"
+                      multiple
+                      accept=".pdf,image/*"
+                      onChange={handleInspectionFileSelect}
+                      disabled={!propertyId || isUploading}
+                      className="absolute inset-0 w-full h-full opacity-0 cursor-pointer z-10 disabled:cursor-not-allowed"
+                      id="inspection-file-input"
+                    />
+                    {isUploading ? (
+                      <>
+                        <Loader2 className="w-12 h-12 text-[#456564] animate-spin mb-4" />
+                        <p className="text-sm font-medium text-gray-700 dark:text-gray-300">
+                          Uploading… {uploadProgress}%
+                        </p>
+                      </>
+                    ) : (
+                      <>
+                        <Upload className="w-12 h-12 text-gray-400 dark:text-gray-500 mb-4" />
+                        <p className="text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                          Drag & drop your inspection report here
+                        </p>
+                        <p className="text-xs text-gray-500 dark:text-gray-400 mb-4">
+                          or click to browse (PDF, images). AI analysis runs for PDFs.
+                        </p>
+                      </>
+                    )}
+                    {uploadError && (
+                      <p className="text-xs text-red-500 dark:text-red-400 mt-2">{uploadError}</p>
+                    )}
+                    {uploadedDocs.length > 0 && (
+                      <div className="w-full max-w-sm space-y-2 mt-4">
+                        {uploadedDocs.map((doc, idx) => (
+                          <div
+                            key={`${doc.key}-${idx}`}
+                            className="flex items-center justify-between gap-2 px-3 py-2 rounded-lg bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-600"
                           >
-                            <X className="w-4 h-4" />
-                          </button>
-                        </div>
-                      ))}
-                    </div>
-                  )}
+                            <span className="text-sm text-gray-700 dark:text-gray-300 truncate flex-1">
+                              {doc.name}
+                            </span>
+                            <button
+                              type="button"
+                              onClick={() => removeInspectionFile(idx)}
+                              className="p-1 rounded hover:bg-gray-200 dark:hover:bg-gray-600 text-gray-500"
+                              aria-label={`Remove ${doc.name}`}
+                            >
+                              <X className="w-4 h-4" />
+                            </button>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                  </div>
                 </div>
+
+                {/* AI Findings panel */}
+                {(analysisJobId || analysisStatus) && (
+                  <AIFindingsPanel
+                    status={analysisStatus}
+                    progress={analysisProgress}
+                    errorMessage={analysisError}
+                    result={analysisResult}
+                    suggestedSystemsToAdd={analysisResult?.suggestedSystemsToAdd ?? []}
+                    selectedSuggestedSystems={[...selectedSuggestedSystems]}
+                    onToggleSuggestedSystem={toggleSuggestedSystem}
+                    onAddSelectedSystems={handleAddSelectedSystems}
+                    onScheduleMaintenance={onScheduleMaintenance ? handleScheduleFromAi : undefined}
+                    onRetry={handleRetryAnalysis}
+                  />
+                )}
               </div>
             )}
 

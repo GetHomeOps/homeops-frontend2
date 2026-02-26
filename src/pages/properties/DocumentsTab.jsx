@@ -21,6 +21,7 @@ import {
   Loader2,
   Menu,
   Settings,
+  Sparkles,
 } from "lucide-react";
 import AppApi from "../../api/api";
 import DatePickerInput from "../../components/DatePickerInput";
@@ -202,7 +203,7 @@ function InlineDocumentPreview({
   );
 }
 
-function DocumentsTab({propertyData}) {
+function DocumentsTab({propertyData, onOpenAIAssistant, onOpenAIReport}) {
   const propertyId = propertyData?.id ?? propertyData?.identity?.id;
   const [documents, setDocuments] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -225,6 +226,7 @@ function DocumentsTab({propertyData}) {
   const [uploadFiles, setUploadFiles] = useState([]);
   const [uploadSuccessCount, setUploadSuccessCount] = useState(0);
   const [uploadError, setUploadError] = useState(null);
+  const [indexingDocs, setIndexingDocs] = useState(false);
   const fileInputRef = useRef(null);
 
   const {
@@ -523,6 +525,20 @@ function DocumentsTab({propertyData}) {
     return colors[type] || colors.other;
   };
 
+  const handleIndexForAI = async () => {
+    if (!propertyId || indexingDocs) return;
+    setIndexingDocs(true);
+    try {
+      await AppApi.aiIngestDocuments(propertyId);
+      fetchDocuments();
+    } catch (err) {
+      const msg = err?.message || "Indexing failed";
+      alert(msg);
+    } finally {
+      setIndexingDocs(false);
+    }
+  };
+
   const clearFilters = () => {
     setSelectedSystem("all");
     setSelectedType("all");
@@ -648,18 +664,30 @@ function DocumentsTab({propertyData}) {
       {/* Right Panel - Preview */}
       <div className="flex-1 min-w-0 flex flex-col">
         {/* Mobile menu button */}
-        <div className="lg:hidden flex items-center px-4 py-2 border-b border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800">
-          <button
-            type="button"
-            onClick={() => setSidebarOpen(true)}
-            className="p-2 -ml-2 text-gray-500 hover:text-gray-700 dark:hover:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg transition-colors"
-            title="Open documents menu"
-          >
-            <Menu className="w-5 h-5" />
-          </button>
-          <span className="ml-2 text-sm font-medium text-gray-700 dark:text-gray-300">
-            Documents
-          </span>
+        <div className="lg:hidden flex items-center justify-between px-4 py-2 border-b border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800">
+          <div className="flex items-center">
+            <button
+              type="button"
+              onClick={() => setSidebarOpen(true)}
+              className="p-2 -ml-2 text-gray-500 hover:text-gray-700 dark:hover:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg transition-colors"
+              title="Open documents menu"
+            >
+              <Menu className="w-5 h-5" />
+            </button>
+            <span className="ml-2 text-sm font-medium text-gray-700 dark:text-gray-300">
+              Documents
+            </span>
+          </div>
+          {onOpenAIAssistant && (
+            <button
+              type="button"
+              onClick={onOpenAIAssistant}
+              className="p-2 text-[#456564] hover:bg-[#456564]/10 rounded-lg transition-colors"
+              title="AI Assistant"
+            >
+              <Sparkles className="w-5 h-5" />
+            </button>
+          )}
         </div>
 
         {/* Filters bar - horizontal, over central panel */}
@@ -724,6 +752,28 @@ function DocumentsTab({propertyData}) {
               Clear filters
             </button>
           )}
+          <div className="hidden lg:flex items-center gap-2 ml-auto">
+            <button
+              type="button"
+              onClick={handleIndexForAI}
+              disabled={indexingDocs || !propertyId}
+              className="text-xs text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-300 disabled:opacity-50 px-2 py-1"
+              title="Index documents for AI search"
+            >
+              {indexingDocs ? "Indexing…" : "Index for AI"}
+            </button>
+            {onOpenAIAssistant && (
+              <button
+                type="button"
+                onClick={onOpenAIAssistant}
+                className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-[#456564] hover:bg-[#456564]/10 transition-colors"
+                title="AI Assistant"
+              >
+                <Sparkles className="w-4 h-4" />
+                <span className="text-sm font-medium">AI Assistant</span>
+              </button>
+            )}
+          </div>
         </div>
 
         <div className="flex-1 min-h-0">
@@ -737,6 +787,7 @@ function DocumentsTab({propertyData}) {
             onClose={() => setSelectedDocument(null)}
             onOpenInNewTab={handleOpenInNewTab}
             onDelete={handleDelete}
+            onOpenAIReport={onOpenAIReport}
             getDocumentIcon={getDocumentIcon}
             getFileTypeColor={getFileTypeColor}
             systemCategories={systemCategories}

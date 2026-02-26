@@ -9,6 +9,7 @@ import React, {
 } from "react";
 import {useNavigate} from "react-router-dom";
 import {useTranslation} from "react-i18next";
+import {Sparkles} from "lucide-react";
 
 import Sidebar from "../../partials/Sidebar";
 import Header from "../../partials/Header";
@@ -313,7 +314,7 @@ function FilterDropdown({filterOptions, activeFilters, onAdd, onRemove, t}) {
 
 /* ─── Property Grid Card ─────────────────────────────────────── */
 
-const PropertyCard = ({property, onClick, isSelected, onSelect, getMainPhotoUrl, t}) => {
+const PropertyCard = ({property, onClick, isSelected, onSelect, getMainPhotoUrl, t, onOpenAIAssistant}) => {
   const health = property.health ?? property.hps_score ?? property.hpsScore ?? 0;
   const resolved = getMainPhotoUrl?.(property);
   const photoUrl =
@@ -359,7 +360,21 @@ const PropertyCard = ({property, onClick, isSelected, onSelect, getMainPhotoUrl,
           </label>
         </div>
         <div className="absolute bottom-0 inset-x-0 h-16 bg-gradient-to-t from-black/40 to-transparent pointer-events-none" />
-        <div className="absolute bottom-2.5 right-2.5">
+        <div className="absolute bottom-2.5 right-2.5 flex items-center gap-1.5">
+          {onOpenAIAssistant && (
+            <button
+              type="button"
+              onClick={(e) => {
+                e.stopPropagation();
+                onOpenAIAssistant(property);
+              }}
+              className="p-1.5 rounded-full bg-white/90 hover:bg-white text-[#456564] shadow-sm transition-colors"
+              title="AI Assistant"
+              aria-label="Open AI Assistant"
+            >
+              <Sparkles className="w-4 h-4" />
+            </button>
+          )}
           <span
             className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-semibold text-white"
             style={{backgroundColor: getHealthColor(health)}}
@@ -631,6 +646,22 @@ function PropertiesList() {
   };
 
   const handleNewProperty = () => navigate(`/${accountUrl}/properties/new`);
+  const handleOpenAIAssistant = (property) => {
+    const uid = property.property_uid ?? property.id;
+    const propertyIndex = sortedProperties.findIndex(
+      (p) => (p.property_uid ?? p.id) === uid,
+    );
+    navigate(`/${accountUrl}/properties/${uid}`, {
+      state: {
+        openAiSidebar: true,
+        currentIndex: propertyIndex + 1,
+        totalItems: sortedProperties.length,
+        visiblePropertyIds: sortedProperties.map(
+          (p) => p.property_uid ?? p.id,
+        ),
+      },
+    });
+  };
   const handlePropertyClick = (property) => {
     const propertyIndex = sortedProperties.findIndex(
       (p) => (p.property_uid ?? p.id) === property.property_uid,
@@ -1128,6 +1159,7 @@ function PropertiesList() {
                         onSelect={handleToggleSelect}
                         getMainPhotoUrl={getMainPhotoUrl}
                         t={t}
+                        onOpenAIAssistant={handleOpenAIAssistant}
                       />
                     ))}
                   </div>

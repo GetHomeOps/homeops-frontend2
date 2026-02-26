@@ -35,6 +35,10 @@ function SystemsTab({
   visibleSystemIds,
   customSystemsData = {},
   onSystemsCompletionChange,
+  aiSidebarOpen: aiSidebarOpenProp,
+  onAiSidebarOpenChange,
+  onOpenAIAssistant: onOpenAIAssistantProp,
+  aiSidebarSystemLabel: aiSidebarSystemLabelProp,
 }) {
   // Get contacts from context
   const contactContext = useContext(ContactContext);
@@ -75,12 +79,26 @@ function SystemsTab({
   // Track "new install" state for each system
   const [newInstallStates, setNewInstallStates] = useState({});
 
-  // AI Assistant sidebar (right-side panel)
-  const [aiSidebarOpen, setAiSidebarOpen] = useState(false);
-  const [aiSidebarSystemLabel, setAiSidebarSystemLabel] = useState(null);
+  // AI Assistant sidebar (right-side panel) - controlled by parent when onAiSidebarOpenChange provided
+  const [aiSidebarOpenLocal, setAiSidebarOpenLocal] = useState(false);
+  const aiSidebarOpen = onAiSidebarOpenChange ? (aiSidebarOpenProp ?? false) : aiSidebarOpenLocal;
+  const setAiSidebarOpen = onAiSidebarOpenChange || setAiSidebarOpenLocal;
+  const [aiSidebarSystemLabelLocal, setAiSidebarSystemLabelLocal] = useState(null);
+  const aiSidebarSystemLabel = aiSidebarSystemLabelProp ?? aiSidebarSystemLabelLocal;
+
+  const propertyId =
+    propertyData?.id ??
+    propertyData?.identity?.id ??
+    propertyData?.property_uid ??
+    propertyData?.identity?.property_uid ??
+    propertyIdFallback;
   const handleOpenAIAssistant = (label) => {
-    setAiSidebarSystemLabel(label);
-    setAiSidebarOpen(true);
+    if (onOpenAIAssistantProp) {
+      onOpenAIAssistantProp(label);
+    } else {
+      setAiSidebarSystemLabelLocal(label);
+      setAiSidebarOpen(true);
+    }
   };
 
   const toggleSection = (section) => {
@@ -177,13 +195,6 @@ function SystemsTab({
     }));
     return [general, ...selected, ...custom].filter(Boolean);
   }, [visibleSystemIdsForUpload, customSystemNames]);
-
-  const propertyId =
-    propertyData?.id ??
-    propertyData?.identity?.id ??
-    propertyData?.property_uid ??
-    propertyData?.identity?.property_uid ??
-    propertyIdFallback;
 
   return (
     <>
@@ -2188,11 +2199,17 @@ function SystemsTab({
       })()}
     </div>
 
-    <AIAssistantSidebar
-      isOpen={aiSidebarOpen}
-      onClose={() => setAiSidebarOpen(false)}
-      systemLabel={aiSidebarSystemLabel}
-    />
+    {!onAiSidebarOpenChange && (
+      <AIAssistantSidebar
+        isOpen={aiSidebarOpen}
+        onClose={() => setAiSidebarOpen(false)}
+        systemLabel={aiSidebarSystemLabel}
+        propertyId={
+          propertyData?.identity?.id ?? propertyData?.id ?? propertyIdFallback
+        }
+        contacts={contacts}
+      />
+    )}
     </>
   );
 }

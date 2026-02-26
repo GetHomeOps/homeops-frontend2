@@ -593,6 +593,63 @@ class AppApi {
     return res;
   }
 
+  /* --------- Inspection Report Analysis --------- */
+
+  static async startInspectionAnalysis(propertyId, { s3Key, fileName, mimeType }) {
+    const res = await this.request(`properties/${propertyId}/inspection-report/analyze`, {
+      s3Key,
+      fileName: fileName || null,
+      mimeType: mimeType || null,
+    }, "POST");
+    return res.jobId;
+  }
+
+  static async getInspectionAnalysisJob(jobId) {
+    const res = await this.request(`inspection-analysis/jobs/${jobId}`);
+    return res;
+  }
+
+  static async getInspectionAnalysisByProperty(propertyId) {
+    const res = await this.request(`properties/${propertyId}/inspection-analysis`);
+    return res.analysis ?? null;
+  }
+
+  /* --------- Property Contractors --------- */
+
+  static async getPropertyContractors(propertyId, query = "") {
+    const res = await this.request(`properties/${propertyId}/contractors`, { query }, "GET");
+    return res.contractors ?? [];
+  }
+
+  /* --------- AI Chat --------- */
+
+  static async aiChat({ conversationId, propertyId, message }) {
+    const res = await this.request("ai/chat", { conversationId, propertyId, message }, "POST");
+    return res;
+  }
+
+  static async aiSelectContractor(actionDraftId, { contractorId, contractorSource, contractorName }) {
+    const res = await this.request(`ai/actions/${actionDraftId}/select-contractor`, {
+      contractorId,
+      contractorSource,
+      contractorName,
+    }, "POST");
+    return res;
+  }
+
+  static async aiConfirmSchedule(actionDraftId, { scheduledFor, notes }) {
+    const res = await this.request(`ai/actions/${actionDraftId}/confirm-schedule`, {
+      scheduledFor,
+      notes,
+    }, "POST");
+    return res;
+  }
+
+  static async aiIngestDocuments(propertyId) {
+    const res = await this.request("ai/ingest-documents", { propertyId }, "POST");
+    return res;
+  }
+
   /* --------- Property Data Lookup (ATTOM) --------- */
 
   static async lookupPropertyDetails(propertyInfo) {
