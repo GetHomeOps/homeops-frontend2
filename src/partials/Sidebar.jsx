@@ -263,7 +263,6 @@ function Sidebar({sidebarOpen, setSidebarOpen, variant = "default"}) {
   );
   const [is2xlViewport, setIs2xlViewport] = useState(false);
   const [isExpandableViewport, setIsExpandableViewport] = useState(false);
-  const [handleHovered, setHandleHovered] = useState(false);
 
   const groupForPath = (path) => {
     if (/\/professionals(\/|$)/.test(path) || /\/my-professionals(\/|$)/.test(path)) return "directory";
@@ -371,7 +370,7 @@ function Sidebar({sidebarOpen, setSidebarOpen, variant = "default"}) {
         : `${linkBase} ${linkInactive}`;
 
     return (
-      <SidebarTooltip key={item.id} show={showTooltip} label={item.label} layoutShiftKey={handleHovered}>
+        <SidebarTooltip key={item.id} show={showTooltip} label={item.label} layoutShiftKey={0}>
         <NavLink
           end
           to={path}
@@ -439,7 +438,7 @@ function Sidebar({sidebarOpen, setSidebarOpen, variant = "default"}) {
     );
 
     const wrapped = flyoutContent ? (
-      <SubmenuFlyout show={showTooltip} title={group.label} flyoutContent={flyoutContent} alignBottom={group.id === "settings"} alignTop={group.id !== "settings"} layoutShiftKey={handleHovered}>
+      <SubmenuFlyout show={showTooltip} title={group.label} flyoutContent={flyoutContent} alignBottom={group.id === "settings"} alignTop={group.id !== "settings"} layoutShiftKey={0}>
         {button}
       </SubmenuFlyout>
     ) : (
@@ -540,13 +539,9 @@ function Sidebar({sidebarOpen, setSidebarOpen, variant = "default"}) {
           ref={sidebar}
           className={`flex lg:flex! flex-col absolute z-40 left-0 top-0 lg:static lg:left-auto lg:top-auto lg:translate-x-0 h-[100dvh] overflow-y-scroll lg:overflow-y-auto no-scrollbar w-64 lg:w-20 lg:sidebar-expanded:!w-64 2xl:w-64! shrink-0 bg-[#456564] p-4 transition-all duration-200 ease-in-out relative ${
             sidebarOpen ? "translate-x-0" : "-translate-x-64"
-          } ${handleHovered && !sidebarExpanded ? "lg:shadow-[2px_0_0_0_#456564] 2xl:shadow-none" : ""} ${variant === "v2" ? "border-r border-white/10" : "shadow-xs"}`}
+          } ${variant === "v2" ? "border-r border-white/10" : "shadow-xs"}`}
         >
-          <div
-            className={`flex flex-col flex-1 min-h-0 transition-transform duration-150 ease-out ${
-              handleHovered && !sidebarExpanded && !is2xlViewport ? "lg:translate-x-[2px]" : ""
-            }`}
-          >
+          <div className="flex flex-col flex-1 min-h-0">
           <div className="flex justify-between lg:justify-center lg:sidebar-expanded:justify-between mb-10 pr-3 sm:px-2 lg:px-0">
             <button
               ref={trigger}
@@ -624,10 +619,6 @@ function Sidebar({sidebarOpen, setSidebarOpen, variant = "default"}) {
           type="button"
           onClick={() => setSidebarExpanded(!sidebarExpanded)}
           aria-label={sidebarExpanded ? "Collapse sidebar" : "Expand sidebar"}
-          onMouseEnter={() => setHandleHovered(true)}
-          onMouseLeave={() => setHandleHovered(false)}
-          onFocus={() => setHandleHovered(true)}
-          onBlur={() => setHandleHovered(false)}
           className="group/handle absolute right-0 top-1/2 h-16 w-7 -translate-y-1/2 translate-x-[80%] z-50 hidden lg:flex 2xl:hidden items-center justify-center cursor-col-resize focus:outline-none"
         >
           <span className="block h-8 w-[3.5px] rounded-full bg-gray-400/60 transition-all duration-150 group-hover/handle:opacity-0 group-focus-visible/handle:opacity-0" />

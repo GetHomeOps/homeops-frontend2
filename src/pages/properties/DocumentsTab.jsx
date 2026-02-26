@@ -13,7 +13,6 @@ import {
   Droplet,
   Zap,
   Home,
-  Folder,
   X,
   ChevronRight,
   ExternalLink,
@@ -32,7 +31,7 @@ import {PROPERTY_SYSTEMS} from "./constants/propertySystems";
 
 // System categories with icons – matches API system_key values
 const systemCategories = [
-  {id: "general", label: "General", icon: Folder, color: "text-gray-600"},
+  {id: "inspectionReport", label: "Inspection Report", icon: FileCheck, color: "text-green-600"},
   {id: "roof", label: "Roof", icon: Building, color: "text-blue-600"},
   {id: "gutters", label: "Gutters", icon: Droplet, color: "text-cyan-600"},
   {
@@ -222,7 +221,7 @@ function DocumentsTab({propertyData}) {
     new Date().toISOString().slice(0, 10),
   );
   const [uploadDocumentType, setUploadDocumentType] = useState("receipt");
-  const [uploadSystemKey, setUploadSystemKey] = useState("general");
+  const [uploadSystemKey, setUploadSystemKey] = useState("inspectionReport");
   const [uploadFiles, setUploadFiles] = useState([]);
   const [uploadSuccessCount, setUploadSuccessCount] = useState(0);
   const [uploadError, setUploadError] = useState(null);
@@ -279,7 +278,7 @@ function DocumentsTab({propertyData}) {
   const toUIDoc = (doc) => ({
     id: doc.id,
     name: doc.document_name,
-    system: doc.system_key || "general",
+    system: doc.system_key === "general" ? "inspectionReport" : (doc.system_key || "inspectionReport"),
     type: doc.document_type || "other",
     document_key: doc.document_key,
     document_url: doc.document_url,
@@ -345,21 +344,21 @@ function DocumentsTab({propertyData}) {
   const documentsBySystem = useMemo(() => {
     const grouped = {};
     filteredDocuments.forEach((doc) => {
-      const sys = doc.system || "general";
+      const sys = doc.system === "general" ? "inspectionReport" : (doc.system || "inspectionReport");
       if (!grouped[sys]) grouped[sys] = [];
       grouped[sys].push(doc);
     });
     return grouped;
   }, [filteredDocuments]);
 
-  // Visible systems: only selected systems (or General only when none selected)
+  // Visible systems: Inspection Report always shown; selected systems when any chosen
   const visibleSystemIds =
     (propertyData?.selectedSystemIds?.length ?? 0) > 0
       ? propertyData.selectedSystemIds
       : [];
   const customSystemNames = propertyData?.customSystemNames ?? [];
   const systemsToShow = useMemo(() => {
-    const general = systemCategories.find((c) => c.id === "general");
+    const inspectionReport = systemCategories.find((c) => c.id === "inspectionReport");
     const selected = PROPERTY_SYSTEMS.filter((s) =>
       visibleSystemIds.includes(s.id),
     ).map((s) => {
@@ -374,7 +373,7 @@ function DocumentsTab({propertyData}) {
       icon: Settings,
       color: "text-gray-600",
     }));
-    return [general, ...selected, ...custom].filter(Boolean);
+    return [inspectionReport, ...selected, ...custom].filter(Boolean);
   }, [visibleSystemIds, customSystemNames]);
 
   // When filtering by system, tree column shows only that system

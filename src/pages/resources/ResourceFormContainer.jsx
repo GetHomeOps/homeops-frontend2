@@ -912,7 +912,7 @@ function ResourceFormContainer() {
                         key={mode.value}
                         className={`flex items-start gap-3 p-4 rounded-lg border-2 cursor-pointer transition-colors ${
                           form.deliveryMode === mode.value
-                            ? "border-teal-600 dark:border-teal-500 bg-teal-50/80 dark:bg-teal-900/20"
+                            ? "border-[#456564] bg-[#456564]/5 dark:bg-[#456564]/10"
                             : "border-gray-200 dark:border-gray-600 hover:border-gray-300 dark:hover:border-gray-500"
                         }`}
                       >
@@ -940,6 +940,7 @@ function ResourceFormContainer() {
 
                 {form.deliveryMode === "send_now" && (
                   <>
+                    <hr className="border-t border-gray-200 dark:border-gray-600 my-6" />
                     <div>
                       <h3 className="text-sm font-semibold text-gray-800 dark:text-gray-200 mb-3">
                         Who receives this?
@@ -950,7 +951,7 @@ function ResourceFormContainer() {
                         key={preset.value}
                         className={`flex items-start gap-3 p-4 rounded-lg border-2 cursor-pointer transition-colors ${
                           form.recipientMode === preset.value
-                            ? "border-indigo-500 dark:border-indigo-400 bg-indigo-50/80 dark:bg-indigo-900/20"
+                            ? "border-[#456564] bg-[#456564]/5 dark:bg-[#456564]/10"
                             : "border-gray-200 dark:border-gray-600 hover:border-gray-300 dark:hover:border-gray-500"
                         }`}
                       >
