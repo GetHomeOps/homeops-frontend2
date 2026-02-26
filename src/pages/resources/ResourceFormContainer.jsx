@@ -127,8 +127,8 @@ const initialForm = {
 };
 
 const TABS = [
-  {id: "content", label: "Content", icon: FileText},
   {id: "delivery", label: "Delivery", icon: Send},
+  {id: "content", label: "Content", icon: FileText},
 ];
 
 const DELIVERY_MODES = [
@@ -178,7 +178,6 @@ function ResourceFormContainer() {
       const resource = await AppApi.getResource(id);
       // Migrate legacy article_link -> web_link
       const type = resource.type === "article_link" ? "web_link" : (resource.type || "post");
-      const contentFormat = LINK_TYPES.includes(type) ? "link" : "html";
       const rawTriggers = ensureArray(resource.autoSendTriggers).map(migrateTrigger);
       const nextForm = {
         subject: resource.subject || "",
@@ -186,7 +185,7 @@ function ResourceFormContainer() {
         deliveryMode: rawTriggers.length > 0 ? "auto_send" : "send_now",
         recipientMode: resource.recipientMode || "",
         recipientIds: resource.recipientIds || [],
-        contentFormat: resource.contentFormat || contentFormat,
+        contentFormat: resource.contentFormat || "html",
         bodyText: resource.bodyText || "",
         url: resource.url || "",
         imageKey: resource.imageKey || "",
@@ -422,10 +421,10 @@ function ResourceFormContainer() {
       }
       if (canSendNow) {
         await AppApi.sendResource(id);
-        showBanner("success", (estimatedCount ?? 0) > 0 ? "Mailing sent successfully." : "Mailing published to Discover.");
+        showBanner("success", (estimatedCount ?? 0) > 0 ? "Communication sent successfully." : "Communication published to Discover.");
       } else if (hasAutoSendRules) {
         await AppApi.activateResource(id);
-        showBanner("success", "Mailing activated for auto-send. It will be sent when the configured events occur.");
+        showBanner("success", "Communication activated for auto-send. It will be sent when the configured events occur.");
       }
       setSendModalOpen(false);
       await fetchResource();
@@ -444,7 +443,7 @@ function ResourceFormContainer() {
       const created = await AppApi.createResource(buildPayload({
         subject: form.subject ? `${form.subject} (copy)` : "",
       }));
-      showBanner("success", "Mailing duplicated.");
+      showBanner("success", "Communication duplicated.");
       navigate(`/${accountUrl}/resources/${created.id}`);
     } catch (err) {
       showBanner("error", err?.message || "Failed to duplicate");
@@ -505,7 +504,7 @@ function ResourceFormContainer() {
           className="inline-flex items-center gap-2 text-gray-500 hover:text-gray-800 dark:text-gray-400 dark:hover:text-gray-200 transition-colors"
         >
           <ArrowLeft className="w-5 h-5" />
-          <span className="text-lg">Mailings</span>
+          <span className="text-lg">Communications</span>
         </button>
         <button
           type="button"
@@ -629,7 +628,7 @@ function ResourceFormContainer() {
                       setForm((prev) => ({
                         ...prev,
                         type: v,
-                        contentFormat: LINK_TYPES.includes(v) ? "link" : "html",
+                        contentFormat: "html",
                       }));
                     }}
                     disabled={isSent}
@@ -813,40 +812,68 @@ function ResourceFormContainer() {
                         placeholder={form.type === "pdf" ? "https://... (PDF link)" : "https://..."}
                       />
                     </div>
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                        Preview image (optional)
+                      </label>
+                      <div
+                        onDragOver={(e) => { e.preventDefault(); e.stopPropagation(); }}
+                        onDrop={(e) => {
+                          e.preventDefault();
+                          e.stopPropagation();
+                          if (isSent || imageUploading) return;
+                          const file = e.dataTransfer?.files?.[0];
+                          if (file?.type?.startsWith("image/")) uploadImage(file);
+                        }}
+                        className={`relative border-2 border-dashed rounded-xl p-6 text-center transition-colors ${
+                          imageUploading ? "border-[#456564]/50 bg-[#456564]/5 dark:bg-[#456564]/10" : "border-gray-300 dark:border-gray-600 hover:border-[#456564]/50 dark:hover:border-[#456564]/50 hover:bg-gray-50 dark:hover:bg-gray-900/30"
+                        }`}
+                      >
+                        <input
+                          type="file"
+                          accept={imageAccept}
+                          onChange={(e) => {
+                            const file = e.target.files?.[0];
+                            if (file) uploadImage(file);
+                            e.target.value = "";
+                          }}
+                          className="absolute inset-0 w-full h-full opacity-0 cursor-pointer disabled:cursor-not-allowed"
+                          disabled={isSent || imageUploading}
+                        />
+                        {(imagePreviewUrl || form.imageKey) ? (
+                          <div className="flex flex-col items-center gap-2">
+                            <div className="w-40 h-28 rounded-lg overflow-hidden bg-gray-100 dark:bg-gray-800">
+                              <img src={imagePreviewUrl || imageDisplayUrl || RESOURCE_THUMBNAIL_PLACEHOLDER} alt="" className="w-full h-full object-cover" onError={(e) => { e.target.src = RESOURCE_THUMBNAIL_PLACEHOLDER; }} />
+                            </div>
+                            {!isSent && form.imageKey && (
+                              <button type="button" onClick={(e) => { e.preventDefault(); clearPreview(); setForm((p) => ({...p, imageKey: ""})); }} className="text-sm text-red-600 dark:text-red-400 hover:underline">Remove</button>
+                            )}
+                          </div>
+                        ) : (
+                          <>
+                            <ImagePlus className="w-10 h-10 mx-auto text-gray-400 mb-2" />
+                            <p className="text-sm font-medium text-gray-700 dark:text-gray-300">Drop image or click to add preview</p>
+                            <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">Used when the URL has no thumbnail</p>
+                          </>
+                        )}
+                      </div>
+                    </div>
                     {form.url?.trim() && (
                       <div className="rounded-lg border border-gray-200 dark:border-gray-600 p-4 bg-gray-50 dark:bg-gray-900/50">
-                        <p className="text-xs font-medium text-gray-500 dark:text-gray-400 mb-2">
-                          Preview
-                        </p>
+                        <p className="text-xs font-medium text-gray-500 dark:text-gray-400 mb-2">Preview</p>
                         {(() => {
-                          const thumbUrl = getResourceThumbnailUrl({url: form.url, type: form.type});
+                          const thumbUrl = getResourceThumbnailUrl({url: form.url, type: form.type}) || (form.imageKey ? (imagePreviewUrl || imageDisplayUrl) : null);
                           return (
                             <div className="flex gap-4">
-                              {(thumbUrl || LINK_TYPES.includes(form.type)) && (
-                                <div className="flex-shrink-0 w-32 h-20 rounded-lg overflow-hidden bg-gray-200 dark:bg-gray-700">
-                                  <img
-                                    src={thumbUrl || RESOURCE_THUMBNAIL_PLACEHOLDER}
-                                    alt=""
-                                    className="w-full h-full object-cover"
-                                    onError={(e) => {
-                                      e.target.src = RESOURCE_THUMBNAIL_PLACEHOLDER;
-                                    }}
-                                  />
-                                </div>
-                              )}
+                              <div className="flex-shrink-0 w-32 h-20 rounded-lg overflow-hidden bg-gray-200 dark:bg-gray-700">
+                                <img src={thumbUrl || RESOURCE_THUMBNAIL_PLACEHOLDER} alt="" className="w-full h-full object-cover" onError={(e) => { e.target.src = RESOURCE_THUMBNAIL_PLACEHOLDER; }} />
+                              </div>
                               <div className="min-w-0 flex-1">
-                                <a
-                                  href={form.url}
-                                  target="_blank"
-                                  rel="noopener noreferrer"
-                                  className="inline-flex items-center gap-2 text-[#456564] hover:underline break-all"
-                                >
+                                <a href={form.url} target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-2 text-[#456564] hover:underline break-all">
                                   <ExternalLink className="w-4 h-4 flex-shrink-0" />
                                   {form.url}
                                 </a>
-                                <p className="mt-2 text-sm text-gray-600 dark:text-gray-400">
-                                  Opens in new tab
-                                </p>
+                                <p className="mt-2 text-sm text-gray-600 dark:text-gray-400">Opens in new tab</p>
                               </div>
                             </div>
                           );
@@ -854,17 +881,15 @@ function ResourceFormContainer() {
                       </div>
                     )}
                     <div>
-                      <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-                        Optional message
-                      </label>
-                      <textarea
-                        name="bodyText"
-                        value={form.bodyText}
-                        onChange={handleChange}
-                        disabled={isSent}
-                        rows={3}
-                        className="form-input w-full disabled:opacity-60"
-                        placeholder="Add a message to accompany the link"
+                      <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Message</label>
+                      <input ref={inlineImageInputRef} type="file" accept={imageAccept} onChange={handleInlineImageFileChange} className="hidden" tabIndex={-1} aria-hidden />
+                      <PostRichEditor
+                        value={form.bodyText || ""}
+                        onChange={(html) => setForm((prev) => ({...prev, bodyText: html}))}
+                        placeholder="Add a message to accompany the link..."
+                        disabled={isSent || inlineImageUploading}
+                        onImageSelect={handleInlineImageSelect}
+                        minHeight="120px"
                       />
                     </div>
                   </div>
@@ -877,7 +902,7 @@ function ResourceFormContainer() {
               <div className="space-y-6">
                 <div>
                   <h3 className="text-sm font-semibold text-gray-800 dark:text-gray-200 mb-2">
-                    How do you want to send this mailing?
+                    How do you want to send this?
                   </h3>
                   <div className="grid gap-3 sm:grid-cols-2 mb-6">
                     {DELIVERY_MODES.map((mode) => (
@@ -915,7 +940,7 @@ function ResourceFormContainer() {
                   <>
                     <div>
                       <h3 className="text-sm font-semibold text-gray-800 dark:text-gray-200 mb-3">
-                        Who receives this mailing?
+                        Who receives this?
                       </h3>
                       <div className="grid gap-3 sm:grid-cols-2">
                         {recipientPresets.map((preset) => (
@@ -1199,14 +1224,14 @@ function ResourceFormContainer() {
         >
           <div className="p-6">
             <h2 className="text-xl font-semibold text-gray-900 dark:text-white mb-2">
-              {canSendNow ? "Send Mailing" : "Activate Auto-send for Mailing"}
+              {canSendNow ? "Send" : "Activate Auto-send"}
             </h2>
             <p className="text-gray-500 dark:text-gray-400 mb-4">
               {canSendNow
                 ? (estimatedCount ?? 0) > 0
                   ? `Send to ${estimatedCount} recipients now? It will also appear in the Discover feed.`
                   : "Publish to Discover feed? Homeowners and agents will see it. No notifications will be sent."
-                : "Activate this mailing for auto-send? It will be sent when the configured events occur."}
+                : "Activate for auto-send? It will be sent when the configured events occur."}
             </p>
             <div className="flex justify-end gap-2">
               <button

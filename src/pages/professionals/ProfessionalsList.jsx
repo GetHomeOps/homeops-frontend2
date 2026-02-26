@@ -751,7 +751,7 @@ function ProfessionalsList() {
         </div>
 
         <main className="grow">
-          <div className="px-4 sm:px-6 py-8 w-full max-w-[96rem] mx-auto">
+          <div className="px-0 sm:px-4 lg:px-5 xxl:px-12 py-8 w-full max-w-[96rem] mx-auto">
             {/* ─── Header row ─────────────────────────────────── */}
             <div className="flex flex-col gap-4 sm:flex-row sm:justify-between sm:items-center mb-5">
               <div>

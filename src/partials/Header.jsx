@@ -19,7 +19,7 @@ function Header({sidebarOpen, setSidebarOpen, variant = "default"}) {
         variant === "v3" ? "dark:before:bg-gray-900" : ""
       }`}
     >
-      <div className="px-4 sm:px-6 lg:px-8">
+      <div className="px-0 sm:px-4 lg:px-5 xxl:px-12">
         <div
           className={`flex items-center justify-between h-16 ${
             variant === "v2" || variant === "v3"

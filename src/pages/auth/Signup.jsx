@@ -114,7 +114,7 @@ function Signup() {
         <div className="md:w-1/2">
           <div className="min-h-[100dvh] h-full flex flex-col after:flex-1">
             <div className="flex-1">
-              <div className="flex items-center justify-between h-16 px-4 sm:px-6 lg:px-8">
+              <div className="flex items-center justify-between h-16 px-0 sm:px-4 lg:px-5 xxl:px-12">
                 <Link className="block" to="/">
                   <img src={Logo} alt="Logo" className="w-15 h-15" />
                 </Link>

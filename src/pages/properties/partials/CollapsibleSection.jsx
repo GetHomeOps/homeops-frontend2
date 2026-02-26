@@ -1,6 +1,8 @@
-import React from "react";
-import {ChevronDown, ChevronRight, Check} from "lucide-react";
+import React, {useMemo} from "react";
+import {ChevronDown, ChevronRight, Check, AlertTriangle, Calendar, Sparkles} from "lucide-react";
 import SystemActionButtons from "./SystemActionButtons";
+import Tooltip from "../../../utils/Tooltip";
+import {getSystemStatus} from "../helpers/systemStatusHelpers";
 
 /**
  * Collapsible Section Component with Progress Bar and Action Buttons
@@ -25,7 +27,16 @@ function CollapsibleSection({
   propertyId,
   propertyData = {},
   systemsToShow = [],
+  customSystemsData = {},
+  onOpenAIAssistant,
 }) {
+  const {needsAttention, hasScheduledEvent} = useMemo(
+    () =>
+      showActionButtons
+        ? getSystemStatus(propertyData, systemType, isNewInstall, customSystemsData)
+        : {needsAttention: false, hasScheduledEvent: false},
+    [showActionButtons, propertyData, systemType, isNewInstall, customSystemsData],
+  );
   const isComplete = progress.percent >= 100;
 
   return (
@@ -137,6 +148,45 @@ function CollapsibleSection({
                 propertyData={propertyData}
                 systemsToShow={systemsToShow}
               />
+            </div>
+          )}
+
+          {/* Status Icons - Needs Attention, Scheduled Event, AI Assistant */}
+          {showActionButtons && (
+            <div
+              className="flex items-center gap-1.5 flex-shrink-0 ml-1"
+              onClick={(e) => e.stopPropagation()}
+              onKeyDown={(e) => e.stopPropagation()}
+            >
+              {needsAttention && (
+                <Tooltip content="Needs attention" position="bottom">
+                  <span className="inline-flex items-center justify-center w-[18px] h-[18px] text-amber-600 dark:text-amber-500/90 hover:text-amber-700 dark:hover:text-amber-400 transition-colors cursor-default">
+                    <AlertTriangle className="w-[18px] h-[18px]" strokeWidth={2} />
+                  </span>
+                </Tooltip>
+              )}
+              {hasScheduledEvent && (
+                <Tooltip content="Scheduled event" position="bottom">
+                  <span className="inline-flex items-center justify-center w-[18px] h-[18px] text-emerald-600 dark:text-emerald-500/90 hover:text-emerald-700 dark:hover:text-emerald-400 transition-colors cursor-default">
+                    <Calendar className="w-[18px] h-[18px]" strokeWidth={2} />
+                  </span>
+                </Tooltip>
+              )}
+              {onOpenAIAssistant && (
+                <Tooltip content="AI Assistant" position="bottom">
+                  <button
+                    type="button"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      onOpenAIAssistant(systemLabel || title);
+                    }}
+                    className="inline-flex items-center justify-center w-[18px] h-[18px] text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200 transition-colors rounded hover:bg-gray-100 dark:hover:bg-gray-600/50 p-0.5"
+                    aria-label="Open AI Assistant"
+                  >
+                    <Sparkles className="w-[18px] h-[18px]" strokeWidth={2} />
+                  </button>
+                </Tooltip>
+              )}
             </div>
           )}
         </div>

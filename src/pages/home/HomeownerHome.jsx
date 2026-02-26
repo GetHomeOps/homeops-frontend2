@@ -444,7 +444,7 @@ function HomeownerHome() {
         {hasProperties && (
         <div className="absolute inset-0 flex flex-col">
           {/* Top Section - Agent Card (only if agent exists) */}
-          <div className="px-4 sm:px-6 lg:px-8 pt-6 flex justify-start">
+          <div className="px-0 sm:px-4 lg:px-5 xxl:px-12 pt-6 flex justify-start">
             {currentAgent ? (
               <div className="relative overflow-hidden bg-white/95 dark:bg-gray-800/95 backdrop-blur-xl rounded-xl p-3 sm:p-4 shadow-xl border border-gray-200/80 dark:border-gray-700/80 w-full lg:w-[360px] min-h-[80px] sm:min-h-[90px] lg:h-auto">
                 {/* Subtle gradient accent */}
@@ -530,7 +530,7 @@ function HomeownerHome() {
           <div className="flex-1" />
 
           {/* Bottom Section - Welcome, Name & Address */}
-          <div className="px-4 sm:px-6 lg:px-8 pb-32 lg:pb-36">
+          <div className="px-0 sm:px-4 lg:px-5 xxl:px-12 pb-32 lg:pb-36">
             <p className="text-white/70 text-sm leading-tight">
               Welcome back,
             </p>
@@ -569,7 +569,7 @@ function HomeownerHome() {
         {/* FLOATING SCORE CARD - only when we have properties */}
         {/* ============================================ */}
         {hasProperties && (
-        <div className="absolute bottom-0 left-0 right-0 translate-y-1/2 px-4 sm:px-6 lg:px-8">
+        <div className="absolute bottom-0 left-0 right-0 translate-y-1/2 px-0 sm:px-4 lg:px-5 xxl:px-12">
           <div className="max-w-4xl mx-auto">
             <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-xl border border-gray-200/50 dark:border-gray-700/50 p-5 lg:p-6">
               <div className="flex flex-col lg:flex-row lg:items-center gap-6">
@@ -718,7 +718,7 @@ function HomeownerHome() {
       {/* ============================================ */}
       {/* QUICK ACTIONS - Horizontal Scroll */}
       {/* ============================================ */}
-      <div className="px-4 sm:px-6 lg:px-8">
+      <div className="px-0 sm:px-4 lg:px-5 xxl:px-12">
         <div className="flex items-center gap-3 overflow-x-auto pb-2 -mx-4 px-4 sm:mx-0 sm:px-0 scrollbar-hide">
           {quickActions.map((action, idx) => (
             <button
@@ -742,7 +742,7 @@ function HomeownerHome() {
       {/* NEXT UP - Urgent Action Banner (real data) */}
       {/* ============================================ */}
       {!eventsLoading && homeEvents?.nextAlert && (
-        <div className="px-4 sm:px-6 lg:px-8">
+        <div className="px-0 sm:px-4 lg:px-5 xxl:px-12">
           <div className="bg-white dark:bg-gray-800/60 border border-gray-200/60 dark:border-gray-700/50 rounded-xl p-4 flex items-center justify-between shadow-sm">
             <div className="flex items-center gap-3">
               <div className="w-10 h-10 bg-amber-500/10 dark:bg-amber-500/20 rounded-lg flex items-center justify-center">
@@ -777,7 +777,7 @@ function HomeownerHome() {
       {/* ============================================ */}
       {/* YOUR PROPERTY - Tasks & Maintenance */}
       {/* ============================================ */}
-      <section className="px-4 sm:px-6 lg:px-8">
+      <section className="px-0 sm:px-4 lg:px-5 xxl:px-12">
         <div className="flex items-center justify-between mb-4">
           <h2 className="text-lg font-semibold text-gray-900 dark:text-white">
             Your Property
@@ -1001,7 +1001,7 @@ function HomeownerHome() {
       {/* ============================================ */}
       {/* DISCOVER - Resources feed (real data) */}
       {/* ============================================ */}
-      <section className="px-4 sm:px-6 lg:px-8">
+      <section className="px-0 sm:px-4 lg:px-5 xxl:px-12">
         <div className="flex items-center justify-between mb-4">
           <h2 className="text-lg font-semibold text-gray-900 dark:text-white">
             Discover
@@ -1084,7 +1084,7 @@ function HomeownerHome() {
       {/* ============================================ */}
       {/* SAVED PROFESSIONALS - Real data */}
       {/* ============================================ */}
-      <section className="px-4 sm:px-6 lg:px-8 pb-8">
+      <section className="px-0 sm:px-4 lg:px-5 xxl:px-12 pb-8">
         <div className="flex items-center justify-between mb-4">
           <div className="flex items-center gap-2">
             <Hammer className="w-5 h-5 text-gray-700 dark:text-gray-300" />

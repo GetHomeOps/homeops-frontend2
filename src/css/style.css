@@ -116,6 +116,7 @@
   --text-6xl--letter-spacing: -0.02em;
 
   --breakpoint-xs: 480px;
+  --breakpoint-xxl: 87.5rem; /* 1400px – larger screens get more lateral padding */
 }
 
 button {

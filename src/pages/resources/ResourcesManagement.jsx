@@ -170,7 +170,7 @@ function ResourcesManagement() {
           <div className={PAGE_LAYOUT.list}>
             <div className="flex items-center justify-between mb-6">
               <h1 className="text-2xl font-bold text-gray-900 dark:text-white">
-                Mailings
+                Communications
               </h1>
               <button
                 type="button"
@@ -178,7 +178,7 @@ function ResourcesManagement() {
                 className="inline-flex items-center gap-2 px-4 py-2 bg-gray-900 dark:bg-white text-white dark:text-gray-900 rounded-lg text-sm font-medium hover:bg-gray-800 dark:hover:bg-gray-100"
               >
                 <Plus className="w-4 h-4" />
-                New Mailing
+                New Communication
               </button>
             </div>
 
@@ -189,9 +189,9 @@ function ResourcesManagement() {
               onSelect={handleToggleSelect}
               selectedItems={selectedResources}
               totalItems={loading ? 0 : resources.length}
-              title="Mailings"
+              title="Communications"
               renderItem={renderResourceRow}
-              emptyMessage={loading ? "Loading…" : "No mailings found"}
+              emptyMessage={loading ? "Loading…" : "No communications found"}
             />
           </div>
         </main>
@@ -204,7 +204,7 @@ function ResourcesManagement() {
       >
         <div className="p-6">
           <h2 className="text-xl font-semibold text-gray-900 dark:text-white mb-2">
-            Delete Mailing
+            Delete Communication
           </h2>
           <p className="text-gray-500 dark:text-gray-400 mb-4">
             Are you sure? This cannot be undone.

@@ -32,13 +32,17 @@ function Field({
   inputRef,
   hint,
   uncontrolled = false,
+  readOnly = false,
 }) {
   const errorClasses = error
     ? "border-red-300 dark:border-red-500 focus:border-red-500 focus:ring-red-500 dark:focus:border-red-500 dark:focus:ring-red-500"
     : "";
+  const readOnlyClasses = readOnly
+    ? "bg-gray-50 dark:bg-gray-800/50 cursor-not-allowed"
+    : "";
   const inputProps = uncontrolled
     ? {defaultValue: value ?? "", autoComplete: "off"}
-    : {value: value ?? "", onChange};
+    : {value: value ?? "", onChange: readOnly ? undefined : onChange};
 
   return (
     <div>
@@ -56,8 +60,9 @@ function Field({
         type={type}
         name={name}
         placeholder={placeholder}
-        className={`${inputClassName} ${errorClasses}`}
+        className={`${inputClassName} ${errorClasses} ${readOnlyClasses}`}
         required={required}
+        readOnly={readOnly}
         {...inputProps}
       />
       {error && (
@@ -78,10 +83,32 @@ function SelectField({
   onChange,
   required = false,
   error,
+  readOnly = false,
 }) {
   const errorClasses = error
     ? "border-red-300 dark:border-red-500 focus:border-red-500 focus:ring-red-500 dark:focus:border-red-500 dark:focus:ring-red-500"
     : "";
+  const readOnlyClasses = readOnly
+    ? "bg-gray-50 dark:bg-gray-800/50 cursor-not-allowed"
+    : "";
+
+  if (readOnly) {
+    return (
+      <div>
+        <label className="block text-sm font-medium text-gray-500 dark:text-gray-400 mb-1">
+          {label}
+          {required && <span className="text-red-500 ml-0.5">*</span>}
+        </label>
+        <div
+          className={`form-input w-full ${errorClasses} ${readOnlyClasses} py-2.5`}
+          aria-readonly
+        >
+          {value ?? ""}
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div>
       <label className="block text-sm font-medium text-gray-500 dark:text-gray-400 mb-1">
@@ -274,6 +301,7 @@ function IdentityTab({
               name="addressLine1"
               value={propertyData.addressLine1}
               placeholder="e.g. 123 Main St"
+              readOnly
             />
           </div>
           <Field
@@ -291,6 +319,7 @@ function IdentityTab({
             value={propertyData.city}
             required
             error={errors.city}
+            readOnly
           />
           <SelectField
             onChange={handleInputChange}
@@ -300,6 +329,7 @@ function IdentityTab({
             options={usStates.map((s) => s.code)}
             required
             error={errors.state}
+            readOnly
           />
           <Field
             onChange={handleInputChange}
@@ -308,6 +338,7 @@ function IdentityTab({
             value={propertyData.zip}
             required
             error={errors.zip}
+            readOnly
           />
 
           <Field

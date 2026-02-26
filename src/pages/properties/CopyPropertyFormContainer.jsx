@@ -269,7 +269,7 @@ function PropertyFormContainer() {
   };
 
   return (
-    <div className="px-4 sm:px-6 lg:px-1 pt-1">
+    <div className="px-0 sm:px-4 lg:px-5 xxl:px-12 pt-1">
       {/* Navigation and Actions */}
       <div className="flex justify-between items-center mb-4">
         <button

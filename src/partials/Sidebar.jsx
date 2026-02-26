@@ -234,8 +234,9 @@ function SidebarTooltip({show, label, children, layoutShiftKey}) {
 }
 
 // Shared link/collapsed classes for Stripe-style nav
+// Collapsed: py-1.5 for tighter icon spacing; expanded: py-2
 const linkBase =
-  "flex items-center pl-4 pr-3 py-2 rounded-lg transition-all duration-200 lg:justify-center lg:px-3 lg:sidebar-expanded:pl-4 lg:sidebar-expanded:pr-3 lg:sidebar-expanded:justify-start 2xl:justify-start 2xl:pl-4 2xl:pr-3";
+  "flex items-center pl-4 pr-3 py-2 rounded-lg transition-all duration-200 lg:justify-center lg:px-3 lg:py-1.5 lg:sidebar-expanded:pl-4 lg:sidebar-expanded:pr-3 lg:sidebar-expanded:py-2 lg:sidebar-expanded:justify-start 2xl:justify-start 2xl:pl-4 2xl:pr-3 2xl:py-2";
 const linkActive = "bg-white/15 text-white [&_svg]:text-white";
 const linkInactive = "text-white/90 hover:bg-white/[0.08] hover:text-white [&_svg]:text-white/70";
 const linkChildActive = "text-white [&_svg]:text-white";
@@ -410,7 +411,7 @@ function Sidebar({sidebarOpen, setSidebarOpen, variant = "default"}) {
           setOpen(!open);
         }}
         aria-label={group.label}
-        className={`flex items-center w-full pl-4 pr-3 py-2 rounded-lg transition-all duration-200 lg:justify-center lg:px-3 lg:sidebar-expanded:pl-4 lg:sidebar-expanded:pr-3 lg:sidebar-expanded:justify-start 2xl:justify-start 2xl:pl-4 2xl:pr-3 ${
+        className={`flex items-center w-full pl-4 pr-3 py-2 rounded-lg transition-all duration-200 lg:justify-center lg:px-3 lg:py-1.5 lg:sidebar-expanded:pl-4 lg:sidebar-expanded:pr-3 lg:sidebar-expanded:py-2 lg:sidebar-expanded:justify-start 2xl:justify-start 2xl:pl-4 2xl:pr-3 2xl:py-2 ${
           isGroupActive ? "text-white [&_svg]:text-white" : "text-white/90 hover:text-white [&_svg]:text-white/70"
         }`}
       >
@@ -473,7 +474,7 @@ function Sidebar({sidebarOpen, setSidebarOpen, variant = "default"}) {
     if (visibleItems.length === 0) return null;
 
     return (
-      <div key={section.id} className={`${isCollapsed ? "mt-3" : "mt-4 first:mt-2"}`}>
+      <div key={section.id} className={`${isCollapsed ? "mt-5" : "mt-4 first:mt-2"}`}>
         {!isCollapsed && (
           <div className="px-4 py-1 mb-0.5">
             <span className="text-[10px] font-semibold uppercase tracking-wider text-white/50">
@@ -481,7 +482,7 @@ function Sidebar({sidebarOpen, setSidebarOpen, variant = "default"}) {
             </span>
           </div>
         )}
-        <ul className="flex flex-col gap-0.5">
+        <ul className={`flex flex-col ${isCollapsed ? "gap-0" : "gap-0.5"}`}>
           {visibleItems.map((item) => {
             if (item.type === "collapsible") {
               const open = openCollapsible === item.id;
@@ -508,13 +509,13 @@ function Sidebar({sidebarOpen, setSidebarOpen, variant = "default"}) {
                 </ul>
               );
               return (
-                <li key={item.id} className="mb-0.5 last:mb-0">
+                <li key={item.id} className={isCollapsed ? "mb-0 last:mb-0" : "mb-0.5 last:mb-0"}>
                   {renderCollapsible(item, open, setOpen, flyoutContent)}
                 </li>
               );
             }
             return (
-              <li key={item.id} className="mb-0.5 last:mb-0">
+              <li key={item.id} className={isCollapsed ? "mb-0 last:mb-0" : "mb-0.5 last:mb-0"}>
                 {renderNavLink(item)}
               </li>
             );
@@ -566,10 +567,10 @@ function Sidebar({sidebarOpen, setSidebarOpen, variant = "default"}) {
 
           <div className="flex flex-col flex-1 min-h-0">
             <div className="flex-1">
-              <ul className="mt-3 flex flex-col">
+              <ul className={`mt-3 flex flex-col ${isCollapsed ? "gap-0" : "gap-0.5"}`}>
                 {/* Home (standalone) */}
                 {SIDEBAR_CONFIG.filter((s) => s.type === "link").map((item) => (
-                  <li key={item.id} className="mb-0.5 last:mb-0">
+                  <li key={item.id} className={isCollapsed ? "mb-0 last:mb-0" : "mb-0.5 last:mb-0"}>
                     {renderNavLink(item)}
                   </li>
                 ))}
@@ -579,9 +580,9 @@ function Sidebar({sidebarOpen, setSidebarOpen, variant = "default"}) {
               {SIDEBAR_CONFIG.filter((s) => s.type === "section").map(renderSection)}
 
               {/* Professionals (Sample) — spacing when collapsed, divider when expanded */}
-              <div className={`${isCollapsed ? "mt-3" : "mt-4 pt-3 border-t border-white/10"}`}>
-                <ul className="flex flex-col">
-                  <li className="mb-0.5 last:mb-0">
+              <div className={`${isCollapsed ? "mt-5" : "mt-4 pt-3 border-t border-white/10"}`}>
+                <ul className={`flex flex-col ${isCollapsed ? "gap-0" : "gap-0.5"}`}>
+                  <li className={isCollapsed ? "mb-0 last:mb-0" : "mb-0.5 last:mb-0"}>
                     {renderNavLink(PROFESSIONALS_SAMPLE)}
                   </li>
                 </ul>
@@ -589,7 +590,7 @@ function Sidebar({sidebarOpen, setSidebarOpen, variant = "default"}) {
             </div>
 
             {/* Settings (bottom) — spacing when collapsed, divider when expanded */}
-            <div className={`pt-3 mt-auto ${isCollapsed ? "" : "border-t border-white/10"}`}>
+            <div className={`pt-4 mt-auto ${isCollapsed ? "" : "border-t border-white/10"}`}>
               {renderCollapsible(
                 SETTINGS_CONFIG,
                 openCollapsible === "settings",

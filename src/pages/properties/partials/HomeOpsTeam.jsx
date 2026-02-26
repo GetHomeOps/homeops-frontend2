@@ -5,6 +5,11 @@ import UserContext from "../../../context/UserContext";
 function HomeOpsTeam({teamMembers = [], onOpenShareModal}) {
   const {users = []} = useContext(UserContext);
 
+  const isPropertyOwner = (m) =>
+    ((m.property_role ?? m.role ?? "").toLowerCase() === "owner" ||
+      (m.role ?? "").toLowerCase() === "homeowner") &&
+    !m._pending;
+
   /* Sort so owner(s) appear first, then pending, then others */
   const sortedMembers = useMemo(() => {
     const list = [...(teamMembers ?? [])];
@@ -13,19 +18,14 @@ function HomeOpsTeam({teamMembers = [], onOpenShareModal}) {
       const bPending = b._pending === true;
       if (aPending && !bPending) return 1;
       if (!aPending && bPending) return -1;
-      const aOwner = (a.role ?? "").toLowerCase() === "homeowner";
-      const bOwner = (b.role ?? "").toLowerCase() === "homeowner";
-      if (aOwner && !bOwner) return -1;
-      if (!aOwner && bOwner) return 1;
+      if (isPropertyOwner(a) && !isPropertyOwner(b)) return -1;
+      if (!isPropertyOwner(a) && isPropertyOwner(b)) return 1;
       return 0;
     });
   }, [teamMembers]);
 
   const owner = useMemo(
-    () =>
-      sortedMembers.find(
-        (m) => (m.role ?? "").toLowerCase() === "homeowner" && !m._pending,
-      ),
+    () => sortedMembers.find(isPropertyOwner),
     [sortedMembers],
   );
 
@@ -115,7 +115,9 @@ function HomeOpsTeam({teamMembers = [], onOpenShareModal}) {
                   </div>
                   {!isPending && !isOwner && (
                     <p className="text-xs text-gray-500 dark:text-gray-400 truncate leading-tight">
-                      {member.role}
+                      {(member.property_role ?? member.role ?? "editor") === "viewer"
+                        ? "Viewer"
+                        : "Editor"}
                     </p>
                   )}
                 </div>

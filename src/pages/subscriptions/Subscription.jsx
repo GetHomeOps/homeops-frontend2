@@ -19,7 +19,7 @@ function Subscription() {
         <Header sidebarOpen={sidebarOpen} setSidebarOpen={setSidebarOpen} />
 
         <main className="grow">
-          <div className="px-4 sm:px-6 py-8 w-full max-w-5xl mx-auto">
+          <div className="px-0 sm:px-4 lg:px-5 xxl:px-12 py-8 w-full max-w-5xl mx-auto">
             {/* Form */}
             <SubscriptionFormContainer />
           </div>

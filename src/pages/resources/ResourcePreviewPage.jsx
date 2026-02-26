@@ -9,7 +9,7 @@ import { getResourceThumbnailUrl, RESOURCE_THUMBNAIL_PLACEHOLDER } from "../../u
 import { PAGE_LAYOUT } from "../../constants/layout";
 
 /**
- * Read-only preview showing the final mailing as recipients will see it.
+ * Read-only preview showing the final communication as recipients will see it.
  * Opsy-branded layout with header, footer, and presentable styling.
  */
 function ResourcePreviewPage() {
@@ -111,7 +111,7 @@ function ResourcePreviewPage() {
               <span className="text-sm text-gray-500 dark:text-gray-400">Preview — read-only</span>
             </div>
 
-            {/* Final mailing preview — Opsy branded, presentable */}
+            {/* Final communication preview — Opsy branded, presentable */}
             <div className="flex justify-center py-8 bg-gradient-to-b from-gray-100 to-gray-50 dark:from-gray-900/80 dark:to-gray-900/50 min-h-[calc(100vh-12rem)]">
               <div className="w-full max-w-[680px] bg-white dark:bg-gray-800 shadow-2xl rounded-2xl overflow-hidden border-2 border-gray-200 dark:border-gray-600">
                 {/* Opsy header */}

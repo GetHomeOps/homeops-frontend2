@@ -27,6 +27,7 @@ const PAGE_STORAGE_KEY = "properties_list_page";
 const FILTER_CATEGORIES = [
   {type: "city", labelKey: "city"},
   {type: "state", labelKey: "state"},
+  {type: "owner", labelKey: "owner"},
   {type: "health", labelKey: "healthStatus"},
 ];
 
@@ -436,17 +437,29 @@ function PropertiesList() {
     return states.sort((a, b) => a.localeCompare(b));
   }, [properties]);
 
+  const uniqueOwners = useMemo(() => {
+    const owners = [
+      ...new Set(
+        properties
+          .map((p) => (p.owner_user_name ?? p.ownerUserName ?? "").trim())
+          .filter(Boolean),
+      ),
+    ];
+    return owners.sort((a, b) => a.localeCompare(b));
+  }, [properties]);
+
   const filterOptions = useMemo(
     () => ({
       city: uniqueCities.map((c) => ({value: c, label: c})),
       state: uniqueStates.map((s) => ({value: s, label: s})),
+      owner: uniqueOwners.map((o) => ({value: o, label: o})),
       health: HEALTH_RANGES.map((h) => ({
         value: h.value,
         label: t(h.labelKey),
         dot: h.color,
       })),
     }),
-    [uniqueCities, uniqueStates, t],
+    [uniqueCities, uniqueStates, uniqueOwners, t],
   );
 
   /* ─── Presigned photo URLs ─────────────────────────────────── */
@@ -547,6 +560,12 @@ function PropertiesList() {
       if (filtersByType.state) {
         const st = (property.state || "").trim();
         if (!filtersByType.state.includes(st)) return false;
+      }
+
+      if (filtersByType.owner) {
+        const owner =
+          (property.owner_user_name ?? property.ownerUserName ?? "").trim();
+        if (!filtersByType.owner.includes(owner)) return false;
       }
 
       if (filtersByType.health) {
@@ -664,6 +683,12 @@ function PropertiesList() {
     {key: "address", label: "address", sortable: true},
     {key: "city", label: "city", sortable: true},
     {key: "state", label: "state", sortable: true},
+    {
+      key: "owner_user_name",
+      label: "owner",
+      sortable: true,
+      render: (value, item) => value ?? item?.ownerUserName ?? "—",
+    },
     {
       key: "health",
       label: "healthStatus",
@@ -900,7 +925,7 @@ function PropertiesList() {
         </div>
 
         <main className="grow">
-          <div className="px-4 sm:px-6 py-8 w-full max-w-[96rem] mx-auto">
+          <div className="px-0 sm:px-4 lg:px-5 xxl:px-12 py-8 w-full max-w-[96rem] mx-auto">
             {/* ─── Header row ─────────────────────────────────── */}
             <div className="flex flex-col gap-4 sm:flex-row sm:justify-between sm:items-center mb-5">
               <h1 className="text-2xl md:text-3xl text-gray-800 dark:text-gray-100 font-bold">

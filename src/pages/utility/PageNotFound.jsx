@@ -71,7 +71,7 @@ function PageNotFound() {
           variant="v3"
         />
         <main className="grow">
-          <div className="px-4 sm:px-6 py-8 w-full max-w-[96rem] mx-auto">
+          <div className="px-0 sm:px-4 lg:px-5 xxl:px-12 py-8 w-full max-w-[96rem] mx-auto">
             {content}
           </div>
         </main>

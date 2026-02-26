@@ -22,6 +22,7 @@ import {
   Briefcase,
   User,
   ExternalLink,
+  Camera,
 } from "lucide-react";
 
 import Sidebar from "../../partials/Sidebar";
@@ -582,7 +583,7 @@ function ProfessionalFormContainer() {
         </div>
 
         <main className="grow">
-          <div className="px-4 sm:px-6 py-8 w-full max-w-5xl mx-auto">
+          <div className="px-0 sm:px-4 lg:px-5 xxl:px-12 py-8 w-full max-w-5xl mx-auto">
             {/* ─── Navigation and Actions ───── */}
             <div className="flex justify-between items-center mb-4">
               <button

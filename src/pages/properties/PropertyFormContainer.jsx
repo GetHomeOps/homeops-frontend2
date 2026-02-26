@@ -752,11 +752,14 @@ function PropertyFormContainer() {
       const res = await createProperty(propertyData);
       if (res) {
         const propertyId = res.id;
-        /* Add users to property */
-        if (homeopsTeam.length > 0) {
+        /* Add users to property (exclude creator - backend already added them as owner) */
+        const teamWithoutCreator = homeopsTeam.filter(
+          (m) => m && m.id != null && String(m.id) !== String(currentUser?.id),
+        );
+        if (teamWithoutCreator.length > 0) {
           await addUsersToProperty(
             propertyId,
-            prepareTeamForProperty(homeopsTeam),
+            prepareTeamForProperty(teamWithoutCreator),
           );
         }
         const systemsPayloads = prepareSystemsForApi(
@@ -1143,7 +1146,7 @@ function PropertyFormContainer() {
     !state.isSubmitting;
   if (loadingExisting) {
     return (
-      <div className="sm:px-6 lg:px-14 pt-6 pb-8 flex items-center justify-center min-h-[40vh]">
+      <div className="mx-0 sm:mx-6 sm:px-6 lg:px-14 pt-6 pb-8 flex items-center justify-center min-h-[40vh]">
         <div className="text-gray-500 dark:text-gray-400">
           Loading property...
         </div>
@@ -1153,7 +1156,7 @@ function PropertyFormContainer() {
 
   if (state.propertyNotFound && uid !== "new") {
     return (
-      <div className="sm:px-6 lg:px-14 pt-6 pb-8">
+      <div className="mx-0 sm:mx-6 sm:px-6 lg:px-14 pt-6 pb-8">
         <PropertyNotFound />
       </div>
     );
@@ -1161,14 +1164,14 @@ function PropertyFormContainer() {
 
   if (state.propertyAccessDenied && uid !== "new") {
     return (
-      <div className="sm:px-6 lg:px-14 pt-6 pb-8">
+      <div className="mx-0 sm:mx-6 sm:px-6 lg:px-14 pt-6 pb-8">
         <PropertyUnauthorized />
       </div>
     );
   }
 
   return (
-    <div className="sm:px-6 lg:px-14 pt-6 pb-8">
+    <div className="mx-0 sm:mx-6 sm:px-6 lg:px-14 pt-6 pb-8">
       <SharePropertyModal
         modalOpen={shareModalOpen}
         setModalOpen={setShareModalOpen}

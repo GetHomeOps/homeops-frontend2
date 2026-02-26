@@ -202,7 +202,7 @@ function MaintenanceRecordPage() {
         <div className="relative flex flex-col flex-1 overflow-y-auto overflow-x-hidden bg-white dark:bg-gray-900">
           <Header sidebarOpen={sidebarOpen} setSidebarOpen={setSidebarOpen} />
           <main className="grow">
-            <div className="px-4 sm:px-6 py-8 w-full max-w-[96rem] mx-auto">
+            <div className="px-0 sm:px-4 lg:px-5 xxl:px-12 py-8 w-full max-w-[96rem] mx-auto">
               <PropertyNotFound />
             </div>
           </main>
@@ -218,7 +218,7 @@ function MaintenanceRecordPage() {
         <div className="relative flex flex-col flex-1 overflow-y-auto overflow-x-hidden bg-white dark:bg-gray-900">
           <Header sidebarOpen={sidebarOpen} setSidebarOpen={setSidebarOpen} />
           <main className="grow">
-            <div className="px-4 sm:px-6 py-8 w-full max-w-[96rem] mx-auto">
+            <div className="px-0 sm:px-4 lg:px-5 xxl:px-12 py-8 w-full max-w-[96rem] mx-auto">
               <PropertyUnauthorized />
             </div>
           </main>
@@ -235,7 +235,7 @@ function MaintenanceRecordPage() {
         <Header sidebarOpen={sidebarOpen} setSidebarOpen={setSidebarOpen} />
 
         <main className="grow">
-          <div className="px-4 sm:px-6 lg:px-6 py-8 w-full max-w-6xl mx-auto">
+          <div className="px-0 sm:px-4 lg:px-5 xxl:px-12 py-8 w-full max-w-6xl mx-auto">
             {/* Breadcrumb / Navigation */}
             <div className="mb-6">
               <div className="flex items-center gap-4 mb-4">

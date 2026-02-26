@@ -494,7 +494,7 @@ function RoutesList() {
       <Route
         path="/:accountUrl/resources/new"
         element={
-          <AdminRoute>
+          <AdminRoute allowedRoles={["super_admin", "admin", "agent"]}>
             <Resource />
           </AdminRoute>
         }
@@ -502,7 +502,7 @@ function RoutesList() {
       <Route
         path="/:accountUrl/resources/:id/preview"
         element={
-          <AdminRoute>
+          <AdminRoute allowedRoles={["super_admin", "admin", "agent"]}>
             <ResourcePreviewPage />
           </AdminRoute>
         }
@@ -518,7 +518,7 @@ function RoutesList() {
       <Route
         path="/:accountUrl/resources/:id"
         element={
-          <AdminRoute>
+          <AdminRoute allowedRoles={["super_admin", "admin", "agent"]}>
             <Resource />
           </AdminRoute>
         }
@@ -526,7 +526,7 @@ function RoutesList() {
       <Route
         path="/:accountUrl/resources"
         element={
-          <AdminRoute>
+          <AdminRoute allowedRoles={["super_admin", "admin", "agent"]}>
             <ResourcesManagement />
           </AdminRoute>
         }

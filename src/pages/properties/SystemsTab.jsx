@@ -26,6 +26,7 @@ import ContactContext from "../../context/ContactContext";
 import CollapsibleSection from "./partials/CollapsibleSection";
 import InstallerSelect from "./partials/InstallerSelect";
 import Tooltip from "../../utils/Tooltip";
+import AIAssistantSidebar from "./partials/AIAssistantSidebar";
 
 function SystemsTab({
   propertyData,
@@ -73,6 +74,14 @@ function SystemsTab({
 
   // Track "new install" state for each system
   const [newInstallStates, setNewInstallStates] = useState({});
+
+  // AI Assistant sidebar (right-side panel)
+  const [aiSidebarOpen, setAiSidebarOpen] = useState(false);
+  const [aiSidebarSystemLabel, setAiSidebarSystemLabel] = useState(null);
+  const handleOpenAIAssistant = (label) => {
+    setAiSidebarSystemLabel(label);
+    setAiSidebarOpen(true);
+  };
 
   const toggleSection = (section) => {
     setExpandedSections((prev) => ({
@@ -177,6 +186,7 @@ function SystemsTab({
     propertyIdFallback;
 
   return (
+    <>
     <div className="space-y-4">
       {/* Systems Section - Roof */}
       {isVisible("roof") && (
@@ -200,6 +210,8 @@ function SystemsTab({
           propertyId={propertyId}
           propertyData={propertyData}
           systemsToShow={systemsToShow}
+          customSystemsData={customSystemsData}
+          onOpenAIAssistant={handleOpenAIAssistant}
         >
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
             <div>
@@ -353,6 +365,8 @@ function SystemsTab({
           propertyId={propertyId}
           propertyData={propertyData}
           systemsToShow={systemsToShow}
+          customSystemsData={customSystemsData}
+          onOpenAIAssistant={handleOpenAIAssistant}
         >
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
             <div>
@@ -505,6 +519,8 @@ function SystemsTab({
           propertyId={propertyId}
           propertyData={propertyData}
           systemsToShow={systemsToShow}
+          customSystemsData={customSystemsData}
+          onOpenAIAssistant={handleOpenAIAssistant}
         >
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
             <div>
@@ -607,6 +623,8 @@ function SystemsTab({
           propertyId={propertyId}
           propertyData={propertyData}
           systemsToShow={systemsToShow}
+          customSystemsData={customSystemsData}
+          onOpenAIAssistant={handleOpenAIAssistant}
         >
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
             <div>
@@ -716,6 +734,8 @@ function SystemsTab({
           propertyId={propertyId}
           propertyData={propertyData}
           systemsToShow={systemsToShow}
+          customSystemsData={customSystemsData}
+          onOpenAIAssistant={handleOpenAIAssistant}
         >
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
             <div>
@@ -869,6 +889,8 @@ function SystemsTab({
           propertyId={propertyId}
           propertyData={propertyData}
           systemsToShow={systemsToShow}
+          customSystemsData={customSystemsData}
+          onOpenAIAssistant={handleOpenAIAssistant}
         >
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
             <div>
@@ -1030,6 +1052,8 @@ function SystemsTab({
           propertyId={propertyId}
           propertyData={propertyData}
           systemsToShow={systemsToShow}
+          customSystemsData={customSystemsData}
+          onOpenAIAssistant={handleOpenAIAssistant}
         >
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
             <div>
@@ -1194,6 +1218,8 @@ function SystemsTab({
           propertyId={propertyId}
           propertyData={propertyData}
           systemsToShow={systemsToShow}
+          customSystemsData={customSystemsData}
+          onOpenAIAssistant={handleOpenAIAssistant}
         >
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
             <div>
@@ -1360,6 +1386,8 @@ function SystemsTab({
           propertyId={propertyId}
           propertyData={propertyData}
           systemsToShow={systemsToShow}
+          customSystemsData={customSystemsData}
+          onOpenAIAssistant={handleOpenAIAssistant}
         >
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
             <div>
@@ -1526,6 +1554,8 @@ function SystemsTab({
           propertyId={propertyId}
           propertyData={propertyData}
           systemsToShow={systemsToShow}
+          customSystemsData={customSystemsData}
+          onOpenAIAssistant={handleOpenAIAssistant}
         >
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
             <div>
@@ -1713,6 +1743,8 @@ function SystemsTab({
           propertyId={propertyId}
           propertyData={propertyData}
           systemsToShow={systemsToShow}
+          customSystemsData={customSystemsData}
+          onOpenAIAssistant={handleOpenAIAssistant}
         >
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
             <div>
@@ -1775,6 +1807,8 @@ function SystemsTab({
           propertyId={propertyId}
           propertyData={propertyData}
           systemsToShow={systemsToShow}
+          customSystemsData={customSystemsData}
+          onOpenAIAssistant={handleOpenAIAssistant}
         >
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
             <div>
@@ -2049,6 +2083,8 @@ function SystemsTab({
               propertyId={propertyId}
               propertyData={propertyData}
               systemsToShow={systemsToShow}
+              customSystemsData={customSystemsData}
+              onOpenAIAssistant={handleOpenAIAssistant}
             >
               <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                 {STANDARD_CUSTOM_SYSTEM_FIELDS.map((field) => (
@@ -2151,6 +2187,13 @@ function SystemsTab({
         });
       })()}
     </div>
+
+    <AIAssistantSidebar
+      isOpen={aiSidebarOpen}
+      onClose={() => setAiSidebarOpen(false)}
+      systemLabel={aiSidebarSystemLabel}
+    />
+    </>
   );
 }
 
