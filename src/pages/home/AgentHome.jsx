@@ -20,7 +20,10 @@ import {
   Newspaper,
   MessageSquarePlus,
   BellRing,
+  BookOpen,
+  Plus,
 } from "lucide-react";
+import { getResourceThumbnailUrl, RESOURCE_THUMBNAIL_PLACEHOLDER } from "../../utils/resourceThumbnail";
 import {
   HealthBadge,
   AgentHomeStats,
@@ -96,6 +99,10 @@ function AgentHome() {
   const [engagementTrend, setEngagementTrend] = useState([]);
   const [engagementLoading, setEngagementLoading] = useState(true);
 
+  // ─── Resources (sent/published) for engagement section ─────────────
+  const [resources, setResources] = useState([]);
+  const [resourcesLoading, setResourcesLoading] = useState(true);
+
   useEffect(() => {
     let cancelled = false;
     setEngagementLoading(true);
@@ -116,6 +123,29 @@ function AgentHome() {
     });
     return () => { cancelled = true; };
   }, []);
+
+  useEffect(() => {
+    if (!currentUser?.id) return;
+    setResourcesLoading(true);
+    AppApi.getResources()
+      .then((list) => setResources(list || []))
+      .catch(() => setResources([]))
+      .finally(() => setResourcesLoading(false));
+  }, [currentUser?.id]);
+
+  const [resourcePresignedUrls, setResourcePresignedUrls] = useState({});
+  const fetchedResourceKeysRef = useRef(new Set());
+  useEffect(() => {
+    if (!resources?.length) return;
+    resources.forEach((r) => {
+      const key = r.imageKey;
+      if (!key || key.startsWith("http") || fetchedResourceKeysRef.current.has(key)) return;
+      fetchedResourceKeysRef.current.add(key);
+      AppApi.getPresignedPreviewUrl(key)
+        .then((url) => setResourcePresignedUrls((prev) => ({ ...prev, [key]: url })))
+        .catch(() => fetchedResourceKeysRef.current.delete(key));
+    });
+  }, [resources]);
 
   // ─── Engagement chart data ────────────────────────────────────
   const engagementLineOptions = useMemo(() => ({
@@ -612,6 +642,132 @@ function AgentHome() {
         teamByPropertyData={teamByPropertyData}
         isLoadingTeams={isLoadingTeams}
       />
+
+      {/* RESOURCES (sent/published) + Create your own ───────────────── */}
+      <section className="pb-8">
+        <div className="flex items-center justify-between mb-4">
+          <div className="flex items-center gap-2">
+            <BookOpen className="w-5 h-5 text-gray-700 dark:text-gray-300" />
+            <h2 className="text-lg font-semibold text-gray-900 dark:text-white">
+              Resources
+            </h2>
+          </div>
+          <button
+            type="button"
+            onClick={() => navigate(`/${accountUrl}/resources/new`)}
+            className="inline-flex items-center gap-2 px-4 py-2 bg-[#456564] hover:bg-[#34514f] text-white rounded-lg text-sm font-medium transition-colors"
+          >
+            <Plus className="w-4 h-4" />
+            Create your own resource
+          </button>
+        </div>
+
+        {resourcesLoading ? (
+          <div className="flex gap-4 overflow-x-auto pb-4">
+            {[1, 2, 3].map((i) => (
+              <div
+                key={i}
+                className="flex-shrink-0 w-72 sm:w-80 bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 overflow-hidden"
+              >
+                <div className="aspect-[16/10] bg-gray-200 dark:bg-gray-700 animate-pulse" />
+                <div className="p-4 space-y-2">
+                  <div className="h-4 w-20 bg-gray-200 dark:bg-gray-700 rounded animate-pulse" />
+                  <div className="h-5 w-full bg-gray-200 dark:bg-gray-700 rounded animate-pulse" />
+                </div>
+              </div>
+            ))}
+          </div>
+        ) : (resources?.length ?? 0) > 0 ? (
+          <div className="flex gap-4 overflow-x-auto pb-4 snap-x snap-mandatory scrollbar-hide">
+            {resources.map((post) => {
+              const title = post.subject || post.title || "Resource";
+              const shortDesc = (post.bodyText || post.shortDescription || "").slice(0, 120);
+              const thumbnailUrl = getResourceThumbnailUrl(post);
+              const imageUrl =
+                post.imageUrl || resourcePresignedUrls[post.imageKey] || thumbnailUrl || RESOURCE_THUMBNAIL_PLACEHOLDER;
+              return (
+                <article
+                  key={post.id}
+                  onClick={() => navigate(`/${accountUrl}/resources/${post.id}/view`)}
+                  onKeyDown={(e) => e.key === "Enter" && navigate(`/${accountUrl}/resources/${post.id}/view`)}
+                  role="button"
+                  tabIndex={0}
+                  className="flex-shrink-0 w-72 sm:w-80 bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 overflow-hidden group snap-start hover:shadow-lg transition-shadow cursor-pointer"
+                >
+                  <div className="aspect-[16/10] overflow-hidden">
+                    <img
+                      src={imageUrl}
+                      alt={title}
+                      className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
+                      onError={(e) => {
+                        if (e.target.src !== RESOURCE_THUMBNAIL_PLACEHOLDER) {
+                          e.target.src = RESOURCE_THUMBNAIL_PLACEHOLDER;
+                        }
+                      }}
+                    />
+                  </div>
+                  <div className="p-4">
+                    <div className="flex items-center gap-2 mb-2">
+                      <span className="text-xs font-medium text-blue-600 dark:text-blue-400">
+                        {post.type?.replace("_", " ") || "Post"}
+                      </span>
+                    </div>
+                    <h3 className="text-sm font-semibold text-gray-900 dark:text-white line-clamp-2 group-hover:text-blue-600 dark:group-hover:text-blue-400 transition-colors">
+                      {title}
+                    </h3>
+                    {shortDesc && (
+                      <p className="text-xs text-gray-500 dark:text-gray-400 mt-1 line-clamp-2">
+                        {shortDesc}
+                      </p>
+                    )}
+                  </div>
+                </article>
+              );
+            })}
+            {/* Create your own resource card */}
+            <div
+              className="flex-shrink-0 w-72 sm:w-80 bg-white dark:bg-gray-800 rounded-xl border-2 border-dashed border-gray-300 dark:border-gray-600 overflow-hidden snap-start flex flex-col items-center justify-center min-h-[200px] cursor-pointer hover:border-[#456564]/50 hover:bg-gray-50 dark:hover:bg-gray-800/50 transition-colors"
+              onClick={() => navigate(`/${accountUrl}/resources/new`)}
+              onKeyDown={(e) => e.key === "Enter" && navigate(`/${accountUrl}/resources/new`)}
+              role="button"
+              tabIndex={0}
+            >
+              <div className="w-12 h-12 rounded-xl bg-[#456564]/10 dark:bg-[#456564]/20 flex items-center justify-center mb-3">
+                <Plus className="w-6 h-6 text-[#456564] dark:text-[#5a7a78]" />
+              </div>
+              <p className="text-sm font-medium text-gray-700 dark:text-gray-300">
+                Create your own resource
+              </p>
+              <p className="text-xs text-gray-500 dark:text-gray-400 mt-0.5">
+                Share tips, links, or content with homeowners
+              </p>
+            </div>
+          </div>
+        ) : (
+          <div className="flex flex-col sm:flex-row gap-4">
+            <div
+              className="flex-1 min-w-0 bg-white dark:bg-gray-800 rounded-xl border-2 border-dashed border-gray-300 dark:border-gray-600 p-8 flex flex-col items-center justify-center min-h-[180px] cursor-pointer hover:border-[#456564]/50 hover:bg-gray-50 dark:hover:bg-gray-800/50 transition-colors"
+              onClick={() => navigate(`/${accountUrl}/resources/new`)}
+              onKeyDown={(e) => e.key === "Enter" && navigate(`/${accountUrl}/resources/new`)}
+              role="button"
+              tabIndex={0}
+            >
+              <div className="w-14 h-14 rounded-xl bg-[#456564]/10 dark:bg-[#456564]/20 flex items-center justify-center mb-4">
+                <Plus className="w-7 h-7 text-[#456564] dark:text-[#5a7a78]" />
+              </div>
+              <p className="text-base font-semibold text-gray-900 dark:text-white">
+                Create your own resource
+              </p>
+              <p className="text-sm text-gray-500 dark:text-gray-400 mt-1 text-center max-w-xs">
+                Share tips, links, or content with homeowners. Sent resources appear here and in their Discover feed.
+              </p>
+              <span className="mt-4 text-sm font-medium text-[#456564] dark:text-[#5a7a78] flex items-center gap-1">
+                Get started <ArrowRight className="w-4 h-4" />
+              </span>
+            </div>
+          </div>
+        )}
+      </section>
 
       {/* ENGAGEMENT ACTIONS                           */}
       {/* ============================================ */}

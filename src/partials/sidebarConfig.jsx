@@ -4,6 +4,7 @@
  *
  * Role rules:
  * - adminOnly: visible to admin + super_admin
+ * - adminOrAgent: visible to admin + super_admin + agent
  * - all: visible to all authenticated users
  */
 
@@ -26,6 +27,7 @@ import {
   Cog,
   HelpCircle,
   UsersRound,
+  BookOpen,
 } from "lucide-react";
 
 const ICON_SIZE = 18;
@@ -76,6 +78,7 @@ export const SIDEBAR_CONFIG = [
         ],
       },
       { id: "contacts", label: "My Contacts", path: "contacts", icon: icon(UserCircle), roles: "all" },
+      { id: "resources", label: "Mailings", path: "resources", icon: icon(BookOpen), roles: "adminOrAgent" },
     ],
   },
 

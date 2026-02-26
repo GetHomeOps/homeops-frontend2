@@ -1,6 +1,6 @@
 import React, {useState, useRef, useEffect} from "react";
 import {Link} from "react-router-dom";
-import {Clock, Calendar, AlertCircle, ChevronRight} from "lucide-react";
+import {Bell, Clock, Calendar, AlertCircle, ChevronRight, BookOpen} from "lucide-react";
 import Transition from "../utils/Transition";
 import AppApi from "../api/api";
 import useCurrentAccount from "../hooks/useCurrentAccount";
@@ -24,43 +24,68 @@ function formatEventTime(timeStr) {
   return `${h - 12}:${String(m).padStart(2, "0")} PM`;
 }
 
+function formatNotificationTime(dateStr) {
+  const d = new Date(dateStr);
+  const now = new Date();
+  const diffMs = now - d;
+  const diffMins = Math.floor(diffMs / 60000);
+  const diffHours = Math.floor(diffMs / 3600000);
+  const diffDays = Math.floor(diffMs / 86400000);
+  if (diffMins < 1) return "Just now";
+  if (diffMins < 60) return `${diffMins}m ago`;
+  if (diffHours < 24) return `${diffHours}h ago`;
+  if (diffDays < 7) return `${diffDays}d ago`;
+  return d.toLocaleDateString("en-US", {month: "short", day: "numeric"});
+}
+
 function DropdownNotifications({align = "right"}) {
   const {currentAccount} = useCurrentAccount();
   const [dropdownOpen, setDropdownOpen] = useState(false);
   const [events, setEvents] = useState([]);
+  const [notifications, setNotifications] = useState([]);
+  const [unreadCount, setUnreadCount] = useState(0);
   const [loading, setLoading] = useState(false);
   const trigger = useRef(null);
   const dropdown = useRef(null);
 
   const accountUrl = currentAccount?.url || "";
   const calendarPath = accountUrl ? `/${accountUrl}/calendar` : "/calendar";
+  const homePath = accountUrl ? `/${accountUrl}` : "/";
 
-  const fetchUpcomingEvents = () => {
-    const today = new Date();
-    const end = new Date(today);
-    end.setDate(end.getDate() + 14);
-    const startStr = today.toISOString().slice(0, 10);
-    const endStr = end.toISOString().slice(0, 10);
+  const fetchData = () => {
     setLoading(true);
-    AppApi.getCalendarEvents(startStr, endStr)
-      .then((raw) => {
-        setEvents(
-          raw
-            .sort((a, b) => (a.scheduledDate > b.scheduledDate ? 1 : -1))
-            .slice(0, 8),
-        );
+    Promise.all([
+      AppApi.getNotifications({limit: 10}).catch(() => ({notifications: [], unreadCount: 0})),
+      (() => {
+        const today = new Date();
+        const end = new Date(today);
+        end.setDate(end.getDate() + 14);
+        const startStr = today.toISOString().slice(0, 10);
+        const endStr = end.toISOString().slice(0, 10);
+        return AppApi.getCalendarEvents(startStr, endStr)
+          .then((raw) =>
+            raw
+              .sort((a, b) => (a.scheduledDate > b.scheduledDate ? 1 : -1))
+              .slice(0, 8),
+          )
+          .catch(() => []);
+      })(),
+    ])
+      .then(([notifRes, evts]) => {
+        setNotifications(notifRes.notifications || []);
+        setUnreadCount(notifRes.unreadCount ?? 0);
+        setEvents(evts || []);
       })
-      .catch(() => setEvents([]))
       .finally(() => setLoading(false));
   };
 
   useEffect(() => {
-    fetchUpcomingEvents();
+    fetchData();
   }, []);
 
   useEffect(() => {
     if (dropdownOpen) {
-      fetchUpcomingEvents();
+      fetchData();
     }
   }, [dropdownOpen]);
 
@@ -90,7 +115,7 @@ function DropdownNotifications({align = "right"}) {
     (e) => new Date(e.scheduledDate).toDateString() !== new Date().toDateString(),
   );
   const hasAlerts = todayEvents.length > 0;
-  const badgeCount = events.length;
+  const badgeCount = unreadCount;
 
   return (
     <div className="relative inline-flex">
@@ -103,8 +128,8 @@ function DropdownNotifications({align = "right"}) {
         onClick={() => setDropdownOpen(!dropdownOpen)}
         aria-expanded={dropdownOpen}
       >
-        <span className="sr-only">Upcoming events</span>
-        <Clock className="w-5 h-5 text-gray-500 dark:text-gray-400" strokeWidth={1.75} />
+        <span className="sr-only">Notifications</span>
+        <Bell className="w-5 h-5 text-gray-500 dark:text-gray-400" strokeWidth={1.75} />
         {badgeCount > 0 && (
           <span className="absolute top-0.5 right-0.5 min-w-[18px] h-[18px] px-1 flex items-center justify-center text-[10px] font-semibold text-white bg-amber-500 dark:bg-amber-500 rounded-full">
             {badgeCount > 9 ? "9+" : badgeCount}
@@ -127,29 +152,73 @@ function DropdownNotifications({align = "right"}) {
         <div ref={dropdown} onFocus={() => setDropdownOpen(true)} onBlur={() => setDropdownOpen(false)}>
           <div className="px-4 py-3 border-b border-gray-200 dark:border-gray-700/60">
             <h3 className="text-sm font-semibold text-gray-900 dark:text-white">
-              Upcoming events
+              Notifications
             </h3>
           </div>
 
-          <div className="max-h-[320px] overflow-y-auto">
+          <div className="max-h-[360px] overflow-y-auto">
             {loading ? (
               <div className="py-8 flex items-center justify-center text-gray-500 dark:text-gray-400 text-sm">
                 Loading…
               </div>
-            ) : events.length === 0 ? (
+            ) : notifications.length === 0 && events.length === 0 ? (
               <div className="py-8 px-4 text-center text-sm text-gray-500 dark:text-gray-400">
-                <Clock className="w-10 h-10 mx-auto mb-2 text-gray-300 dark:text-gray-600" strokeWidth={1.5} />
-                <p>No upcoming events</p>
-                <Link
-                  to={calendarPath}
-                  onClick={() => setDropdownOpen(false)}
-                  className="mt-2 inline-flex items-center gap-1 text-[#456564] dark:text-teal-400 hover:underline"
-                >
-                  View calendar <ChevronRight className="w-3.5 h-3.5" />
-                </Link>
+                <Bell className="w-10 h-10 mx-auto mb-2 text-gray-300 dark:text-gray-600" strokeWidth={1.5} />
+                <p>No notifications yet</p>
+                <p className="mt-1 text-xs">New resources and events will appear here</p>
               </div>
             ) : (
               <ul className="py-2">
+                {notifications.length > 0 && (
+                  <>
+                    <li className="px-4 py-1.5">
+                      <span className="text-[10px] font-semibold uppercase tracking-wider text-gray-400 dark:text-gray-500 flex items-center gap-1.5">
+                        <BookOpen className="w-3 h-3" /> New resources
+                      </span>
+                    </li>
+                    {notifications.map((n) => (
+                      <li key={n.id} className="border-b border-gray-100 dark:border-gray-700/40 last:border-0">
+                        <Link
+                          to={homePath}
+                          onClick={async () => {
+                            if (!n.readAt) {
+                              try {
+                                await AppApi.markNotificationRead(n.id);
+                                setUnreadCount((c) => Math.max(0, c - 1));
+                              } catch {}
+                            }
+                            setDropdownOpen(false);
+                          }}
+                          className={`flex gap-3 px-4 py-3 hover:bg-gray-50 dark:hover:bg-gray-700/30 transition-colors ${!n.readAt ? "bg-[#456564]/5 dark:bg-[#456564]/10" : ""}`}
+                        >
+                          <div className="w-9 h-9 rounded-lg bg-[#456564]/15 dark:bg-[#456564]/20 flex items-center justify-center shrink-0">
+                            <BookOpen className="w-4 h-4 text-[#456564] dark:text-[#5a7a78]" />
+                          </div>
+                          <div className="flex-1 min-w-0">
+                            <p className="text-sm font-medium text-gray-900 dark:text-white truncate">
+                              {n.title || n.resourceSubject || "New resource shared"}
+                            </p>
+                            <p className="text-xs text-gray-500 dark:text-gray-400">
+                              {formatNotificationTime(n.createdAt)}
+                            </p>
+                          </div>
+                        </Link>
+                      </li>
+                    ))}
+                    <li className="px-4 py-1.5 mt-1">
+                      <span className="text-[10px] font-semibold uppercase tracking-wider text-gray-400 dark:text-gray-500 flex items-center gap-1.5">
+                        <Calendar className="w-3 h-3" /> Upcoming events
+                      </span>
+                    </li>
+                  </>
+                )}
+                {!notifications.length && (
+                  <li className="px-4 py-1.5">
+                    <span className="text-[10px] font-semibold uppercase tracking-wider text-gray-400 dark:text-gray-500 flex items-center gap-1.5">
+                      <Calendar className="w-3 h-3" /> Upcoming events
+                    </span>
+                  </li>
+                )}
                 {hasAlerts && (
                   <>
                     <li className="px-4 py-1.5">
@@ -216,14 +285,36 @@ function DropdownNotifications({align = "right"}) {
             )}
           </div>
 
-          {events.length > 0 && (
-            <div className="px-4 py-2 border-t border-gray-200 dark:border-gray-700/60 bg-gray-50/50 dark:bg-gray-800/50">
+          {(events.length > 0 || notifications.length > 0) && (
+            <div className="px-4 py-2 border-t border-gray-200 dark:border-gray-700/60 bg-gray-50/50 dark:bg-gray-800/50 flex gap-2">
+              {unreadCount > 0 && (
+                <button
+                  type="button"
+                  onClick={async () => {
+                    try {
+                      await AppApi.markAllNotificationsRead();
+                      setUnreadCount(0);
+                      fetchData();
+                    } catch {}
+                  }}
+                  className="flex-1 py-2 text-sm font-medium text-gray-600 dark:text-gray-400 hover:text-[#456564] dark:hover:text-teal-400"
+                >
+                  Mark all read
+                </button>
+              )}
+              <Link
+                to={homePath}
+                onClick={() => setDropdownOpen(false)}
+                className="flex-1 flex items-center justify-center gap-1.5 py-2 text-sm font-medium text-[#456564] dark:text-teal-400 hover:text-[#3a5554] dark:hover:text-teal-300"
+              >
+                View home <ChevronRight className="w-4 h-4" />
+              </Link>
               <Link
                 to={calendarPath}
                 onClick={() => setDropdownOpen(false)}
-                className="flex items-center justify-center gap-1.5 py-2 text-sm font-medium text-[#456564] dark:text-teal-400 hover:text-[#3a5554] dark:hover:text-teal-300"
+                className="flex-1 flex items-center justify-center gap-1.5 py-2 text-sm font-medium text-[#456564] dark:text-teal-400 hover:text-[#3a5554] dark:hover:text-teal-300"
               >
-                View all events <ChevronRight className="w-4 h-4" />
+                Calendar <ChevronRight className="w-4 h-4" />
               </Link>
             </div>
           )}

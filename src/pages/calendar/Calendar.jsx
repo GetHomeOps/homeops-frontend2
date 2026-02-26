@@ -62,6 +62,7 @@ function Calendar() {
   const [endingBlankDays, setEndingBlankDays] = useState([]);
   const [events, setEvents] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState(null);
   const [filterType, setFilterType] = useState(null); // null = all, "maintenance", "inspection"
   const [selectedEvent, setSelectedEvent] = useState(null);
   const [detailModalOpen, setDetailModalOpen] = useState(false);
@@ -132,14 +133,18 @@ function Calendar() {
   useEffect(() => {
     let cancelled = false;
     setLoading(true);
+    setLoadError(null);
     AppApi.getCalendarEvents(startDate, endDate)
       .then((rawEvents) => {
         if (cancelled) return;
         const normalized = rawEvents.map(normalizeEvent);
         setEvents(normalized);
       })
-      .catch(() => {
-        if (!cancelled) setEvents([]);
+      .catch((err) => {
+        if (!cancelled) {
+          setEvents([]);
+          setLoadError(err?.message || "Connection failed. Please check your connection and try again.");
+        }
       })
       .finally(() => {
         if (!cancelled) setLoading(false);
@@ -253,12 +258,16 @@ function Calendar() {
 
   const refreshEvents = useCallback(() => {
     setLoading(true);
+    setLoadError(null);
     AppApi.getCalendarEvents(startDate, endDate)
       .then((rawEvents) => {
         const normalized = rawEvents.map(normalizeEvent);
         setEvents(normalized);
       })
-      .catch(() => setEvents([]))
+      .catch((err) => {
+        setEvents([]);
+        setLoadError(err?.message || "Connection failed. Please check your connection and try again.");
+      })
       .finally(() => setLoading(false));
   }, [startDate, endDate]);
 
@@ -405,6 +414,20 @@ function Calendar() {
               {loading && (
                 <div className="absolute inset-0 z-10 flex items-center justify-center bg-white/80 dark:bg-gray-800/80 rounded-xl">
                   <div className="w-8 h-8 border-2 border-[#456564] border-t-transparent rounded-full animate-spin" />
+                </div>
+              )}
+              {loadError && !loading && (
+                <div className="absolute inset-0 z-10 flex flex-col items-center justify-center gap-3 bg-white/95 dark:bg-gray-800/95 rounded-xl p-6">
+                  <p className="text-red-600 dark:text-red-400 font-medium text-center">
+                    {loadError}
+                  </p>
+                  <button
+                    type="button"
+                    onClick={refreshEvents}
+                    className="btn px-4 py-2 bg-[#456564] hover:bg-[#34514f] text-white text-sm"
+                  >
+                    Retry
+                  </button>
                 </div>
               )}
               {viewMode === "month" && (

@@ -124,14 +124,47 @@ function TicketDetailPage({ variant = "support" }) {
     }
   }
 
-  async function handleSendAndMarkInProgress(ticketIdVal) {
-    await handleStatusChange(ticketIdVal, "in_progress");
-    navigate(listPath);
+  async function handleReply(ticketIdVal, responseText) {
+    if (!responseText?.trim()) return;
+    setUpdating(true);
+    try {
+      await AppApi.addSupportTicketReply(ticketIdVal, responseText.trim());
+      await fetchTicket();
+    } catch (err) {
+      setError(err.message || "Failed to send reply");
+    } finally {
+      setUpdating(false);
+    }
   }
 
-  async function handleSendAndResolve(ticketIdVal) {
-    await handleStatusChange(ticketIdVal, "completed");
-    navigate(listPath);
+  async function handleSendAndMarkInProgress(ticketIdVal, responseText) {
+    setUpdating(true);
+    try {
+      if (responseText?.trim()) {
+        await AppApi.addSupportTicketReply(ticketIdVal, responseText.trim());
+      }
+      await handleStatusChange(ticketIdVal, "in_progress");
+      navigate(listPath);
+    } catch (err) {
+      setError(err.message || "Failed to send reply");
+    } finally {
+      setUpdating(false);
+    }
+  }
+
+  async function handleSendAndResolve(ticketIdVal, responseText) {
+    setUpdating(true);
+    try {
+      if (responseText?.trim()) {
+        await AppApi.addSupportTicketReply(ticketIdVal, responseText.trim());
+      }
+      await handleStatusChange(ticketIdVal, "completed");
+      navigate(listPath);
+    } catch (err) {
+      setError(err.message || "Failed to send reply");
+    } finally {
+      setUpdating(false);
+    }
   }
 
   function handleConvertToSupportTicket() {
@@ -203,10 +236,12 @@ function TicketDetailPage({ variant = "support" }) {
               admins={admins}
               variant={variant}
               asPage
+              readOnly={false}
               onClose={handleClose}
               onStatusChange={handleStatusChange}
               onAssign={handleAssign}
               onInternalNotes={handleInternalNotes}
+              onReply={handleReply}
               onSendAndMarkInProgress={handleSendAndMarkInProgress}
               onSendAndResolve={handleSendAndResolve}
               onConvertToSupportTicket={

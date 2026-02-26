@@ -9,7 +9,6 @@ import React, {
 import {useNavigate, useParams} from "react-router-dom";
 import {useTranslation} from "react-i18next";
 import {
-  Camera,
   X,
   Plus,
   Loader2,
@@ -20,9 +19,9 @@ import {
   Globe,
   Shield,
   FileText,
-  AlertCircle,
   Briefcase,
   User,
+  ExternalLink,
 } from "lucide-react";
 
 import Sidebar from "../../partials/Sidebar";
@@ -31,6 +30,7 @@ import Banner from "../../partials/containers/Banner";
 import useCurrentAccount from "../../hooks/useCurrentAccount";
 import useImageUpload from "../../hooks/useImageUpload";
 import AppApi from "../../api/api";
+import ImageUploadField from "../../components/ImageUploadField";
 
 const BUDGET_OPTIONS = [
   {value: "$", label: "$", description: "Budget-friendly"},
@@ -226,7 +226,14 @@ function ProfessionalFormContainer() {
         const toUpload = await compressImageForUpload(file);
         const doc = await AppApi.uploadDocument(toUpload);
         const key = doc?.key ?? doc?.s3Key ?? doc?.url;
-        const displayUrl = doc?.url ?? doc?.presignedUrl;
+        let displayUrl = doc?.url ?? doc?.presignedUrl;
+        if (key) {
+          try {
+            displayUrl = await AppApi.getPresignedPreviewUrl(key);
+          } catch {
+            displayUrl = displayUrl || URL.createObjectURL(file);
+          }
+        }
         if (key) {
           dispatch({
             type: "ADD_PROJECT_PHOTO",
@@ -265,6 +272,28 @@ function ProfessionalFormContainer() {
   /* ─── Category hierarchy ───────────────────────────────────── */
 
   const [categoryHierarchy, setCategoryHierarchy] = useState([]);
+  const [projectPhotoUrls, setProjectPhotoUrls] = useState({});
+
+  /* Fetch presigned URLs for project photos (existing photos from API may have expired URLs) */
+  useEffect(() => {
+    const keysToFetch = state.projectPhotos
+      .map((p) => p.photo_key)
+      .filter(Boolean)
+      .filter((k) => !k.startsWith("blob:") && !k.startsWith("http"))
+      .filter((k) => !projectPhotoUrls[k]);
+    if (keysToFetch.length === 0) return;
+    let cancelled = false;
+    keysToFetch.forEach((key) => {
+      AppApi.getPresignedPreviewUrl(key)
+        .then((url) => {
+          if (!cancelled) {
+            setProjectPhotoUrls((prev) => ({...prev, [key]: url}));
+          }
+        })
+        .catch(() => {});
+    });
+    return () => { cancelled = true; };
+  }, [state.projectPhotos, projectPhotoUrls]);
 
   useEffect(() => {
     let cancelled = false;
@@ -337,6 +366,7 @@ function ProfessionalFormContainer() {
           ...loadedData,
           languages: [...(loadedData.languages || [])],
         };
+        setProjectPhotoUrls({});
         dispatch({
           type: "LOAD_PROFESSIONAL",
           payload: {
@@ -388,8 +418,14 @@ function ProfessionalFormContainer() {
       errs.last_name = "Last name is required";
     if (!state.formData.company_name.trim())
       errs.company_name = "Company name is required";
+    if (!state.formData.phone.trim()) errs.phone = "Phone is required";
+    if (!state.formData.website.trim()) errs.website = "Website is required";
     if (!state.formData.city.trim()) errs.city = "City is required";
     if (!state.formData.state.trim()) errs.state = "State is required";
+    if (!state.formData.category_id.trim())
+      errs.category_id = "Category is required";
+    if (!state.formData.subcategory_id.trim())
+      errs.subcategory_id = "Subcategory is required";
     if (
       state.formData.email &&
       !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(state.formData.email)
@@ -564,29 +600,50 @@ function ProfessionalFormContainer() {
                 </svg>
                 <span className="text-lg">Professionals</span>
               </button>
-              {!isNew && (
-                <button
-                  className="btn bg-[#456564] hover:bg-[#34514f] text-white transition-colors duration-200 shadow-sm"
-                  onClick={() =>
-                    navigate(`/${accountUrl}/professionals/manage/new`)
-                  }
-                >
-                  New
-                </button>
-              )}
+              <div className="flex items-center gap-3">
+                {!isNew && (
+                  <button
+                    type="button"
+                    onClick={() =>
+                      navigate(`/${accountUrl}/professionals/${professionalId}`)
+                    }
+                    className="flex items-center gap-2 px-3 py-2 bg-transparent hover:bg-gray-50 dark:hover:bg-gray-800/50 border border-gray-300 dark:border-gray-600 rounded-lg text-gray-700 dark:text-gray-300 transition-all duration-200"
+                  >
+                    <ExternalLink className="w-4 h-4 flex-shrink-0" />
+                    <span className="text-sm font-semibold">View Profile</span>
+                  </button>
+                )}
+                {!isNew && (
+                  <button
+                    className="btn bg-[#456564] hover:bg-[#34514f] text-white transition-colors duration-200 shadow-sm"
+                    onClick={() =>
+                      navigate(`/${accountUrl}/professionals/manage/new`)
+                    }
+                  >
+                    New
+                  </button>
+                )}
+              </div>
             </div>
 
             {/* ─── Header Card: Photo + Company & Contact ───── */}
             <div className="bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-200 dark:border-gray-700 mb-6">
               <div className="p-6">
                 <div className="flex items-start gap-4">
-                  <ProfilePhotoUpload
-                    src={profileSrc}
-                    uploading={profileUploading}
+                  <ImageUploadField
+                    imageSrc={profileSrc}
+                    hasImage={!!state.formData.profile_photo}
+                    imageUploading={profileUploading}
                     onUpload={uploadProfilePhoto}
                     onRemove={handleProfileRemove}
-                    error={profileUploadError}
+                    showRemove={!!state.formData.profile_photo}
+                    imageUploadError={profileUploadError}
                     onDismissError={() => setProfileUploadError(null)}
+                    size="md"
+                    placeholder="avatar"
+                    alt="Professional"
+                    uploadLabel="Upload photo"
+                    removeLabel="Remove photo"
                   />
 
                   <div className="flex-1 min-w-0">
@@ -629,7 +686,7 @@ function ProfessionalFormContainer() {
 
             <div className="bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-200 dark:border-gray-700">
               <div className="p-6 space-y-8">
-                {/* ─── Company & Contact Info ──────────────────── */}
+                {/* ─── Company & Contact Info (required fields at top) ───── */}
                 <div className="bg-gray-50 dark:bg-gray-700/50 rounded-lg p-6">
                   <h3 className="text-lg font-semibold text-gray-800 dark:text-gray-100 mb-6 flex items-center gap-2">
                     <Building2 className="h-5 w-5 text-[#456564]" />
@@ -695,7 +752,7 @@ function ProfessionalFormContainer() {
                     </div>
                     <div>
                       <label className="block text-sm font-medium mb-1 text-gray-500 dark:text-gray-400">
-                        Phone
+                        Phone <span className="text-red-500">*</span>
                       </label>
                       <input
                         type="tel"
@@ -706,6 +763,9 @@ function ProfessionalFormContainer() {
                           handleFieldChange("phone", e.target.value)
                         }
                       />
+                      {err.phone && (
+                        <p className="mt-1 text-xs text-red-500">{err.phone}</p>
+                      )}
                     </div>
                     <div>
                       <label className="block text-sm font-medium mb-1 text-gray-500 dark:text-gray-400">
@@ -726,7 +786,7 @@ function ProfessionalFormContainer() {
                     </div>
                     <div className="md:col-span-2">
                       <label className="block text-sm font-medium mb-1 text-gray-500 dark:text-gray-400">
-                        Website
+                        Website <span className="text-red-500">*</span>
                       </label>
                       <input
                         type="url"
@@ -737,6 +797,121 @@ function ProfessionalFormContainer() {
                           handleFieldChange("website", e.target.value)
                         }
                       />
+                      {err.website && (
+                        <p className="mt-1 text-xs text-red-500">
+                          {err.website}
+                        </p>
+                      )}
+                    </div>
+                  </div>
+                </div>
+
+                {/* ─── Address ─────────────────────────────────── */}
+                <div className="bg-gray-50 dark:bg-gray-700/50 rounded-lg p-6">
+                  <h3 className="text-lg font-semibold text-gray-800 dark:text-gray-100 mb-6 flex items-center gap-2">
+                    <MapPin className="h-5 w-5 text-[#456564]" />
+                    Address
+                  </h3>
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div className="md:col-span-2">
+                      <label className="block text-sm font-medium mb-1 text-gray-500 dark:text-gray-400">
+                        Street Address
+                      </label>
+                      <input
+                        type="text"
+                        className={inputClass("street1")}
+                        placeholder="123 Main Street"
+                        value={fd.street1}
+                        onChange={(e) =>
+                          handleFieldChange("street1", e.target.value)
+                        }
+                      />
+                    </div>
+                    <div className="md:col-span-2">
+                      <label className="block text-sm font-medium mb-1 text-gray-500 dark:text-gray-400">
+                        Street Address 2
+                      </label>
+                      <input
+                        type="text"
+                        className={inputClass("street2")}
+                        placeholder="Suite 200"
+                        value={fd.street2}
+                        onChange={(e) =>
+                          handleFieldChange("street2", e.target.value)
+                        }
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-sm font-medium mb-1 text-gray-500 dark:text-gray-400">
+                        City <span className="text-red-500">*</span>
+                      </label>
+                      <input
+                        type="text"
+                        className={inputClass("city")}
+                        placeholder="Miami"
+                        value={fd.city}
+                        onChange={(e) =>
+                          handleFieldChange("city", e.target.value)
+                        }
+                      />
+                      {err.city && (
+                        <p className="mt-1 text-xs text-red-500">{err.city}</p>
+                      )}
+                    </div>
+                    <div>
+                      <label className="block text-sm font-medium mb-1 text-gray-500 dark:text-gray-400">
+                        State <span className="text-red-500">*</span>
+                      </label>
+                      <select
+                        className={selectClass("state")}
+                        value={fd.state}
+                        onChange={(e) =>
+                          handleFieldChange("state", e.target.value)
+                        }
+                      >
+                        <option value="">State</option>
+                        {US_STATES.map((s) => (
+                          <option key={s} value={s}>
+                            {s}
+                          </option>
+                        ))}
+                      </select>
+                      {err.state && (
+                        <p className="mt-1 text-xs text-red-500">
+                          {err.state}
+                        </p>
+                      )}
+                    </div>
+                    <div>
+                      <label className="block text-sm font-medium mb-1 text-gray-500 dark:text-gray-400">
+                        ZIP Code
+                      </label>
+                      <input
+                        type="text"
+                        className={inputClass("zip_code")}
+                        placeholder="33101"
+                        value={fd.zip_code}
+                        onChange={(e) =>
+                          handleFieldChange("zip_code", e.target.value)
+                        }
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-sm font-medium mb-1 text-gray-500 dark:text-gray-400">
+                        Service Area
+                      </label>
+                      <input
+                        type="text"
+                        className={inputClass("service_area")}
+                        placeholder="Greater Miami area, Broward County"
+                        value={fd.service_area}
+                        onChange={(e) =>
+                          handleFieldChange("service_area", e.target.value)
+                        }
+                      />
+                      <p className="mt-1 text-xs text-gray-400 dark:text-gray-500">
+                        Describe the areas this contractor serves
+                      </p>
                     </div>
                   </div>
                 </div>
@@ -750,7 +925,7 @@ function ProfessionalFormContainer() {
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                     <div>
                       <label className="block text-sm font-medium mb-1 text-gray-500 dark:text-gray-400">
-                        Category
+                        Category <span className="text-red-500">*</span>
                       </label>
                       <select
                         className={selectClass("category_id")}
@@ -767,10 +942,15 @@ function ProfessionalFormContainer() {
                           </option>
                         ))}
                       </select>
+                      {err.category_id && (
+                        <p className="mt-1 text-xs text-red-500">
+                          {err.category_id}
+                        </p>
+                      )}
                     </div>
                     <div>
                       <label className="block text-sm font-medium mb-1 text-gray-500 dark:text-gray-400">
-                        Subcategory
+                        Subcategory <span className="text-red-500">*</span>
                       </label>
                       <select
                         className={selectClass("subcategory_id")}
@@ -791,6 +971,11 @@ function ProfessionalFormContainer() {
                           </option>
                         ))}
                       </select>
+                      {err.subcategory_id && (
+                        <p className="mt-1 text-xs text-red-500">
+                          {err.subcategory_id}
+                        </p>
+                      )}
                     </div>
                     <div>
                       <label className="block text-sm font-medium mb-1 text-gray-500 dark:text-gray-400">
@@ -877,118 +1062,6 @@ function ProfessionalFormContainer() {
                   </div>
                 </div>
 
-                {/* ─── Address ─────────────────────────────────── */}
-                <div className="bg-gray-50 dark:bg-gray-700/50 rounded-lg p-6">
-                  <h3 className="text-lg font-semibold text-gray-800 dark:text-gray-100 mb-6 flex items-center gap-2">
-                    <MapPin className="h-5 w-5 text-[#456564]" />
-                    Address
-                  </h3>
-                  <div className="grid grid-cols-1 gap-4">
-                    <div>
-                      <label className="block text-sm font-medium mb-1 text-gray-500 dark:text-gray-400">
-                        Street Address
-                      </label>
-                      <input
-                        type="text"
-                        className={inputClass("street1")}
-                        placeholder="123 Main Street"
-                        value={fd.street1}
-                        onChange={(e) =>
-                          handleFieldChange("street1", e.target.value)
-                        }
-                      />
-                    </div>
-                    <div>
-                      <label className="block text-sm font-medium mb-1 text-gray-500 dark:text-gray-400">
-                        Street Address 2
-                      </label>
-                      <input
-                        type="text"
-                        className={inputClass("street2")}
-                        placeholder="Suite 200"
-                        value={fd.street2}
-                        onChange={(e) =>
-                          handleFieldChange("street2", e.target.value)
-                        }
-                      />
-                    </div>
-                    <div className="grid grid-cols-12 gap-4">
-                      <div className="col-span-5">
-                        <label className="block text-sm font-medium mb-1 text-gray-500 dark:text-gray-400">
-                          City <span className="text-red-500">*</span>
-                        </label>
-                        <input
-                          type="text"
-                          className={inputClass("city")}
-                          placeholder="Miami"
-                          value={fd.city}
-                          onChange={(e) =>
-                            handleFieldChange("city", e.target.value)
-                          }
-                        />
-                        {err.city && (
-                          <p className="mt-1 text-xs text-red-500">{err.city}</p>
-                        )}
-                      </div>
-                      <div className="col-span-4">
-                        <label className="block text-sm font-medium mb-1 text-gray-500 dark:text-gray-400">
-                          State <span className="text-red-500">*</span>
-                        </label>
-                        <select
-                          className={selectClass("state")}
-                          value={fd.state}
-                          onChange={(e) =>
-                            handleFieldChange("state", e.target.value)
-                          }
-                        >
-                          <option value="">State</option>
-                          {US_STATES.map((s) => (
-                            <option key={s} value={s}>
-                              {s}
-                            </option>
-                          ))}
-                        </select>
-                        {err.state && (
-                          <p className="mt-1 text-xs text-red-500">
-                            {err.state}
-                          </p>
-                        )}
-                      </div>
-                      <div className="col-span-3">
-                        <label className="block text-sm font-medium mb-1 text-gray-500 dark:text-gray-400">
-                          ZIP Code
-                        </label>
-                        <input
-                          type="text"
-                          className={inputClass("zip_code")}
-                          placeholder="33101"
-                          value={fd.zip_code}
-                          onChange={(e) =>
-                            handleFieldChange("zip_code", e.target.value)
-                          }
-                        />
-                      </div>
-                    </div>
-                    <div>
-                      <label className="block text-sm font-medium mb-1 text-gray-500 dark:text-gray-400">
-                        Service Area
-                      </label>
-                      <input
-                        type="text"
-                        className={inputClass("service_area")}
-                        placeholder="Greater Miami area, Broward County"
-                        value={fd.service_area}
-                        onChange={(e) =>
-                          handleFieldChange("service_area", e.target.value)
-                        }
-                      />
-                      <p className="mt-1 text-xs text-gray-400 dark:text-gray-500">
-                        Describe the areas this contractor serves
-                      </p>
-                    </div>
-                  </div>
-                </div>
-
                 {/* ─── About & Languages ───────────────────────── */}
                 <div className="bg-gray-50 dark:bg-gray-700/50 rounded-lg p-6">
                   <h3 className="text-lg font-semibold text-gray-800 dark:text-gray-100 mb-6 flex items-center gap-2">
@@ -1053,16 +1126,29 @@ function ProfessionalFormContainer() {
                   />
 
                   <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-3">
-                    {state.projectPhotos.map((photo) => (
+                    {state.projectPhotos.map((photo) => {
+                      const imgSrc =
+                        projectPhotoUrls[photo.photo_key] ||
+                        photo.photo_url ||
+                        (photo.photo_key?.startsWith("http")
+                          ? photo.photo_key
+                          : null);
+                      return (
                       <div
                         key={photo.id}
                         className="relative group rounded-xl overflow-hidden aspect-[4/3] bg-gray-100 dark:bg-gray-700"
                       >
-                        <img
-                          src={photo.photo_url || photo.photo_key}
-                          alt={photo.caption || "Project photo"}
-                          className="w-full h-full object-cover"
-                        />
+                        {imgSrc ? (
+                          <img
+                            src={imgSrc}
+                            alt={photo.caption || "Project photo"}
+                            className="w-full h-full object-cover"
+                          />
+                        ) : (
+                          <div className="w-full h-full flex items-center justify-center">
+                            <Loader2 className="w-6 h-6 animate-spin text-gray-400" />
+                          </div>
+                        )}
                         <button
                           type="button"
                           onClick={() =>
@@ -1083,7 +1169,8 @@ function ProfessionalFormContainer() {
                           </div>
                         )}
                       </div>
-                    ))}
+                    );
+                    })}
 
                     <button
                       type="button"
@@ -1152,102 +1239,6 @@ function ProfessionalFormContainer() {
           </div>
         </main>
       </div>
-    </div>
-  );
-}
-
-/* ─── Profile Photo Upload Component ─────────────────────────── */
-
-function ProfilePhotoUpload({
-  src,
-  uploading,
-  onUpload,
-  onRemove,
-  error,
-  onDismissError,
-}) {
-  const inputRef = useRef(null);
-  const [hovering, setHovering] = useState(false);
-
-  const handleClick = () => {
-    if (!uploading) inputRef.current?.click();
-  };
-
-  return (
-    <div className="relative">
-      <div
-        className="w-24 h-24 sm:w-28 sm:h-28 rounded-2xl overflow-hidden border-4 border-white dark:border-gray-800 shadow-lg cursor-pointer bg-gray-100 dark:bg-gray-700"
-        onClick={handleClick}
-        onMouseEnter={() => setHovering(true)}
-        onMouseLeave={() => setHovering(false)}
-      >
-        <input
-          ref={inputRef}
-          type="file"
-          className="hidden"
-          accept="image/jpeg,image/png,image/webp,image/gif"
-          onChange={(e) => {
-            const file = e.target.files?.[0];
-            if (file) {
-              onUpload(file);
-              e.target.value = "";
-            }
-          }}
-        />
-
-        {uploading ? (
-          <div className="w-full h-full flex items-center justify-center">
-            <Loader2 className="w-8 h-8 animate-spin text-gray-400" />
-          </div>
-        ) : src ? (
-          <>
-            <img
-              src={src}
-              alt="Profile"
-              className="w-full h-full object-cover"
-            />
-            {hovering && (
-              <div className="absolute inset-0 bg-black/40 flex items-center justify-center rounded-2xl">
-                <Camera className="w-5 h-5 text-white" />
-              </div>
-            )}
-          </>
-        ) : (
-          <div className="w-full h-full flex flex-col items-center justify-center gap-1">
-            <User className="w-8 h-8 text-gray-400 dark:text-gray-500" />
-            <span className="text-[10px] font-medium text-gray-400 dark:text-gray-500">
-              Photo
-            </span>
-          </div>
-        )}
-      </div>
-
-      {src && !uploading && (
-        <button
-          type="button"
-          onClick={(e) => {
-            e.stopPropagation();
-            onRemove();
-          }}
-          className="absolute -top-1 -right-1 p-1 rounded-full bg-black/60 hover:bg-red-600 text-white shadow-md transition-colors"
-        >
-          <X className="w-3 h-3" />
-        </button>
-      )}
-
-      {error && (
-        <div className="absolute top-full mt-1 left-0 flex items-center gap-1 px-2 py-1 rounded-md bg-red-50 dark:bg-red-900/80 text-red-600 dark:text-red-200 text-xs whitespace-nowrap shadow">
-          <AlertCircle className="w-3 h-3 shrink-0" />
-          <span className="truncate max-w-[120px]">{error}</span>
-          <button
-            type="button"
-            onClick={onDismissError}
-            className="shrink-0 ml-0.5"
-          >
-            <X className="w-3 h-3" />
-          </button>
-        </div>
-      )}
     </div>
   );
 }

@@ -5,40 +5,6 @@ const BASE_URL = API_BASE_URL;
 const TOKEN_STORAGE_KEY = "app-token";
 const REFRESH_TOKEN_STORAGE_KEY = "app-refresh-token";
 
-/** Mock calendar events when backend is not ready. */
-function getMockCalendarEvents(startDate, endDate) {
-  const start = new Date(startDate);
-  const end = new Date(endDate);
-  const systems = [
-    { name: "HVAC", type: "maintenance" },
-    { name: "Roof", type: "inspection" },
-    { name: "Plumbing", type: "maintenance" },
-    { name: "Electrical", type: "inspection" },
-  ];
-  const pros = ["ABC Services", "Smith & Co", null];
-  const events = [];
-  const d = new Date(start);
-  while (d <= end) {
-    const day = d.getDay();
-    if (day !== 0 && day !== 6) {
-      const sys = systems[events.length % systems.length];
-      events.push({
-        id: `mock-${d.toISOString().slice(0, 10)}-${events.length}`,
-        systemName: sys.name,
-        systemKey: sys.name.toLowerCase(),
-        type: sys.type,
-        scheduledDate: d.toISOString().slice(0, 10),
-        scheduledTime: events.length % 3 === 0 ? "10:00" : null,
-        contractorName: pros[events.length % pros.length],
-        propertyName: "Sample Property",
-        status: "scheduled",
-      });
-    }
-    d.setDate(d.getDate() + 1);
-  }
-  return events.slice(0, 15);
-}
-
 export class ApiError extends Error {
   constructor(messages, status = 500) {
     const msg = Array.isArray(messages) ? messages[0] : messages;
@@ -51,6 +17,17 @@ export class ApiError extends Error {
 class AppApi {
   static token;
   static _refreshPromise = null;
+
+  /** Get token from memory or localStorage (ensures token is available before AuthContext sync) */
+  static getToken() {
+    if (AppApi.token) return AppApi.token;
+    if (typeof localStorage !== "undefined") {
+      const stored = localStorage.getItem(TOKEN_STORAGE_KEY);
+      if (stored) AppApi.token = stored;
+      return stored;
+    }
+    return null;
+  }
 
   static async refreshAccessToken() {
     if (AppApi._refreshPromise) return AppApi._refreshPromise;
@@ -89,8 +66,11 @@ class AppApi {
 
   static async request(endpoint, data = {}, method = "GET", customHeaders = {}) {
     const url = new URL(`${BASE_URL}/${endpoint}`);
+    const token = AppApi.getToken();
     const headers = {
-      Authorization: `Bearer ${AppApi.token}`, "Content-Type": "application/json", ...customHeaders
+      ...(token ? { Authorization: `Bearer ${token}` } : {}),
+      "Content-Type": "application/json",
+      ...customHeaders
     };
     url.search = (method === "GET") ? new URLSearchParams(data) : "";
     const body = (method !== "GET") ? JSON.stringify(data) : undefined;
@@ -100,7 +80,8 @@ class AppApi {
     if (resp.status === 401 && !endpoint.startsWith("auth/")) {
       try {
         await AppApi.refreshAccessToken();
-        headers.Authorization = `Bearer ${AppApi.token}`;
+        const newToken = AppApi.getToken();
+        if (newToken) headers.Authorization = `Bearer ${newToken}`;
         resp = await fetch(url, { method, body, headers });
       } catch {
         throw new ApiError(["Session expired. Please sign in again."], 401);
@@ -119,14 +100,16 @@ class AppApi {
 
   static async requestFormData(endpoint, formData, method = "POST") {
     const url = new URL(`${BASE_URL}/${endpoint}`);
-    const headers = { Authorization: `Bearer ${AppApi.token}` };
+    const token = AppApi.getToken();
+    const headers = { ...(token ? { Authorization: `Bearer ${token}` } : {}) };
 
     let resp = await fetch(url, { method, body: formData, headers });
 
     if (resp.status === 401 && !endpoint.startsWith("auth/")) {
       try {
         await AppApi.refreshAccessToken();
-        headers.Authorization = `Bearer ${AppApi.token}`;
+        const newToken = AppApi.getToken();
+        if (newToken) headers.Authorization = `Bearer ${newToken}`;
         resp = await fetch(url, { method, body: formData, headers });
       } catch {
         throw new ApiError(["Session expired. Please sign in again."], 401);
@@ -458,23 +441,25 @@ class AppApi {
   /* --------- Maintenance Events (Calendar) --------- */
 
   /**
+   * Get unified home events: reminders, scheduled work, next alert.
+   */
+  static async getHomeEvents() {
+    const res = await this.request("maintenance-events/home-events");
+    return res;
+  }
+
+  /**
    * Get inspection + maintenance events for the current user in a date range.
-   * Falls back to mock data if the backend is not ready.
    * @param {string} startDate - YYYY-MM-DD
    * @param {string} endDate - YYYY-MM-DD
    * @returns {Promise<Array>} events
    */
   static async getCalendarEvents(startDate, endDate) {
-    try {
-      const res = await this.request("maintenance-events/calendar", {
-        start: startDate,
-        end: endDate,
-      });
-      return res.events ?? [];
-    } catch (err) {
-      console.warn("Calendar API not ready, using mock events:", err?.message);
-      return getMockCalendarEvents(startDate, endDate);
-    }
+    const res = await this.request("maintenance-events/calendar", {
+      start: startDate,
+      end: endDate,
+    });
+    return res.events ?? [];
   }
 
   /**
@@ -786,9 +771,96 @@ class AppApi {
     return res.ticket;
   }
 
+  static async addSupportTicketReply(id, body) {
+    const res = await this.request(`support-tickets/${id}/replies`, { body }, "POST");
+    return res.ticket;
+  }
+
   static async getSupportAssignmentAdmins() {
     const res = await this.request("support-tickets/assignment-admins");
     return res.admins ?? [];
+  }
+
+  /* --------- Resources (Discover feed) --------- */
+
+  static async getResources(params = {}) {
+    const res = await this.request("resources", params);
+    return res.resources ?? [];
+  }
+
+  static async getResourceRecipientOptions() {
+    const res = await this.request("resources/recipients/options");
+    return res;
+  }
+
+  static async estimateResourceRecipients(data) {
+    const res = await this.request("resources/recipients/estimate", data, "POST");
+    return res.count ?? 0;
+  }
+
+  static async sendResource(id) {
+    const res = await this.request(`resources/${id}/send`, {}, "POST");
+    return res;
+  }
+
+  static async activateResource(id) {
+    const res = await this.request(`resources/${id}/activate`, {}, "POST");
+    return res.resource;
+  }
+
+  static async getResource(id) {
+    const res = await this.request(`resources/${id}`);
+    const resource = res.resource;
+    // Migrate legacy article_link -> web_link
+    if (resource?.type === "article_link") {
+      resource.type = "web_link";
+    }
+    return resource;
+  }
+
+  /** Get a sent resource for viewing (any logged-in user). Used by ResourceViewer. */
+  static async getResourceView(id) {
+    const res = await this.request(`resources/${id}/view`);
+    const resource = res.resource ?? res;
+    // Migrate legacy article_link -> web_link
+    if (resource?.type === "article_link") {
+      resource.type = "web_link";
+    }
+    return { ...res, resource };
+  }
+
+  static async getResourcesAdmin(params = {}) {
+    const res = await this.request("resources/admin", params);
+    return res.resources ?? [];
+  }
+
+  static async createResource(data) {
+    const res = await this.request("resources", data, "POST");
+    return res.resource;
+  }
+
+  static async updateResource(id, data) {
+    const res = await this.request(`resources/${id}`, data, "PATCH");
+    return res.resource;
+  }
+
+  static async deleteResource(id) {
+    await this.request(`resources/${id}`, {}, "DELETE");
+  }
+
+  /* --------- Notifications --------- */
+
+  static async getNotifications(params = {}) {
+    const res = await this.request("notifications", params);
+    return { notifications: res.notifications ?? [], unreadCount: res.unreadCount ?? 0 };
+  }
+
+  static async markNotificationRead(id) {
+    return this.request(`notifications/${id}/read`, {}, "POST");
+  }
+
+  static async markAllNotificationsRead() {
+    return this.request("notifications/read-all", {}, "POST");
   }
 }
 

@@ -55,10 +55,16 @@ import GrowthDashboard from "../dashboard/GrowthDashboard";
 import InvitationsList from "../invitations/InvitationsList";
 import BillingPage from "../settings/BillingPage";
 import ConfigurationPage from "../settings/ConfigurationPage";
-import Support from "../support/Support";
+import SupportList from "../support/SupportList";
+import SupportNew from "../support/SupportNew";
+import SupportTicket from "../support/SupportTicket";
 import SupportManagement from "../support/SupportManagement";
 import FeedbackManagement from "../support/FeedbackManagement";
 import TicketDetailPage from "../support/TicketDetailPage";
+import ResourcesManagement from "../resources/ResourcesManagement";
+import Resource from "../resources/Resource";
+import ResourceViewerPage from "../resources/ResourceViewerPage";
+import ResourcePreviewPage from "../resources/ResourcePreviewPage";
 import Calendar from "../calendar/Calendar";
 
 
@@ -198,10 +204,10 @@ function RoutesList() {
         }
       />
       <Route
-        path="/:accountUrl/settings/support"
+        path="/:accountUrl/settings/support/new"
         element={
           <ProtectedRoute>
-            <Support />
+            <SupportNew />
           </ProtectedRoute>
         }
       />
@@ -209,7 +215,15 @@ function RoutesList() {
         path="/:accountUrl/settings/support/:ticketId"
         element={
           <ProtectedRoute>
-            <Support />
+            <SupportTicket />
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/:accountUrl/settings/support"
+        element={
+          <ProtectedRoute>
+            <SupportList />
           </ProtectedRoute>
         }
       />
@@ -474,6 +488,46 @@ function RoutesList() {
         element={
           <AdminRoute>
             <SupportManagement />
+          </AdminRoute>
+        }
+      />
+      <Route
+        path="/:accountUrl/resources/new"
+        element={
+          <AdminRoute>
+            <Resource />
+          </AdminRoute>
+        }
+      />
+      <Route
+        path="/:accountUrl/resources/:id/preview"
+        element={
+          <AdminRoute>
+            <ResourcePreviewPage />
+          </AdminRoute>
+        }
+      />
+      <Route
+        path="/:accountUrl/resources/:id/view"
+        element={
+          <ProtectedRoute>
+            <ResourceViewerPage />
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/:accountUrl/resources/:id"
+        element={
+          <AdminRoute>
+            <Resource />
+          </AdminRoute>
+        }
+      />
+      <Route
+        path="/:accountUrl/resources"
+        element={
+          <AdminRoute>
+            <ResourcesManagement />
           </AdminRoute>
         }
       />

@@ -1,14 +1,16 @@
 import React, { useState, useEffect } from "react";
 import { useTranslation } from "react-i18next";
-import { ShieldCheck, ShieldOff, Loader2 } from "lucide-react";
+import { ShieldCheck, ShieldOff, Loader2, Globe } from "lucide-react";
 import Header from "../../partials/Header";
 import Sidebar from "../../partials/Sidebar";
 import { useAuth } from "../../context/AuthContext";
 import AppApi from "../../api/api";
+import { PAGE_LAYOUT, SETTINGS_CARD } from "../../constants/layout";
 
 /**
  * Configuration page — profile settings: name, password, phone, MFA.
  * Email is read-only (changing requires verification).
+ * Language changes apply only on save.
  */
 const LANGUAGES = [
   { code: "en", label: "English" },
@@ -21,6 +23,9 @@ function ConfigurationPage() {
   const { currentUser } = useAuth();
   const [name, setName] = useState("");
   const [phone, setPhone] = useState("");
+  const [language, setLanguage] = useState(i18n.language?.split("-")[0] || "en");
+  const [languageSaving, setLanguageSaving] = useState(false);
+  const [languageSuccess, setLanguageSuccess] = useState(false);
   const [profileSaving, setProfileSaving] = useState(false);
   const [profileSuccess, setProfileSuccess] = useState(false);
   const [profileError, setProfileError] = useState(null);
@@ -52,6 +57,25 @@ function ConfigurationPage() {
       setPhone(currentUser.phone || "");
     }
   }, [currentUser]);
+
+  useEffect(() => {
+    setLanguage(i18n.language?.split("-")[0] || "en");
+  }, [i18n.language]);
+
+  async function handleLanguageSubmit(e) {
+    e.preventDefault();
+    setLanguageSuccess(false);
+    setLanguageSaving(true);
+    try {
+      await i18n.changeLanguage(language);
+      setLanguageSuccess(true);
+      setTimeout(() => setLanguageSuccess(false), 3000);
+    } catch {
+      // i18n.changeLanguage typically doesn't throw
+    } finally {
+      setLanguageSaving(false);
+    }
+  }
 
   useEffect(() => {
     async function fetchMfaStatus() {
@@ -187,60 +211,79 @@ function ConfigurationPage() {
       <div className="relative flex flex-col flex-1 overflow-y-auto overflow-x-hidden">
         <Header sidebarOpen={sidebarOpen} setSidebarOpen={setSidebarOpen} />
         <main className="grow">
-          <div className="px-4 sm:px-6 py-8 w-full max-w-[96rem] mx-auto">
-            <div className="mb-8">
-              <h1 className="text-2xl md:text-3xl text-gray-800 dark:text-gray-100 font-bold">
+          <div className={PAGE_LAYOUT.settings}>
+            <div className="mb-10">
+              <h1 className="text-2xl md:text-3xl font-bold text-gray-900 dark:text-white tracking-tight">
                 {t("settings.configuration") || "Configuration"}
               </h1>
-              <p className="mt-1 text-sm text-gray-500 dark:text-gray-400">
+              <p className="mt-2 text-base text-gray-600 dark:text-gray-400">
                 {t("settings.configurationDescription") ||
                   "Manage your profile and account security settings."}
               </p>
             </div>
 
-            <div className="space-y-8">
-              {/* Language */}
-              <section className="rounded-xl bg-white dark:bg-gray-800 shadow-xs overflow-hidden">
-                <div className="px-6 py-5 border-b border-gray-200 dark:border-gray-700/60">
-                  <h2 className="text-lg font-semibold text-gray-800 dark:text-gray-100">
-                    {t("settings.language") || "Language"}
-                  </h2>
-                  <p className="mt-1 text-sm text-gray-500 dark:text-gray-400">
+            <div className="space-y-10">
+              {/* Language — applies only on save */}
+              <section className={SETTINGS_CARD.card}>
+                <div className={SETTINGS_CARD.header}>
+                  <div className="flex items-center gap-2">
+                    <Globe className="w-5 h-5 text-[#456564] dark:text-[#5a7a78]" />
+                    <h2 className="text-lg font-semibold text-gray-900 dark:text-white">
+                      {t("settings.language") || "Language"}
+                    </h2>
+                  </div>
+                  <p className="mt-1.5 text-sm text-gray-600 dark:text-gray-400">
                     {t("settings.languageDescription") ||
                       "Choose your preferred language for the interface."}
                   </p>
                 </div>
-                <div className="p-6">
-                  <label htmlFor="config-language" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                    {t("settings.language") || "Language"}
-                  </label>
-                  <select
-                    id="config-language"
-                    value={i18n.language?.split("-")[0] || "en"}
-                    onChange={(e) => i18n.changeLanguage(e.target.value)}
-                    className="form-select w-full max-w-xs"
-                  >
-                    {LANGUAGES.map((lang) => (
-                      <option key={lang.code} value={lang.code}>
-                        {lang.label}
-                      </option>
-                    ))}
-                  </select>
-                </div>
+                <form onSubmit={handleLanguageSubmit} className={SETTINGS_CARD.body}>
+                  {languageSuccess && (
+                    <div className="mb-4 rounded-lg bg-emerald-50 dark:bg-emerald-900/20 px-4 py-3 text-sm text-emerald-700 dark:text-emerald-300">
+                      {t("settings.languageSaved") || "Language saved. The interface will update."}
+                    </div>
+                  )}
+                  <div className="flex flex-wrap items-end gap-4">
+                    <div className="min-w-[200px]">
+                      <label htmlFor="config-language" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                        {t("settings.language") || "Language"}
+                      </label>
+                      <select
+                        id="config-language"
+                        value={language}
+                        onChange={(e) => setLanguage(e.target.value)}
+                        className="form-select w-full"
+                      >
+                        {LANGUAGES.map((lang) => (
+                          <option key={lang.code} value={lang.code}>
+                            {lang.label}
+                          </option>
+                        ))}
+                      </select>
+                    </div>
+                    <button
+                      type="submit"
+                      disabled={languageSaving}
+                      className="btn bg-[#456564] hover:bg-[#34514f] text-white disabled:opacity-50"
+                    >
+                      {languageSaving ? (t("saving") || "Saving...") : (t("save") || "Save Changes")}
+                    </button>
+                  </div>
+                </form>
               </section>
 
               {/* Profile — name, phone (email read-only) */}
-              <section className="rounded-xl bg-white dark:bg-gray-800 shadow-xs overflow-hidden">
-                <div className="px-6 py-5 border-b border-gray-200 dark:border-gray-700/60">
-                  <h2 className="text-lg font-semibold text-gray-800 dark:text-gray-100">
+              <section className={SETTINGS_CARD.card}>
+                <div className={SETTINGS_CARD.header}>
+                  <h2 className="text-lg font-semibold text-gray-900 dark:text-white">
                     {t("profile") || "Profile"}
                   </h2>
-                  <p className="mt-1 text-sm text-gray-500 dark:text-gray-400">
+                  <p className="mt-1.5 text-sm text-gray-600 dark:text-gray-400">
                     {t("settings.profileDescription") ||
                       "Update your name and contact information. Email cannot be changed here."}
                   </p>
                 </div>
-                <form onSubmit={handleProfileSubmit} className="p-6 space-y-4">
+                <form onSubmit={handleProfileSubmit} className={`${SETTINGS_CARD.body} space-y-4`}>
                   {profileError && (
                     <div className="rounded-lg bg-red-50 dark:bg-red-900/20 px-4 py-3 text-sm text-red-700 dark:text-red-300">
                       {profileError}
@@ -297,7 +340,7 @@ function ConfigurationPage() {
                     <button
                       type="submit"
                       disabled={profileSaving}
-                      className="btn bg-gray-900 text-gray-100 hover:bg-gray-800 dark:bg-gray-100 dark:text-gray-800 dark:hover:bg-white disabled:opacity-50"
+                      className="btn bg-[#456564] hover:bg-[#34514f] text-white disabled:opacity-50"
                     >
                       {profileSaving ? (t("saving") || "Saving...") : (t("save") || "Save Changes")}
                     </button>
@@ -306,17 +349,17 @@ function ConfigurationPage() {
               </section>
 
               {/* Password */}
-              <section className="rounded-xl bg-white dark:bg-gray-800 shadow-xs overflow-hidden">
-                <div className="px-6 py-5 border-b border-gray-200 dark:border-gray-700/60">
-                  <h2 className="text-lg font-semibold text-gray-800 dark:text-gray-100">
+              <section className={SETTINGS_CARD.card}>
+                <div className={SETTINGS_CARD.header}>
+                  <h2 className="text-lg font-semibold text-gray-900 dark:text-white">
                     {t("password") || "Password"}
                   </h2>
-                  <p className="mt-1 text-sm text-gray-500 dark:text-gray-400">
+                  <p className="mt-1.5 text-sm text-gray-600 dark:text-gray-400">
                     {t("settings.passwordDescription") ||
                       "Set a permanent password. You'll need your current password to change it."}
                   </p>
                 </div>
-                <form onSubmit={handlePasswordSubmit} className="p-6 space-y-4">
+                <form onSubmit={handlePasswordSubmit} className={`${SETTINGS_CARD.body} space-y-4`}>
                   {passwordError && (
                     <div className="rounded-lg bg-red-50 dark:bg-red-900/20 px-4 py-3 text-sm text-red-700 dark:text-red-300">
                       {passwordError}
@@ -375,7 +418,7 @@ function ConfigurationPage() {
                     <button
                       type="submit"
                       disabled={passwordSaving}
-                      className="btn bg-gray-900 text-gray-100 hover:bg-gray-800 dark:bg-gray-100 dark:text-gray-800 dark:hover:bg-white disabled:opacity-50"
+                      className="btn bg-[#456564] hover:bg-[#34514f] text-white disabled:opacity-50"
                     >
                       {passwordSaving
                         ? (t("saving") || "Saving...")
@@ -386,17 +429,17 @@ function ConfigurationPage() {
               </section>
 
               {/* Multi-Factor Authentication */}
-              <section className="rounded-xl bg-white dark:bg-gray-800 shadow-xs overflow-hidden">
-                <div className="px-6 py-5 border-b border-gray-200 dark:border-gray-700/60">
-                  <h2 className="text-lg font-semibold text-gray-800 dark:text-gray-100">
+              <section className={SETTINGS_CARD.card}>
+                <div className={SETTINGS_CARD.header}>
+                  <h2 className="text-lg font-semibold text-gray-900 dark:text-white">
                     {t("settings.mfaTitle") || "Multi-Factor Authentication"}
                   </h2>
-                  <p className="mt-1 text-sm text-gray-500 dark:text-gray-400">
+                  <p className="mt-1.5 text-sm text-gray-600 dark:text-gray-400">
                     {t("settings.mfaDescription") ||
                       "Add an extra layer of security with an authenticator app (Google Authenticator, Microsoft Authenticator, Authy)."}
                   </p>
                 </div>
-                <div className="p-6 flex items-center justify-between gap-4">
+                <div className={`${SETTINGS_CARD.body} flex items-center justify-between gap-4`}>
                   <div className="flex items-center gap-3">
                     {mfaLoading ? (
                       <Loader2 className="w-5 h-5 animate-spin text-gray-400" />
@@ -436,7 +479,7 @@ function ConfigurationPage() {
                       <button
                         type="button"
                         onClick={handleEnableMfaStart}
-                        className="btn bg-gray-900 text-gray-100 hover:bg-gray-800 dark:bg-gray-100 dark:text-gray-800 dark:hover:bg-white"
+                        className="btn bg-[#456564] hover:bg-[#34514f] text-white"
                       >
                         {t("settings.enable") || "Enable"}
                       </button>
@@ -493,10 +536,10 @@ function ConfigurationPage() {
                               placeholder="000000"
                             />
                             <div className="flex justify-end gap-2">
-                              <button type="button" onClick={handleEnableMfaClose} className="btn border border-gray-300 dark:border-gray-600">
+                              <button type="button" onClick={handleEnableMfaClose} className="btn border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300">
                                 {t("cancel") || "Cancel"}
                               </button>
-                              <button type="submit" disabled={mfaActionLoading || mfaCode.length !== 6} className="btn bg-gray-900 text-gray-100 dark:bg-gray-100 dark:text-gray-800">
+                              <button type="submit" disabled={mfaActionLoading || mfaCode.length !== 6} className="btn bg-[#456564] hover:bg-[#34514f] text-white disabled:opacity-50">
                                 {mfaActionLoading ? <Loader2 className="w-4 h-4 animate-spin" /> : (t("settings.confirm") || "Confirm")}
                               </button>
                             </div>
@@ -525,7 +568,7 @@ function ConfigurationPage() {
                               type="button"
                               onClick={handleEnableMfaClose}
                               disabled={!backupCodesSaved}
-                              className="btn bg-gray-900 text-gray-100 dark:bg-gray-100 dark:text-gray-800 disabled:opacity-50"
+                              className="btn bg-[#456564] hover:bg-[#34514f] text-white disabled:opacity-50"
                             >
                               {t("settings.done") || "Done"}
                             </button>
@@ -574,7 +617,7 @@ function ConfigurationPage() {
                           />
                         </div>
                         <div className="flex justify-end gap-2">
-                          <button type="button" onClick={() => setDisableModalOpen(false)} className="btn border border-gray-300 dark:border-gray-600">
+                          <button type="button" onClick={() => setDisableModalOpen(false)} className="btn border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300">
                             {t("cancel") || "Cancel"}
                           </button>
                           <button type="submit" disabled={mfaActionLoading || !disableConfirm.trim()} className="btn border border-red-200 dark:border-red-800 text-red-700 dark:text-red-300 hover:bg-red-50 dark:hover:bg-red-900/20 disabled:opacity-50">

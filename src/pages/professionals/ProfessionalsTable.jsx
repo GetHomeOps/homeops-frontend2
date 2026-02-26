@@ -40,20 +40,25 @@ function ProfessionalsTable({
       ),
     },
     {
-      key: "last_name",
-      label: "Contact",
+      key: "first_name",
+      label: "Contact Name",
       sortable: true,
       render: (value, item) => (
-        <div>
-          <span className="text-gray-700 dark:text-gray-300">
-            {item.first_name} {item.last_name}
-          </span>
-          {item.email && (
-            <div className="text-xs text-gray-500 dark:text-gray-400">
-              {item.email}
-            </div>
+        <span className="text-gray-700 dark:text-gray-300">
+          {[item.first_name, item.last_name].filter(Boolean).join(" ") || (
+            <span className="text-gray-400">&mdash;</span>
           )}
-        </div>
+        </span>
+      ),
+    },
+    {
+      key: "email",
+      label: "Email",
+      sortable: true,
+      render: (value) => (
+        <span className="text-gray-600 dark:text-gray-400">
+          {value || <span className="text-gray-400">&mdash;</span>}
+        </span>
       ),
     },
     {

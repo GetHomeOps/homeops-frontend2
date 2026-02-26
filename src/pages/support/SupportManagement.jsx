@@ -7,6 +7,7 @@ import {
   TicketCard,
   KanbanColumn,
   FilterDropdownWithPills,
+  TicketKpiTracker,
 } from "./components";
 import {PAGE_LAYOUT} from "../../constants/layout";
 import {
@@ -256,6 +257,13 @@ function SupportManagement() {
                 {loading ? "Loading..." : "Refresh"}
               </button>
             </div>
+
+            <TicketKpiTracker
+              variant="support"
+              tickets={tickets}
+              loading={loading}
+              tierToPriority={tierToPriority}
+            />
 
             {error && (
               <div className="mb-4 rounded-lg bg-red-50 dark:bg-red-900/20 px-4 py-3 text-sm text-red-700 dark:text-red-300">

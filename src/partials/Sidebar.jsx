@@ -250,6 +250,7 @@ function Sidebar({sidebarOpen, setSidebarOpen, variant = "default"}) {
   const accountUrl = currentAccount?.url || "";
   const isSuperAdmin = currentUser?.role === "super_admin";
   const isAdmin = currentUser?.role === "admin";
+  const isAgent = currentUser?.role === "agent";
   const canManageUsers = isSuperAdmin || isAdmin;
 
   const trigger = useRef(null);
@@ -351,6 +352,7 @@ function Sidebar({sidebarOpen, setSidebarOpen, variant = "default"}) {
 
   const visible = (item) => {
     if (item.roles === "adminOnly") return canManageUsers;
+    if (item.roles === "adminOrAgent") return canManageUsers || isAgent;
     if (item.hideForSuperAdmin && isSuperAdmin) return false;
     return true;
   };

@@ -8,6 +8,7 @@ function ModalBlank({
   setModalOpen,
   closeOnClickOutside = true,
   contentClassName,
+  ignoreClickRef,
 }) {
   const modalContent = useRef(null);
 
@@ -17,13 +18,15 @@ function ModalBlank({
     const clickHandler = ({target}) => {
       if (!modalOpen) return;
       if (modalContent.current?.contains(target)) return;
+      // Ignore clicks on the trigger button (e.g. Preview) so opening click doesn't immediately close
+      if (ignoreClickRef?.current?.contains(target)) return;
       // Ignore clicks on detached nodes (e.g. dropdown options that unmount on select)
       if (target && !document.body.contains(target)) return;
       setModalOpen(false);
     };
     document.addEventListener("click", clickHandler);
     return () => document.removeEventListener("click", clickHandler);
-  }, [modalOpen, closeOnClickOutside, setModalOpen]);
+  }, [modalOpen, closeOnClickOutside, setModalOpen, ignoreClickRef]);
 
   // close if the esc key is pressed
   useEffect(() => {
