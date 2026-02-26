@@ -5,7 +5,7 @@ import {useAuth} from "../../context/AuthContext";
 import PropertyContext from "../../context/PropertyContext";
 import UserContext from "../../context/UserContext";
 import AppApi from "../../api/api";
-import {getResourceThumbnailUrl, RESOURCE_THUMBNAIL_PLACEHOLDER} from "../../utils/resourceThumbnail";
+import { getResourceThumbnailUrl, RESOURCE_THUMBNAIL_PLACEHOLDER, DEFAULT_HEADER_IMAGE } from "../../utils/resourceThumbnail";
 import {computeHpsScoreBreakdown} from "../properties/helpers/computeHpsScore";
 import {buildPropertyPayloadFromRefresh} from "../properties/helpers/buildPropertyPayloadFromRefresh";
 import {mergeFormDataFromTabs} from "../properties/helpers/formDataByTabs";
@@ -1027,7 +1027,7 @@ function HomeownerHome() {
               const shortDesc = (post.bodyText || post.shortDescription || "").slice(0, 120);
               const thumbnailUrl = getResourceThumbnailUrl(post);
               const imageUrl =
-                post.imageUrl || resourcePresignedUrls[post.imageKey] || thumbnailUrl || RESOURCE_THUMBNAIL_PLACEHOLDER;
+                post.imageUrl || resourcePresignedUrls[post.imageKey] || thumbnailUrl || DEFAULT_HEADER_IMAGE;
               return (
                 <article
                   key={post.id}

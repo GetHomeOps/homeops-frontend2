@@ -96,7 +96,7 @@ function DataTable({
             colSpan={columns.length + 1}
             className="px-2 first:pl-5 last:pr-5 py-8 text-gray-500 dark:text-gray-400"
           >
-            <div className="text-center w-full">{emptyMessage || t("noItemsFound")}</div>
+            <div className="text-center w-full">{t(emptyMessage || "noItemsFound")}</div>
           </td>
         </tr>
       );

@@ -265,6 +265,7 @@
   "noCategoriesFound": "No categories found",
   "noCompanySelected": "No company selected",
   "noContactsFound": "No contacts found",
+  "contacts.emptyState": "No contacts yet. Add your first contact to get started.",
   "noIcon": "No icon",
   "noItemsFound": "No items found",
   "propertiesGrid.emptyState": "No properties yet. Create your first property to get started.",

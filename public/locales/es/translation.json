@@ -265,6 +265,7 @@
   "noCategoriesFound": "No se encontraron categorías",
   "noCompanySelected": "Ninguna empresa seleccionada",
   "noContactsFound": "No se encontraron contactos",
+  "contacts.emptyState": "Aún no hay contactos. Añade tu primer contacto para comenzar.",
   "noIcon": "Sin icono",
   "noItemsFound": "No se encontraron elementos",
   "propertiesGrid.emptyState": "Aún no hay propiedades. Crea tu primera propiedad para comenzar.",

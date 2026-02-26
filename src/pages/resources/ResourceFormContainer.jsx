@@ -279,8 +279,8 @@ function ResourceFormContainer() {
     try {
       const doc = await AppApi.uploadDocument(file);
       const key = doc?.key ?? doc?.s3Key ?? doc?.fileKey ?? doc?.objectKey;
-      const url = doc?.url ?? doc?.presignedUrl ?? doc?.presigned_url;
-      const finalUrl = url || (key ? await AppApi.getPresignedPreviewUrl(key) : null);
+      // Use inline-image-url to get presigned URL with ResponseContentType (fixes ERR_BLOCKED_BY_ORB)
+      const finalUrl = key ? await AppApi.getInlineImageUrl(key) : null;
       if (finalUrl) {
         inlineImageResolveRef.current?.(finalUrl);
       } else {
@@ -657,6 +657,7 @@ function ResourceFormContainer() {
                       aria-hidden
                     />
                     <PostRichEditor
+                      key={id || "new"}
                       value={form.bodyText || ""}
                       onChange={(html) => setForm((prev) => ({...prev, bodyText: html}))}
                       placeholder="Write your post..."
@@ -665,7 +666,7 @@ function ResourceFormContainer() {
                     />
                     <div>
                       <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-                        Optional image
+                        Header image
                       </label>
                       <div
                         onDragOver={(e) => {
@@ -884,6 +885,7 @@ function ResourceFormContainer() {
                       <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Message</label>
                       <input ref={inlineImageInputRef} type="file" accept={imageAccept} onChange={handleInlineImageFileChange} className="hidden" tabIndex={-1} aria-hidden />
                       <PostRichEditor
+                        key={id || "new"}
                         value={form.bodyText || ""}
                         onChange={(html) => setForm((prev) => ({...prev, bodyText: html}))}
                         placeholder="Add a message to accompany the link..."
@@ -910,7 +912,7 @@ function ResourceFormContainer() {
                         key={mode.value}
                         className={`flex items-start gap-3 p-4 rounded-lg border-2 cursor-pointer transition-colors ${
                           form.deliveryMode === mode.value
-                            ? "border-[#456564] bg-[#456564]/5 dark:bg-[#456564]/10"
+                            ? "border-teal-600 dark:border-teal-500 bg-teal-50/80 dark:bg-teal-900/20"
                             : "border-gray-200 dark:border-gray-600 hover:border-gray-300 dark:hover:border-gray-500"
                         }`}
                       >
@@ -948,7 +950,7 @@ function ResourceFormContainer() {
                         key={preset.value}
                         className={`flex items-start gap-3 p-4 rounded-lg border-2 cursor-pointer transition-colors ${
                           form.recipientMode === preset.value
-                            ? "border-[#456564] bg-[#456564]/5 dark:bg-[#456564]/10"
+                            ? "border-indigo-500 dark:border-indigo-400 bg-indigo-50/80 dark:bg-indigo-900/20"
                             : "border-gray-200 dark:border-gray-600 hover:border-gray-300 dark:hover:border-gray-500"
                         }`}
                       >

@@ -488,6 +488,13 @@ class AppApi {
     return res.url;
   }
 
+  /** Presigned URL for inline images with correct Content-Type (fixes ERR_BLOCKED_BY_ORB). */
+  static async getInlineImageUrl(key) {
+    if (!key) throw ["Document key is required"];
+    let res = await this.request("documents/inline-image-url", { key }, "GET");
+    return res.url;
+  }
+
   static async uploadDocument(file) {
     const formData = new FormData();
     formData.append("file", file);

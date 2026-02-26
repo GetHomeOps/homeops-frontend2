@@ -95,7 +95,7 @@ function ContactsTable({
       title="allContacts"
       sortConfig={sortConfig}
       onSort={onSort}
-      emptyMessage="noContactsFound"
+      emptyMessage="contacts.emptyState"
       renderItem={renderItem}
       allSelected={allSelected}
     />

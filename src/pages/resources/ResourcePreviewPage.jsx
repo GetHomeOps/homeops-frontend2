@@ -5,7 +5,7 @@ import Header from "../../partials/Header";
 import { ArrowLeft, ExternalLink, Loader2, FileText } from "lucide-react";
 import useCurrentAccount from "../../hooks/useCurrentAccount";
 import AppApi from "../../api/api";
-import { getResourceThumbnailUrl, RESOURCE_THUMBNAIL_PLACEHOLDER } from "../../utils/resourceThumbnail";
+import { getResourceThumbnailUrl, RESOURCE_THUMBNAIL_PLACEHOLDER, DEFAULT_HEADER_IMAGE } from "../../utils/resourceThumbnail";
 import { PAGE_LAYOUT } from "../../constants/layout";
 
 /**
@@ -89,7 +89,7 @@ function ResourcePreviewPage() {
   const bodyText = resource.bodyText || "";
   const url = resource.url || "";
   const resolvedImageUrl = resource.imageUrl || imageUrl;
-  const thumbnailUrl = getResourceThumbnailUrl(resource) || resolvedImageUrl || RESOURCE_THUMBNAIL_PLACEHOLDER;
+  const thumbnailUrl = getResourceThumbnailUrl(resource) || resolvedImageUrl || DEFAULT_HEADER_IMAGE;
 
   return (
     <div className="flex h-[100dvh] overflow-hidden">
@@ -137,21 +137,19 @@ function ResourcePreviewPage() {
                   </h1>
                 </div>
 
-                {/* Hero image / thumbnail */}
-                {(resolvedImageUrl || thumbnailUrl) && (
-                  <div className="aspect-[16/10] overflow-hidden bg-gray-100 dark:bg-gray-700">
-                    <img
-                      src={resolvedImageUrl || thumbnailUrl || RESOURCE_THUMBNAIL_PLACEHOLDER}
-                      alt={title}
-                      className="w-full h-full object-cover"
-                      onError={(e) => {
-                        if (e.target.src !== RESOURCE_THUMBNAIL_PLACEHOLDER) {
-                          e.target.src = RESOURCE_THUMBNAIL_PLACEHOLDER;
-                        }
-                      }}
-                    />
-                  </div>
-                )}
+                {/* Hero image / thumbnail — always show (uses Opsy-body.jpg default when none provided) */}
+                <div className="aspect-[16/10] overflow-hidden bg-gray-100 dark:bg-gray-700">
+                  <img
+                    src={resolvedImageUrl || thumbnailUrl || DEFAULT_HEADER_IMAGE}
+                    alt={title}
+                    className="w-full h-full object-cover"
+                    onError={(e) => {
+                      if (e.target.src !== RESOURCE_THUMBNAIL_PLACEHOLDER) {
+                        e.target.src = RESOURCE_THUMBNAIL_PLACEHOLDER;
+                      }
+                    }}
+                  />
+                </div>
 
                 {/* Body content — read-only */}
                 <div className="px-8 py-8">

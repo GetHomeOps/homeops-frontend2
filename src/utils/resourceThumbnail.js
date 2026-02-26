@@ -1,3 +1,5 @@
+import OpsyBodyDefault from "../images/Opsy/Opsy-body.jpg";
+
 /**
  * Derives a thumbnail URL for resources (video links, article links).
  * - YouTube: uses img.youtube.com/vi/VIDEO_ID/hqdefault.jpg
@@ -33,3 +35,6 @@ export function getResourceThumbnailUrl(resource) {
 /** Placeholder image for resources without a derived thumbnail */
 export const RESOURCE_THUMBNAIL_PLACEHOLDER =
   "https://images.unsplash.com/photo-1580584126903-c17d41830450?w=600&h=400&fit=crop";
+
+/** Default header image when no header image is provided (Opsy branding) */
+export const DEFAULT_HEADER_IMAGE = OpsyBodyDefault;

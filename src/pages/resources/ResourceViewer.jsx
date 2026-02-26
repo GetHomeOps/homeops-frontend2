@@ -3,7 +3,7 @@ import { useParams, useNavigate } from "react-router-dom";
 import { ArrowLeft, ExternalLink, Loader2, BookOpen } from "lucide-react";
 import useCurrentAccount from "../../hooks/useCurrentAccount";
 import AppApi from "../../api/api";
-import { getResourceThumbnailUrl, RESOURCE_THUMBNAIL_PLACEHOLDER } from "../../utils/resourceThumbnail";
+import { getResourceThumbnailUrl, RESOURCE_THUMBNAIL_PLACEHOLDER, DEFAULT_HEADER_IMAGE } from "../../utils/resourceThumbnail";
 
 /**
  * ResourceViewer — Renders a resource (post, video, article link, image) for viewing.
@@ -70,7 +70,7 @@ function ResourceViewer({ resource: resourceProp, previewMode = false, previewAs
   const url = resource?.url || resource?.linkUrl || "";
   const isExternal = url.startsWith("http");
   const resolvedImageUrl = resource?.imageUrl || imageUrl;
-  const thumbnailUrl = getResourceThumbnailUrl(resource) || resolvedImageUrl || RESOURCE_THUMBNAIL_PLACEHOLDER;
+  const thumbnailUrl = getResourceThumbnailUrl(resource) || resolvedImageUrl || DEFAULT_HEADER_IMAGE;
 
   if (loading) {
     return (
@@ -121,22 +121,20 @@ function ResourceViewer({ resource: resourceProp, previewMode = false, previewAs
       )}
 
       <article className="bg-white dark:bg-gray-800 rounded-2xl border border-gray-200 dark:border-gray-700 overflow-hidden shadow-sm">
-        {/* Header / thumbnail */}
+        {/* Header / thumbnail — always show (uses Opsy-body.jpg default when none provided) */}
         <div className="relative">
-          {(resolvedImageUrl || thumbnailUrl) && (
-            <div className="aspect-[16/10] overflow-hidden bg-gray-100 dark:bg-gray-700">
-              <img
-                src={resolvedImageUrl || thumbnailUrl || RESOURCE_THUMBNAIL_PLACEHOLDER}
-                alt={title}
-                className="w-full h-full object-cover"
-                onError={(e) => {
-                  if (e.target.src !== RESOURCE_THUMBNAIL_PLACEHOLDER) {
-                    e.target.src = RESOURCE_THUMBNAIL_PLACEHOLDER;
-                  }
-                }}
-              />
-            </div>
-          )}
+          <div className="aspect-[16/10] overflow-hidden bg-gray-100 dark:bg-gray-700">
+            <img
+              src={resolvedImageUrl || thumbnailUrl || DEFAULT_HEADER_IMAGE}
+              alt={title}
+              className="w-full h-full object-cover"
+              onError={(e) => {
+                if (e.target.src !== RESOURCE_THUMBNAIL_PLACEHOLDER) {
+                  e.target.src = RESOURCE_THUMBNAIL_PLACEHOLDER;
+                }
+              }}
+            />
+          </div>
           {/* Type badge */}
           <div className="absolute top-3 left-3">
             <span className="text-xs font-medium px-2.5 py-1 rounded-lg bg-white/90 dark:bg-gray-800/90 backdrop-blur-sm text-[#456564] dark:text-emerald-400">
