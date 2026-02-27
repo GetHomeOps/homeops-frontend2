@@ -18,6 +18,9 @@ import {
   PROPERTY_SYSTEMS,
   STANDARD_CUSTOM_SYSTEM_FIELDS,
 } from "../constants/propertySystems";
+
+/** Systems available in setup modal (excludes Inspections - add via Maintenance tab) */
+const SETUP_SYSTEMS = PROPERTY_SYSTEMS.filter((s) => s.id !== "inspections");
 import useGooglePlacesAutocomplete from "../../../hooks/useGooglePlacesAutocomplete";
 import useDocumentUpload from "../../../hooks/useDocumentUpload";
 import AppApi from "../../../api/api";
@@ -389,7 +392,7 @@ function SystemsSetupModal({
     const suggestedIds = analysisResult.suggestedSystemsToAdd
       .map((s) => {
         const raw = String(s.systemType || "").trim();
-        const match = PROPERTY_SYSTEMS.find(
+        const match = SETUP_SYSTEMS.find(
           (sys) => sys.id === raw || sys.id.toLowerCase() === raw.toLowerCase(),
         );
         return match?.id;
@@ -948,7 +951,7 @@ function SystemsSetupModal({
                 Common systems
               </h3>
               <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
-                {PROPERTY_SYSTEMS.map((sys) => {
+                {SETUP_SYSTEMS.map((sys) => {
                   const Icon = sys.icon;
                   const isSelected = selected.has(sys.id);
                   return (
@@ -1291,7 +1294,7 @@ function SystemsSetupModal({
                     selectedSuggestedSystems={[...selectedSuggestedSystems]}
                     onToggleSuggestedSystem={toggleSuggestedSystem}
                     onAddSelectedSystems={handleAddSelectedSystems}
-                    onScheduleMaintenance={onScheduleMaintenance ? handleScheduleFromAi : undefined}
+                    onScheduleMaintenance={undefined}
                     onRetry={handleRetryAnalysis}
                   />
                 )}

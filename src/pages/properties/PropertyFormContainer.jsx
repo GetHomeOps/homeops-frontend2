@@ -343,10 +343,12 @@ function PropertyFormContainer() {
   const [aiSidebarSystemLabel, setAiSidebarSystemLabel] = useState(null);
   const [aiSidebarInitialPrompt, setAiSidebarInitialPrompt] = useState(null);
   const [inspectionAnalysis, setInspectionAnalysis] = useState(null);
-  const [inspectionReportModalOpen, setInspectionReportModalOpen] = useState(false);
+  const [inspectionReportModalOpen, setInspectionReportModalOpen] =
+    useState(false);
   const [scheduleFromAiModalOpen, setScheduleFromAiModalOpen] = useState(false);
   const [scheduleFromAiPrefill, setScheduleFromAiPrefill] = useState(null);
-  const [createdPropertyFromModal, setCreatedPropertyFromModal] = useState(null);
+  const [createdPropertyFromModal, setCreatedPropertyFromModal] =
+    useState(null);
   const [maintenanceEvents, setMaintenanceEvents] = useState([]);
   const [actionsDropdownOpen, setActionsDropdownOpen] = useState(false);
   const [shareModalOpen, setShareModalOpen] = useState(false);
@@ -463,7 +465,11 @@ function PropertyFormContainer() {
   useEffect(() => {
     const wasOpen = prevModalOpenRef.current;
     prevModalOpenRef.current = systemsSetupModalOpen;
-    if (wasOpen && !systemsSetupModalOpen && createdPropertyFromModal?.property_uid) {
+    if (
+      wasOpen &&
+      !systemsSetupModalOpen &&
+      createdPropertyFromModal?.property_uid
+    ) {
       const newUid = createdPropertyFromModal.property_uid;
       setCreatedPropertyFromModal(null);
       navigate(`/${accountUrl}/properties/${newUid}`, {
@@ -491,7 +497,9 @@ function PropertyFormContainer() {
 
   /* Fetch inspection analysis for hero card pill and report context */
   const propertyIdForApi =
-    state.property?.identity?.id ?? state.property?.id ?? (uid !== "new" ? uid : null);
+    state.property?.identity?.id ??
+    state.property?.id ??
+    (uid !== "new" ? uid : null);
   useEffect(() => {
     if (!propertyIdForApi) return;
     AppApi.getInspectionAnalysisByProperty(propertyIdForApi)
@@ -586,7 +594,9 @@ function PropertyFormContainer() {
 
   /* Fetch maintenance events for Systems tab (scheduled icon + date) */
   const effectivePropertyId =
-    state.property?.identity?.id ?? state.property?.id ?? (uid !== "new" ? uid : null);
+    state.property?.identity?.id ??
+    state.property?.id ??
+    (uid !== "new" ? uid : null);
   const fetchMaintenanceEvents = useCallback(() => {
     if (!effectivePropertyId) return;
     AppApi.getMaintenanceEventsByProperty(effectivePropertyId)
@@ -1296,7 +1306,12 @@ function PropertyFormContainer() {
             : null
         }
         systems={state.formData.systems}
-        onInvite={async ({email: inviteEmail, role, homeownerInviteType, permissions}) => {
+        onInvite={async ({
+          email: inviteEmail,
+          role,
+          homeownerInviteType,
+          permissions,
+        }) => {
           const propertyId =
             uid !== "new"
               ? (state.property?.identity?.id ?? state.property?.id ?? uid)
@@ -1378,7 +1393,8 @@ function PropertyFormContainer() {
           if (!res) throw new Error("Failed to create property");
           const propertyId = res.id;
           const teamWithoutCreator = homeopsTeam.filter(
-            (m) => m && m.id != null && String(m.id) !== String(currentUser?.id),
+            (m) =>
+              m && m.id != null && String(m.id) !== String(currentUser?.id),
           );
           if (teamWithoutCreator.length > 0) {
             await addUsersToProperty(
@@ -1436,7 +1452,10 @@ function PropertyFormContainer() {
               },
               createdPropertyFromModal.id,
             );
-            await createSystemsForProperty(createdPropertyFromModal.id, systemsPayloads);
+            await createSystemsForProperty(
+              createdPropertyFromModal.id,
+              systemsPayloads,
+            );
             const newUid = createdPropertyFromModal.property_uid;
             setCreatedPropertyFromModal(null);
             navigate(`/${accountUrl}/properties/${newUid}`, {
@@ -1451,10 +1470,12 @@ function PropertyFormContainer() {
               },
             });
           } else if (uid !== "new") {
-            const rawId = state.property?.identity?.id ?? state.property?.id ?? uid;
+            const rawId =
+              state.property?.identity?.id ?? state.property?.id ?? uid;
             let numericId = null;
             if (typeof rawId === "number") numericId = rawId;
-            else if (typeof rawId === "string" && /^\d+$/.test(rawId)) numericId = parseInt(rawId, 10);
+            else if (typeof rawId === "string" && /^\d+$/.test(rawId))
+              numericId = parseInt(rawId, 10);
             else if (rawId) {
               try {
                 const prop = await getPropertyById(rawId);
@@ -1473,10 +1494,18 @@ function PropertyFormContainer() {
                   customSystemsData: nextData,
                 },
               });
-              const systemsArray = formSystemsToArray(merged, numericId, state.systems ?? []);
+              const systemsArray = formSystemsToArray(
+                merged,
+                numericId,
+                state.systems ?? [],
+              );
               await updateSystemsForProperty(numericId, systemsArray);
-              const systemsFromBackend = await getSystemsByPropertyId(numericId);
-              dispatch({type: "SET_SYSTEMS", payload: systemsFromBackend ?? []});
+              const systemsFromBackend =
+                await getSystemsByPropertyId(numericId);
+              dispatch({
+                type: "SET_SYSTEMS",
+                payload: systemsFromBackend ?? [],
+              });
               dispatch({
                 type: "SET_BANNER",
                 payload: {
@@ -1566,7 +1595,10 @@ function PropertyFormContainer() {
               show={actionsDropdownOpen}
               tag="div"
               className="origin-top-right z-10 absolute top-full left-0 right-auto min-w-56 bg-white dark:bg-neutral-900 border border-neutral-200/80 dark:border-neutral-700/50 pt-1.5 rounded-xl overflow-hidden mt-1 md:left-auto md:right-0"
-              style={{boxShadow: "0 4px 24px rgba(0,0,0,0.06), 0 1px 2px rgba(0,0,0,0.04)"}}
+              style={{
+                boxShadow:
+                  "0 4px 24px rgba(0,0,0,0.06), 0 1px 2px rgba(0,0,0,0.04)",
+              }}
               enter="transition ease-out duration-200 transform"
               enterStart="opacity-0 -translate-y-2"
               enterEnd="opacity-100 translate-y-0"
@@ -1646,7 +1678,9 @@ function PropertyFormContainer() {
                 title="Inspection report analysis"
               >
                 <FileCheck className="w-4 h-4 flex-shrink-0" />
-                <span className="text-sm font-semibold">Inspection Analysis</span>
+                <span className="text-sm font-semibold">
+                  Inspection Analysis
+                </span>
               </button>
               <button
                 type="button"
@@ -1774,13 +1808,17 @@ function PropertyFormContainer() {
         <section
           className="rounded-2xl overflow-hidden border border-neutral-200/80 bg-white dark:border-neutral-700/50 dark:bg-neutral-900"
           style={{
-            boxShadow: "0 4px 24px rgba(0,0,0,0.06), 0 1px 2px rgba(0,0,0,0.04)",
+            boxShadow:
+              "0 4px 24px rgba(0,0,0,0.06), 0 1px 2px rgba(0,0,0,0.04)",
           }}
         >
           {/* Brand accent - subtle top glow */}
           <div
             className="h-0.5 w-full"
-            style={{background: "linear-gradient(90deg, rgba(16,185,129,0.08), rgba(16,185,129,0.04), transparent)"}}
+            style={{
+              background:
+                "linear-gradient(90deg, rgba(16,185,129,0.08), rgba(16,185,129,0.04), transparent)",
+            }}
             aria-hidden
           />
 
@@ -1788,83 +1826,83 @@ function PropertyFormContainer() {
           <div className="relative min-h-[280px] lg:min-h-[320px]">
             {/* Header */}
             <div className="flex items-center justify-between px-6 py-5 border-b border-neutral-100 dark:border-neutral-800">
-                <div className="flex items-center gap-4">
-                  <div className="relative">
-                    <div className="w-10 h-10 rounded-lg bg-neutral-100/80 backdrop-blur-sm border border-neutral-200/60 flex items-center justify-center">
-                      <Shield className="w-5 h-5 text-neutral-700" />
-                    </div>
-                    <div className="absolute -top-1 -right-1 w-4 h-4 bg-emerald-500 rounded-full border-2 border-white"></div>
+              <div className="flex items-center gap-4">
+                <div className="relative">
+                  <div className="w-10 h-10 rounded-lg bg-neutral-100/80 backdrop-blur-sm border border-neutral-200/60 flex items-center justify-center">
+                    <Shield className="w-5 h-5 text-neutral-700" />
                   </div>
-                  <div>
-                    <h2 className="text-base font-semibold text-neutral-900 dark:text-white tracking-tight mb-0.5 antialiased">
-                      Home Passport
-                    </h2>
-                    <p className="text-xs text-neutral-600 dark:text-neutral-400 font-medium tracking-wide">
-                      Digital Property Record
-                    </p>
-                  </div>
-                  {inspectionAnalysis?.conditionRating && (
-                    <span
-                      className={`px-2.5 py-0.5 rounded-full text-xs font-semibold capitalize ${
-                        inspectionAnalysis.conditionRating === "good"
-                          ? "bg-emerald-500/15 text-emerald-700 border border-emerald-400/30"
-                          : inspectionAnalysis.conditionRating === "fair"
-                            ? "bg-amber-500/15 text-amber-700 border border-amber-400/30"
-                            : inspectionAnalysis.conditionRating === "poor"
-                              ? "bg-red-500/15 text-red-700 border border-red-400/30"
-                              : "bg-neutral-100 text-neutral-600 border border-neutral-200"
-                      }`}
-                    >
-                      {inspectionAnalysis.conditionRating}
-                    </span>
-                  )}
+                  <div className="absolute -top-1 -right-1 w-4 h-4 bg-emerald-500 rounded-full border-2 border-white"></div>
                 </div>
-                <div className="flex items-center gap-6">
-                    <div className="text-right hidden sm:block">
-                    <div className="text-[10px] font-medium text-neutral-500 uppercase tracking-[0.12em] mb-1 opacity-70">
-                      Health Score
-                    </div>
-                    <div className="text-sm font-semibold text-neutral-900 dark:text-white tabular-nums">
-                      {displayHpsScore}/100
-                    </div>
-                  </div>
-                  <div
-                    className={`relative ${
-                      displayHpsScore >= 70
-                        ? "[box-shadow:0_0_20px_rgba(16,185,129,0.22)]"
-                        : displayHpsScore >= 40
-                          ? "[box-shadow:0_0_20px_rgba(245,158,11,0.22)]"
-                          : "[box-shadow:0_0_20px_rgba(239,68,68,0.22)]"
-                    } rounded-full`}
-                  >
-                    <CircularProgress
-                      percentage={displayHpsScore}
-                      size={72}
-                      strokeWidth={6}
-                      innerTextClass="text-neutral-900 dark:text-white"
-                      colorClass={
-                        displayHpsScore >= 70
-                          ? "text-emerald-500"
-                          : displayHpsScore >= 40
-                            ? "text-amber-500"
-                            : "text-red-500"
-                      }
-                    />
-                  </div>
+                <div>
+                  <h2 className="text-base font-semibold text-neutral-900 dark:text-white tracking-tight mb-0.5 antialiased">
+                    Home Passport
+                  </h2>
+                  <p className="text-xs text-neutral-600 dark:text-neutral-400 font-medium tracking-wide">
+                    Digital Property Record
+                  </p>
                 </div>
-              </div>
-
-              {/* Body content */}
-              <div className="flex flex-col lg:flex-row gap-6 lg:gap-8 px-6 pb-6">
-                {/* Property Image */}
-                <div className="w-full lg:w-2/5 flex-shrink-0">
-                  <div
-                    className={`relative h-52 lg:h-72 rounded-xl overflow-hidden border transition-all duration-300 ${
-                      heroImageUrl
-                        ? "border-neutral-200/80 dark:border-neutral-600/50 bg-neutral-50/50 dark:bg-neutral-800/30 shadow-sm"
-                        : "border-2 border-dashed border-neutral-200 dark:border-neutral-600 bg-neutral-50/30 dark:bg-neutral-800/20"
+                {inspectionAnalysis?.conditionRating && (
+                  <span
+                    className={`px-2.5 py-0.5 rounded-full text-xs font-semibold capitalize ${
+                      inspectionAnalysis.conditionRating === "good"
+                        ? "bg-emerald-500/15 text-emerald-700 border border-emerald-400/30"
+                        : inspectionAnalysis.conditionRating === "fair"
+                          ? "bg-amber-500/15 text-amber-700 border border-amber-400/30"
+                          : inspectionAnalysis.conditionRating === "poor"
+                            ? "bg-red-500/15 text-red-700 border border-red-400/30"
+                            : "bg-neutral-100 text-neutral-600 border border-neutral-200"
                     }`}
                   >
+                    {inspectionAnalysis.conditionRating}
+                  </span>
+                )}
+              </div>
+              <div className="flex items-center gap-6">
+                <div className="text-right hidden sm:block">
+                  <div className="text-[10px] font-medium text-neutral-500 uppercase tracking-[0.12em] mb-1 opacity-70">
+                    Health Score
+                  </div>
+                  <div className="text-sm font-semibold text-neutral-900 dark:text-white tabular-nums">
+                    {displayHpsScore}/100
+                  </div>
+                </div>
+                <div
+                  className={`relative ${
+                    displayHpsScore >= 70
+                      ? "[box-shadow:0_0_20px_rgba(16,185,129,0.22)]"
+                      : displayHpsScore >= 40
+                        ? "[box-shadow:0_0_20px_rgba(245,158,11,0.22)]"
+                        : "[box-shadow:0_0_20px_rgba(239,68,68,0.22)]"
+                  } rounded-full`}
+                >
+                  <CircularProgress
+                    percentage={displayHpsScore}
+                    size={72}
+                    strokeWidth={6}
+                    innerTextClass="text-neutral-900 dark:text-white"
+                    colorClass={
+                      displayHpsScore >= 70
+                        ? "text-emerald-500"
+                        : displayHpsScore >= 40
+                          ? "text-amber-500"
+                          : "text-red-500"
+                    }
+                  />
+                </div>
+              </div>
+            </div>
+
+            {/* Body content */}
+            <div className="flex flex-col lg:flex-row gap-6 lg:gap-8 px-6 pb-6">
+              {/* Property Image */}
+              <div className="w-full lg:w-2/5 flex-shrink-0">
+                <div
+                  className={`relative h-52 lg:h-72 rounded-xl overflow-hidden border transition-all duration-300 ${
+                    heroImageUrl
+                      ? "border-neutral-200/80 dark:border-neutral-600/50 bg-neutral-50/50 dark:bg-neutral-800/30 shadow-sm"
+                      : "border-2 border-dashed border-neutral-200 dark:border-neutral-600 bg-neutral-50/30 dark:bg-neutral-800/20"
+                  }`}
+                >
                   <ImageUploadField
                     imageSrc={
                       mainPhotoPreviewUrl ||
@@ -2063,7 +2101,8 @@ function PropertyFormContainer() {
         <section
           className="rounded-2xl overflow-hidden border border-neutral-200/80 dark:border-neutral-700/50 bg-white dark:bg-neutral-900 p-5 md:p-6"
           style={{
-            boxShadow: "0 4px 24px rgba(0,0,0,0.06), 0 1px 2px rgba(0,0,0,0.04)",
+            boxShadow:
+              "0 4px 24px rgba(0,0,0,0.06), 0 1px 2px rgba(0,0,0,0.04)",
           }}
         >
           <ScoreCard propertyData={mergedFormData} />
@@ -2071,13 +2110,16 @@ function PropertyFormContainer() {
 
         {/* Navigation Tabs */}
         <section
-          className={`rounded-2xl overflow-hidden border border-neutral-200/80 dark:border-neutral-700/50 bg-white dark:bg-neutral-900 ${
+          className={`rounded-2xl border border-neutral-200/80 dark:border-neutral-700/50 bg-white dark:bg-neutral-900 ${
             state.formDataChanged || state.isNew
-              ? "rounded-t-2xl border-b-0"
-              : "rounded-2xl"
+              ? "rounded-b-none border-b-0"
+              : ""
           }`}
           style={{
-            boxShadow: "0 4px 24px rgba(0,0,0,0.06), 0 1px 2px rgba(0,0,0,0.04)",
+            boxShadow:
+              state.formDataChanged || state.isNew
+                ? "0 -1px 12px rgba(0,0,0,0.04)"
+                : "0 4px 24px rgba(0,0,0,0.06), 0 1px 2px rgba(0,0,0,0.04)",
           }}
         >
           <div className="border-b border-neutral-100 dark:border-neutral-800 px-6">
@@ -2135,7 +2177,9 @@ function PropertyFormContainer() {
                 systems={state.systems}
                 inspectionAnalysis={inspectionAnalysis}
                 maintenanceEvents={maintenanceEvents}
-                onOpenInspectionReport={() => setInspectionReportModalOpen(true)}
+                onOpenInspectionReport={() =>
+                  setInspectionReportModalOpen(true)
+                }
                 aiSidebarOpen={aiSidebarOpen}
                 onAiSidebarOpenChange={setAiSidebarOpen}
                 onOpenAIAssistant={(label) => {
@@ -2173,7 +2217,7 @@ function PropertyFormContainer() {
             {state.activeTab === "media" && (
               <div className="space-y-8">
                 <div>
-                    <h3 className="text-lg font-semibold text-neutral-900 dark:text-white mb-4">
+                  <h3 className="text-lg font-semibold text-neutral-900 dark:text-white mb-4">
                     Media Content
                   </h3>
                   <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
@@ -2224,54 +2268,65 @@ function PropertyFormContainer() {
                   }
                 >
                   <DocumentsTab
-                  propertyData={mergedFormData}
-                  onOpenAIAssistant={uid !== "new" ? () => setAiSidebarOpen(true) : undefined}
-                  onOpenAIReport={
-                    uid !== "new" ? () => setInspectionReportModalOpen(true) : undefined
-                  }
-                />
-              </React.Suspense>
-            </div>
+                    propertyData={mergedFormData}
+                    onOpenAIAssistant={
+                      uid !== "new" ? () => setAiSidebarOpen(true) : undefined
+                    }
+                    onOpenAIReport={
+                      uid !== "new"
+                        ? () => setInspectionReportModalOpen(true)
+                        : undefined
+                    }
+                  />
+                </React.Suspense>
+              </div>
             )}
           </div>
 
-          {/* Save/Cancel bar - tied to form card, visible when form has changes */}
-          <div
-            ref={saveBarRef}
-            className={`${
-              state.formDataChanged || state.isNew ? "sticky" : "hidden"
-            } bottom-0 bg-white dark:bg-neutral-900 border-t border-neutral-100 dark:border-neutral-800 px-6 py-4 rounded-b-2xl transition-all duration-200`}
-          >
-            <div className="flex justify-end gap-3">
-              <button
-                type="button"
-                className="btn bg-white dark:bg-neutral-900 border border-neutral-200/80 dark:border-neutral-700/50 hover:border-neutral-300 dark:hover:border-neutral-600 text-neutral-800 dark:text-neutral-200 transition-colors duration-200 shadow-sm"
-                onClick={handleCancelChanges}
-              >
-                Cancel
-              </button>
-              <button
-                type="button"
-                className="btn text-white transition-colors duration-200 shadow-sm min-w-[100px] bg-[#456564] hover:bg-[#34514f] flex items-center justify-center gap-2"
-                onClick={state.isNew ? handleSubmit : handleUpdate}
-              >
-                {state.isSubmitting && (
-                  <Loader2
-                    className="w-4 h-4 animate-spin shrink-0"
-                    aria-hidden
-                  />
-                )}
-                {state.isSubmitting
-                  ? state.isNew
-                    ? "Saving..."
-                    : "Updating..."
-                  : state.isNew
-                    ? "Save"
-                    : "Update"}
-              </button>
-            </div>
-          </div>
         </section>
+
+        {/* Save/Cancel bar — direct child of space-y-8 so its sticky parent
+             always has content in the viewport regardless of scroll position.
+             -mt-8 collapses the space-y gap to visually attach to the section above. */}
+        <div
+          ref={saveBarRef}
+          className={`${
+            state.formDataChanged || state.isNew ? "sticky -mt-8" : "hidden"
+          } bottom-0 z-30 bg-white dark:bg-neutral-900 border border-neutral-200/80 dark:border-neutral-700/50 border-t border-t-neutral-100 dark:border-t-neutral-800 px-6 py-4 rounded-b-2xl transition-all duration-200`}
+          style={{
+            boxShadow:
+              "0 4px 24px rgba(0,0,0,0.06), 0 1px 2px rgba(0,0,0,0.04)",
+          }}
+        >
+          <div className="flex justify-end gap-3">
+            <button
+              type="button"
+              className="btn bg-white dark:bg-neutral-900 border border-neutral-200/80 dark:border-neutral-700/50 hover:border-neutral-300 dark:hover:border-neutral-600 text-neutral-800 dark:text-neutral-200 transition-colors duration-200 shadow-sm"
+              onClick={handleCancelChanges}
+            >
+              Cancel
+            </button>
+            <button
+              type="button"
+              className="btn text-white transition-colors duration-200 shadow-sm min-w-[100px] bg-[#456564] hover:bg-[#34514f] flex items-center justify-center gap-2"
+              onClick={state.isNew ? handleSubmit : handleUpdate}
+            >
+              {state.isSubmitting && (
+                <Loader2
+                  className="w-4 h-4 animate-spin shrink-0"
+                  aria-hidden
+                />
+              )}
+              {state.isSubmitting
+                ? state.isNew
+                  ? "Saving..."
+                  : "Updating..."
+                : state.isNew
+                  ? "Save"
+                  : "Update"}
+            </button>
+          </div>
+        </div>
       </div>
 
       {/* Inspection Report modal (legacy - for Systems/Documents tabs) */}
@@ -2281,7 +2336,9 @@ function PropertyFormContainer() {
           onClose={() => setInspectionReportModalOpen(false)}
           analysis={inspectionAnalysis}
           onChatWithAI={() => {
-            setAiSidebarInitialPrompt("Summarize the inspection report analysis and key findings.");
+            setAiSidebarInitialPrompt(
+              "Summarize the inspection report analysis and key findings.",
+            );
             setInspectionReportModalOpen(false);
             setAiSidebarOpen(true);
           }}

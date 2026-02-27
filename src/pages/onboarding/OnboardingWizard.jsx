@@ -1,9 +1,14 @@
-import {useState} from "react";
+import {useState, useEffect} from "react";
 import {useNavigate} from "react-router-dom";
 import {Home, Briefcase, ChevronLeft, ChevronRight, Check, Loader2} from "lucide-react";
 import {useAuth} from "../../context/AuthContext";
 import AppApi from "../../api/api";
 import {HOMEOWNER_PLANS, AGENT_PLANS, PLAN_LIMITS} from "./onboardingPlans";
+
+const PLAN_CODE_TO_TIER = {
+  homeowner_free: "free", homeowner_maintain: "maintain", homeowner_win: "win",
+  agent_basic: "basic", agent_pro: "pro", agent_premium: "premium",
+};
 
 const ROLE_OPTIONS = [
   {
@@ -87,18 +92,53 @@ function Step1Role({role, onSelect}) {
   );
 }
 
-function Step2Plan({role, plan, onSelect}) {
+function Step2Plan({role, plan, onSelect, billingInterval, onBillingIntervalChange, plansFromApi}) {
   const plans = role === "homeowner" ? HOMEOWNER_PLANS : AGENT_PLANS;
+  const apiPlans = plansFromApi || [];
 
   return (
     <div className="space-y-6">
       <h2 className="text-xl font-semibold text-gray-900 dark:text-gray-100 text-center">
         Choose your plan
       </h2>
+      {plans.some((p) => p.code !== "homeowner_free" && p.code !== "agent_basic") && (
+        <div className="flex justify-center gap-2">
+          <button
+            type="button"
+            onClick={() => onBillingIntervalChange?.("month")}
+            className={`px-4 py-2 rounded-lg text-sm font-medium ${
+              billingInterval === "month"
+                ? "bg-violet-600 text-white dark:bg-violet-500"
+                : "bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-300"
+            }`}
+          >
+            Monthly
+          </button>
+          <button
+            type="button"
+            onClick={() => onBillingIntervalChange?.("year")}
+            className={`px-4 py-2 rounded-lg text-sm font-medium ${
+              billingInterval === "year"
+                ? "bg-violet-600 text-white dark:bg-violet-500"
+                : "bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-300"
+            }`}
+          >
+            Annual (save 2 months)
+          </button>
+        </div>
+      )}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-4 max-w-4xl mx-auto">
         {plans.map((p) => {
           const isSelected = plan === p.id;
           const isPopular = p.popular;
+          const apiPlan = apiPlans.find((a) => a.code === p.code);
+          const features = apiPlan?.limits
+            ? [
+                `${apiPlan.limits.maxProperties} properties`,
+                `${apiPlan.limits.maxContacts} contacts`,
+                apiPlan.limits.aiTokenMonthlyQuota ? `${(apiPlan.limits.aiTokenMonthlyQuota / 1000).toFixed(0)}K AI tokens/mo` : null,
+              ].filter(Boolean)
+            : [p.tagline];
           return (
             <div
               key={p.id}
@@ -117,7 +157,7 @@ function Step2Plan({role, plan, onSelect}) {
                 <h3 className="font-semibold text-gray-900 dark:text-gray-100">{p.name}</h3>
                 <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">{p.tagline}</p>
                 <ul className="mt-4 space-y-2">
-                  {p.features.map((f, i) => (
+                  {features.map((f, i) => (
                     <li key={i} className="flex items-start gap-2 text-sm text-gray-600 dark:text-gray-300">
                       <Check className="w-4 h-4 text-violet-600 dark:text-violet-400 shrink-0 mt-0.5" />
                       {f}
@@ -152,6 +192,7 @@ function Step3Confirmation({role, plan, limits}) {
       : AGENT_PLANS.find((p) => p.id === plan);
   const planLabel = planData?.name ?? plan;
 
+  const lim = limits || {};
   return (
     <div className="space-y-6">
       <h2 className="text-xl font-semibold text-gray-900 dark:text-gray-100 text-center">
@@ -170,8 +211,8 @@ function Step3Confirmation({role, plan, limits}) {
         <div className="text-sm text-gray-600 dark:text-gray-300">
           <p className="font-medium text-gray-700 dark:text-gray-200 mb-1">Summary of limits</p>
           <ul className="space-y-1">
-            <li>• Properties: {limits?.properties ?? "—"}</li>
-            <li>• Personal contacts: {limits?.contacts ?? "—"}</li>
+            <li>• Properties: {lim.properties ?? "—"}</li>
+            <li>• Personal contacts: {lim.contacts ?? "—"}</li>
           </ul>
         </div>
       </div>
@@ -179,14 +220,24 @@ function Step3Confirmation({role, plan, limits}) {
   );
 }
 
+const FREE_PLANS = ["homeowner_free", "agent_basic"];
+
 export default function OnboardingWizard() {
   const navigate = useNavigate();
   const {currentUser, refreshCurrentUser} = useAuth();
   const [step, setStep] = useState(1);
   const [role, setRole] = useState(null);
   const [plan, setPlan] = useState(null);
+  const [billingInterval, setBillingInterval] = useState("month");
+  const [plansFromApi, setPlansFromApi] = useState([]);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState(null);
+
+  useEffect(() => {
+    if (role) {
+      AppApi.getBillingPlans(role).then((r) => setPlansFromApi(r.plans || [])).catch(() => {});
+    }
+  }, [role]);
 
   const limits =
     role && plan
@@ -196,19 +247,37 @@ export default function OnboardingWizard() {
   const canContinue =
     (step === 1 && role) || (step === 2 && plan) || step === 3;
 
+  const isFreePlan = plan && FREE_PLANS.includes(plan);
+
   async function handleComplete() {
     setError(null);
     setIsSubmitting(true);
     try {
-      await AppApi.completeOnboarding({role, subscriptionTier: plan});
-      await refreshCurrentUser();
-      const accounts = await AppApi.getUserAccounts(currentUser?.id);
-      const accountUrl =
-        accounts?.[0]?.url?.replace(/^\/+/, "") || accounts?.[0]?.name;
-      if (accountUrl) {
-        navigate(`/${accountUrl}/home`, {replace: true});
+      if (isFreePlan) {
+        const tier = PLAN_CODE_TO_TIER[plan] || plan;
+        await AppApi.completeOnboarding({role, subscriptionTier: tier});
+        await refreshCurrentUser();
+        const accounts = await AppApi.getUserAccounts(currentUser?.id);
+        const accountUrl =
+          accounts?.[0]?.url?.replace(/^\/+/, "") || accounts?.[0]?.name;
+        if (accountUrl) {
+          navigate(`/${accountUrl}/home`, {replace: true});
+        } else {
+          navigate("/", {replace: true});
+        }
       } else {
-        navigate("/", {replace: true});
+        const origin = typeof window !== "undefined" ? window.location.origin : "";
+        const tier = PLAN_CODE_TO_TIER[plan] || plan;
+        const successUrl = `${origin}/#/billing/success?role=${encodeURIComponent(role)}&plan=${encodeURIComponent(tier)}`;
+        const cancelUrl = `${origin}/#/onboarding`;
+        const {url} = await AppApi.createCheckoutSession({
+          planCode: plan,
+          billingInterval,
+          successUrl,
+          cancelUrl,
+        });
+        if (url) window.location.href = url;
+        else setError("Could not start checkout. Please try again.");
       }
     } catch (err) {
       setError(err?.message || "Failed to complete onboarding. Please try again.");
@@ -229,6 +298,9 @@ export default function OnboardingWizard() {
               role={role}
               plan={plan}
               onSelect={setPlan}
+              billingInterval={billingInterval}
+              onBillingIntervalChange={setBillingInterval}
+              plansFromApi={plansFromApi}
             />
           )}
           {step === 3 && (
@@ -274,10 +346,12 @@ export default function OnboardingWizard() {
               {isSubmitting ? (
                 <>
                   <Loader2 className="w-4 h-4 animate-spin" />
-                  Completing...
+                  {isFreePlan ? "Completing..." : "Redirecting to payment..."}
                 </>
-              ) : (
+              ) : isFreePlan ? (
                 "Confirm & Continue"
+              ) : (
+                "Continue to payment"
               )}
             </button>
           )}

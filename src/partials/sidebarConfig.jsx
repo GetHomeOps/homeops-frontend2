@@ -22,6 +22,7 @@ import {
   MessageSquare,
   MessageCircle,
   CreditCard,
+  Package,
   Settings,
   Wallet,
   Cog,
@@ -100,7 +101,18 @@ export const SIDEBAR_CONFIG = [
           { id: "feedback-management", label: "Feedback Management", path: "feedback-management", icon: icon(MessageCircle), roles: "adminOnly" },
         ],
       },
-      { id: "subscriptions", label: "Subscriptions", path: "subscriptions", activePaths: ["subscriptions", "subscription-products"], icon: icon(CreditCard), roles: "adminOnly" },
+      {
+        id: "subscriptions",
+        type: "collapsible",
+        label: "Subscriptions",
+        icon: icon(CreditCard),
+        defaultExpanded: false,
+        roles: "adminOnly",
+        children: [
+          { id: "subscriptions-list", label: "Subscriptions", path: "subscriptions", icon: icon(CreditCard), roles: "adminOnly" },
+          { id: "subscription-products", label: "Products & Plans", path: "subscription-products", icon: icon(Package), roles: "adminOnly" },
+        ],
+      },
     ],
   },
 ];

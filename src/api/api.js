@@ -1,5 +1,7 @@
+// In dev, use '' to hit same-origin (Vite proxy forwards to backend). Otherwise use explicit URL.
 export const API_BASE_URL =
-  import.meta.env.VITE_BASE_URL || "http://localhost:3000";
+  import.meta.env.VITE_BASE_URL ??
+  (import.meta.env.DEV ? "" : "http://localhost:3000");
 const BASE_URL = API_BASE_URL;
 
 const TOKEN_STORAGE_KEY = "app-token";
@@ -271,6 +273,58 @@ class AppApi {
 
   static async completeOnboarding(data) {
     return this.request(`auth/complete-onboarding`, data, "POST");
+  }
+
+  /* --------- Billing --------- */
+
+  static async getBillingPlans(audience) {
+    const res = await this.request(`billing/plans/${audience}`);
+    return res;
+  }
+
+  static async createCheckoutSession({ planCode, billingInterval, successUrl, cancelUrl }) {
+    const res = await this.request(`billing/checkout-session`, {
+      planCode,
+      billingInterval: billingInterval || "month",
+      successUrl,
+      cancelUrl,
+    }, "POST");
+    return res;
+  }
+
+  static async createPortalSession({ accountId, returnUrl }) {
+    const res = await this.request(`billing/portal-session`, { accountId, returnUrl }, "POST");
+    return res;
+  }
+
+  static async getBillingStatus(accountId) {
+    const params = accountId ? { accountId } : {};
+    const res = await this.request(`billing/status`, params);
+    return res;
+  }
+
+  /** Super Admin: list all plans with limits and prices */
+  static async getBillingPlansAll() {
+    const res = await this.request(`billing/plans`);
+    return res;
+  }
+
+  /** Super Admin: update plan (name, description, etc.) */
+  static async updateBillingPlan(id, data) {
+    const res = await this.request(`billing/plans/${id}`, data, "PATCH");
+    return res;
+  }
+
+  /** Super Admin: update plan limits */
+  static async updateBillingPlanLimits(id, limits) {
+    const res = await this.request(`billing/plans/${id}/limits`, limits, "PATCH");
+    return res;
+  }
+
+  /** Super Admin: update plan price */
+  static async updateBillingPlanPrice(id, billingInterval, stripePriceId) {
+    const res = await this.request(`billing/plans/${id}/prices`, { billingInterval, stripePriceId: stripePriceId || null }, "PATCH");
+    return res;
   }
 
   /* --------- MFA --------- */

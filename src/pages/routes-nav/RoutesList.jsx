@@ -1,5 +1,10 @@
 import React from "react";
-import {Routes, Route, Navigate} from "react-router-dom";
+import {Routes, Route, Navigate, useParams} from "react-router-dom";
+
+function BillingPlansRedirect() {
+  const { accountUrl } = useParams();
+  return <Navigate to={`/${accountUrl}/subscription-products`} replace />;
+}
 
 import "../../css/style.css";
 
@@ -54,6 +59,7 @@ import EngagementDashboard from "../dashboard/EngagementDashboard";
 import GrowthDashboard from "../dashboard/GrowthDashboard";
 import InvitationsList from "../invitations/InvitationsList";
 import BillingPage from "../settings/BillingPage";
+import BillingSuccess from "../billing/BillingSuccess";
 import ConfigurationPage from "../settings/ConfigurationPage";
 import SupportList from "../support/SupportList";
 import SupportNew from "../support/SupportNew";
@@ -107,6 +113,14 @@ function RoutesList() {
           <OnboardingRoute>
             <OnboardingWizard />
           </OnboardingRoute>
+        }
+      />
+      <Route
+        path="/billing/success"
+        element={
+          <ProtectedRoute>
+            <BillingSuccess />
+          </ProtectedRoute>
         }
       />
     </>
@@ -451,6 +465,7 @@ function RoutesList() {
           </ProtectedRoute>
         }
       />
+      <Route path="/:accountUrl/billing-plans" element={<BillingPlansRedirect />} />
       <Route
         path="/:accountUrl/subscription-products"
         element={

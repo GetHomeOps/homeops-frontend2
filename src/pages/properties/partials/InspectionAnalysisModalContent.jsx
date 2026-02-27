@@ -27,7 +27,9 @@ const PRIORITY_BADGES = {
 };
 
 function formatCondition(str) {
-  if (!str || typeof str !== "string") return "Unknown";
+  if (!str || typeof str !== "string") return "Not specified";
+  const lower = str.toLowerCase();
+  if (lower === "unknown") return "Not specified";
   return str.charAt(0).toUpperCase() + str.slice(1).toLowerCase();
 }
 

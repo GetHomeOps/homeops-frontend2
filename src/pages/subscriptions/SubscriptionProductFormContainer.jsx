@@ -11,7 +11,18 @@ import AppApi from "../../api/api";
 const initialFormData = {
   name: "",
   description: "",
+  targetRole: "homeowner",
   price: "",
+  code: "",
+  sortOrder: 0,
+  trialDays: "",
+  maxProperties: 1,
+  maxContacts: 25,
+  maxViewers: 2,
+  maxTeamMembers: 5,
+  aiTokenMonthlyQuota: 50000,
+  stripePriceIdMonth: "",
+  stripePriceIdYear: "",
 };
 
 const initialState = {
@@ -76,10 +87,24 @@ function reducer(state, action) {
 
 /** Maps backend product object to form fields */
 function mapProductToForm(product) {
+  const lim = product.limits || {};
+  const priceMonth = product.prices?.find((p) => p.billingInterval === "month" || p.billing_interval === "month");
+  const priceYear = product.prices?.find((p) => p.billingInterval === "year" || p.billing_interval === "year");
   return {
     name: product.name || "",
     description: product.description || "",
+    targetRole: product.targetRole || "homeowner",
     price: product.price !== undefined && product.price !== null ? String(product.price) : "",
+    code: product.code || "",
+    sortOrder: product.sortOrder ?? 0,
+    trialDays: product.trialDays != null ? String(product.trialDays) : "",
+    maxProperties: lim.maxProperties ?? product.maxProperties ?? 1,
+    maxContacts: lim.maxContacts ?? product.maxContacts ?? 25,
+    maxViewers: lim.maxViewers ?? product.maxViewers ?? 2,
+    maxTeamMembers: lim.maxTeamMembers ?? product.maxTeamMembers ?? 5,
+    aiTokenMonthlyQuota: lim.aiTokenMonthlyQuota ?? 50000,
+    stripePriceIdMonth: priceMonth?.stripePriceId || priceMonth?.stripe_price_id || "",
+    stripePriceIdYear: priceYear?.stripePriceId || priceYear?.stripe_price_id || "",
   };
 }
 
@@ -173,6 +198,14 @@ function SubscriptionProductFormContainer() {
     return Object.keys(newErrors).length === 0;
   }
 
+  const limitFields = [
+    { id: "maxProperties", label: "Max Properties" },
+    { id: "maxContacts", label: "Max Contacts" },
+    { id: "maxViewers", label: "Max Viewers" },
+    { id: "maxTeamMembers", label: "Max Team Members" },
+    { id: "aiTokenMonthlyQuota", label: "AI Tokens / month" },
+  ];
+
   /** Create new product */
   async function handleSubmit(evt) {
     evt.preventDefault();
@@ -184,7 +217,18 @@ function SubscriptionProductFormContainer() {
       const data = {
         name: state.formData.name.trim(),
         description: state.formData.description.trim() || null,
-        price: Number(state.formData.price),
+        targetRole: state.formData.targetRole || "homeowner",
+        price: Number(state.formData.price) || 0,
+        code: state.formData.code?.trim() || null,
+        sortOrder: Number(state.formData.sortOrder) || 0,
+        trialDays: state.formData.trialDays ? Number(state.formData.trialDays) : null,
+        maxProperties: Number(state.formData.maxProperties) || 1,
+        maxContacts: Number(state.formData.maxContacts) || 25,
+        maxViewers: Number(state.formData.maxViewers) || 2,
+        maxTeamMembers: Number(state.formData.maxTeamMembers) || 5,
+        aiTokenMonthlyQuota: Number(state.formData.aiTokenMonthlyQuota) || 50000,
+        stripePriceIdMonth: state.formData.stripePriceIdMonth?.trim() || null,
+        stripePriceIdYear: state.formData.stripePriceIdYear?.trim() || null,
       };
 
       const res = await AppApi.createSubscriptionProduct(data);
@@ -228,7 +272,22 @@ function SubscriptionProductFormContainer() {
       const data = {
         name: state.formData.name.trim(),
         description: state.formData.description.trim() || null,
-        price: Number(state.formData.price),
+        targetRole: state.formData.targetRole || "homeowner",
+        price: Number(state.formData.price) || 0,
+        code: state.formData.code?.trim() || null,
+        sortOrder: Number(state.formData.sortOrder) || 0,
+        trialDays: state.formData.trialDays ? Number(state.formData.trialDays) : null,
+        limits: {
+          maxProperties: Number(state.formData.maxProperties) || 1,
+          maxContacts: Number(state.formData.maxContacts) || 25,
+          maxViewers: Number(state.formData.maxViewers) || 2,
+          maxTeamMembers: Number(state.formData.maxTeamMembers) || 5,
+          aiTokenMonthlyQuota: Number(state.formData.aiTokenMonthlyQuota) || 50000,
+        },
+        prices: {
+          month: state.formData.stripePriceIdMonth?.trim() || null,
+          year: state.formData.stripePriceIdYear?.trim() || null,
+        },
       };
 
       const res = await AppApi.updateSubscriptionProduct(Number(id), data);
@@ -548,6 +607,66 @@ function SubscriptionProductFormContainer() {
                       )}
                     </div>
 
+                    {/* Target Role */}
+                    <div>
+                      <label className={getLabelClasses()} htmlFor="targetRole">
+                        Target Role
+                      </label>
+                      <select
+                        id="targetRole"
+                        className={getInputClasses("targetRole")}
+                        value={state.formData.targetRole}
+                        onChange={handleChange}
+                      >
+                        <option value="homeowner">Homeowner</option>
+                        <option value="agent">Agent</option>
+                      </select>
+                    </div>
+
+                    {/* Code */}
+                    <div>
+                      <label className={getLabelClasses()} htmlFor="code">
+                        Plan Code
+                      </label>
+                      <input
+                        id="code"
+                        className={getInputClasses("code")}
+                        type="text"
+                        value={state.formData.code}
+                        onChange={handleChange}
+                        placeholder="e.g. homeowner_maintain"
+                      />
+                    </div>
+
+                    {/* Sort Order & Trial Days */}
+                    <div>
+                      <label className={getLabelClasses()} htmlFor="sortOrder">
+                        Sort Order
+                      </label>
+                      <input
+                        id="sortOrder"
+                        className={getInputClasses("sortOrder")}
+                        type="number"
+                        min="0"
+                        value={state.formData.sortOrder}
+                        onChange={handleChange}
+                      />
+                    </div>
+                    <div>
+                      <label className={getLabelClasses()} htmlFor="trialDays">
+                        Trial Days
+                      </label>
+                      <input
+                        id="trialDays"
+                        className={getInputClasses("trialDays")}
+                        type="number"
+                        min="0"
+                        value={state.formData.trialDays}
+                        onChange={handleChange}
+                        placeholder="Leave empty for no trial"
+                      />
+                    </div>
+
                     {/* Description (full width) */}
                     <div className="md:col-span-2">
                       <label
@@ -565,6 +684,68 @@ function SubscriptionProductFormContainer() {
                         placeholder={t(
                           "subscriptionProducts.descriptionPlaceholder",
                         )}
+                      />
+                    </div>
+                  </div>
+                </div>
+
+                {/* Tier Limits Section */}
+                <div className="bg-gray-50 dark:bg-gray-700/50 rounded-lg p-6">
+                  <h3 className="text-lg font-semibold text-gray-800 dark:text-gray-100 mb-4">
+                    Tier Limits
+                  </h3>
+                  <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4">
+                    {limitFields.map(({id, label}) => (
+                      <div key={id}>
+                        <label className={getLabelClasses()} htmlFor={id}>
+                          {label}
+                        </label>
+                        <input
+                          id={id}
+                          className={getInputClasses(id)}
+                          type="number"
+                          min="0"
+                          value={state.formData[id]}
+                          onChange={handleChange}
+                        />
+                      </div>
+                    ))}
+                  </div>
+                </div>
+
+                {/* Stripe Price IDs Section */}
+                <div className="bg-gray-50 dark:bg-gray-700/50 rounded-lg p-6">
+                  <h3 className="text-lg font-semibold text-gray-800 dark:text-gray-100 mb-4">
+                    Stripe Price IDs
+                  </h3>
+                  <p className="text-sm text-gray-500 dark:text-gray-400 mb-4">
+                    Create prices in Stripe Dashboard, then paste the Price IDs (e.g. price_xxx).
+                  </p>
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div>
+                      <label className={getLabelClasses()} htmlFor="stripePriceIdMonth">
+                        Monthly Price ID
+                      </label>
+                      <input
+                        id="stripePriceIdMonth"
+                        className={`${getInputClasses("stripePriceIdMonth")} font-mono text-sm`}
+                        type="text"
+                        value={state.formData.stripePriceIdMonth}
+                        onChange={handleChange}
+                        placeholder="price_xxx"
+                      />
+                    </div>
+                    <div>
+                      <label className={getLabelClasses()} htmlFor="stripePriceIdYear">
+                        Annual Price ID
+                      </label>
+                      <input
+                        id="stripePriceIdYear"
+                        className={`${getInputClasses("stripePriceIdYear")} font-mono text-sm`}
+                        type="text"
+                        value={state.formData.stripePriceIdYear}
+                        onChange={handleChange}
+                        placeholder="price_xxx"
                       />
                     </div>
                   </div>

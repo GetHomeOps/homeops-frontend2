@@ -30,8 +30,10 @@ function ProtectedRoute({children}) {
     );
   }
 
-  // Users who haven't completed onboarding (e.g. new Google signups) must finish first
+  // Users who haven't completed onboarding must finish first (except billing/success - return from Stripe)
   if (currentUser.onboardingCompleted === false) {
+    const path = location.pathname || "";
+    if (path.includes("/billing/success")) return children;
     return <Navigate to="/onboarding" replace />;
   }
 

@@ -18,6 +18,7 @@ const CONDITION_COLORS = {
   good: "bg-green-100 text-green-800 dark:bg-green-900/40 dark:text-green-300",
   fair: "bg-amber-100 text-amber-800 dark:bg-amber-900/40 dark:text-amber-300",
   poor: "bg-red-100 text-red-800 dark:bg-red-900/40 dark:text-red-300",
+  unknown: "bg-gray-100 text-gray-600 dark:bg-gray-700 dark:text-gray-400",
 };
 
 const SEVERITY_COLORS = {
@@ -124,10 +125,15 @@ function AIFindingsPanel({
       <div className="flex items-center gap-2 flex-wrap">
         <span
           className={`inline-flex items-center px-2.5 py-1 rounded-md text-xs font-medium capitalize ${
-            CONDITION_COLORS[conditionRating] || CONDITION_COLORS.good
+            CONDITION_COLORS[conditionRating] ?? CONDITION_COLORS.unknown
           }`}
+          title={
+            (conditionRating || "").toLowerCase() === "unknown"
+              ? "The AI could not determine an overall condition from the report."
+              : undefined
+          }
         >
-          {conditionRating}
+          {(conditionRating || "").toLowerCase() === "unknown" ? "Not specified" : conditionRating}
         </span>
         {summary && (
           <p className="text-xs text-gray-600 dark:text-gray-400 max-w-md">
@@ -180,29 +186,63 @@ function AIFindingsPanel({
       {/* Suggested systems to add */}
       {suggestedSystemsToAdd.length > 0 && (
         <div>
-          <p className="text-xs font-medium text-gray-600 dark:text-gray-400 mb-2">
-            Suggested systems to add
+          <p className="text-xs font-medium text-gray-600 dark:text-gray-400 mb-3">
+            Suggested systems to add (select to include)
           </p>
-          <div className="flex flex-wrap gap-2 mb-2">
-            {suggestedSystemsToAdd.map((s) => {
+          <div className="grid grid-cols-2 sm:grid-cols-3 gap-2 mb-3">
+            {suggestedSystemsToAdd.map((s, idx) => {
               const sysKey = s.systemType || s.system_key;
               const label = getSystemLabel(sysKey);
               const isSelected = selectedSuggestedSystems.includes(sysKey);
+              const sys = PROPERTY_SYSTEMS.find((p) => p.id === sysKey);
+              const Icon = sys?.icon;
               return (
-                <label
-                  key={sysKey}
-                  className="inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg border border-gray-200 dark:border-gray-600 bg-white dark:bg-gray-800 cursor-pointer hover:border-[#456564]/50 transition-colors"
+                <button
+                  key={`${sysKey}-${idx}`}
+                  type="button"
+                  onClick={() => onToggleSuggestedSystem?.(sysKey)}
+                  className={`group relative flex items-start gap-2.5 p-3 rounded-xl border text-left transition-all duration-200 ${
+                    isSelected
+                      ? "border-[#456564] bg-[#456564]/[0.06] dark:bg-[#456564]/15 ring-1 ring-[#456564]/20"
+                      : "border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800/60 hover:border-gray-300 dark:hover:border-gray-600"
+                  }`}
                 >
-                  <input
-                    type="checkbox"
-                    checked={isSelected}
-                    onChange={() => onToggleSuggestedSystem?.(sysKey)}
-                    className="rounded border-gray-300 dark:border-gray-600 text-[#456564] focus:ring-[#456564]"
-                  />
-                  <span className="text-xs font-medium text-gray-700 dark:text-gray-300">
+                  {Icon && (
+                    <div
+                      className={`flex items-center justify-center w-8 h-8 rounded-lg shrink-0 ${
+                        isSelected
+                          ? "bg-[#456564] text-white"
+                          : "bg-gray-100 dark:bg-gray-700/70 text-gray-500"
+                      }`}
+                    >
+                      <Icon className="w-4 h-4" />
+                    </div>
+                  )}
+                  <span
+                    className={`text-sm font-medium block leading-tight pt-0.5 ${
+                      isSelected ? "text-gray-900 dark:text-white" : "text-gray-700 dark:text-gray-300"
+                    }`}
+                  >
                     {label}
                   </span>
-                </label>
+                  <div
+                    className={`absolute top-2.5 right-2.5 w-[18px] h-[18px] rounded flex items-center justify-center shrink-0 transition-all ${
+                      isSelected
+                        ? "bg-[#456564] text-white"
+                        : "border border-gray-300 dark:border-gray-600"
+                    }`}
+                  >
+                    {isSelected && (
+                      <svg
+                        className="w-2.5 h-2.5 text-white"
+                        fill="currentColor"
+                        viewBox="0 0 12 12"
+                      >
+                        <path d="M10.28 2.28L3.989 8.575 1.695 6.28A1 1 0 00.28 7.695l3 3a1 1 0 001.414 0l7-7a1 1 0 10-1.414-1.414z" />
+                      </svg>
+                    )}
+                  </div>
+                </button>
               );
             })}
           </div>

@@ -143,6 +143,7 @@ function SubmenuFlyout({
           >
             <div
               ref={flyoutRef}
+              data-sidebar-flyout
               onMouseEnter={handleFlyoutEnter}
               onMouseLeave={scheduleClose}
               className="rounded-lg border border-gray-700/60 shadow-xl bg-gray-800 py-2 overflow-hidden"
@@ -267,6 +268,7 @@ function Sidebar({sidebarOpen, setSidebarOpen, variant = "default"}) {
   const groupForPath = (path) => {
     if (/\/professionals(\/|$)/.test(path) || /\/my-professionals(\/|$)/.test(path)) return "directory";
     if (/\/support-management(\/|$)/.test(path) || /\/feedback-management(\/|$)/.test(path)) return "operations";
+    if (/\/subscriptions(\/|$)/.test(path) || /\/subscription-products(\/|$)/.test(path)) return "subscriptions";
     if (path.includes("settings/") || path.includes("users")) return "settings";
     return null;
   };
@@ -323,7 +325,8 @@ function Sidebar({sidebarOpen, setSidebarOpen, variant = "default"}) {
       if (
         !sidebarOpen ||
         sidebar.current.contains(target) ||
-        trigger.current.contains(target)
+        trigger.current.contains(target) ||
+        target.closest("[data-sidebar-flyout]")
       )
         return;
       setSidebarOpen(false);
@@ -351,6 +354,7 @@ function Sidebar({sidebarOpen, setSidebarOpen, variant = "default"}) {
   }, [sidebarExpanded]);
 
   const visible = (item) => {
+    if (item.roles === "superAdminOnly") return isSuperAdmin;
     if (item.roles === "adminOnly") return canManageUsers;
     if (item.roles === "adminOrAgent") return canManageUsers || isAgent;
     if (item.hideForSuperAdmin && isSuperAdmin) return false;

@@ -1,26 +1,25 @@
-import React, { useState, useEffect } from "react";
-import { useTranslation } from "react-i18next";
+import React, {useState, useEffect} from "react";
+import {useTranslation} from "react-i18next";
 import Header from "../../partials/Header";
 import Sidebar from "../../partials/Sidebar";
 import useCurrentAccount from "../../hooks/useCurrentAccount";
-import { useAuth } from "../../context/AuthContext";
+import {useAuth} from "../../context/AuthContext";
 import AppApi from "../../api/api";
 
 /**
- * Billing page — current plan, usage, upgrade options.
- * Industry best practices: transparent pricing, clear CTAs, next billing date.
- * Visible to agents and homeowners.
+ * Billing page — current plan, usage vs limits, Stripe Customer Portal.
+ * Uses /billing/status and /billing/portal-session.
  */
 function BillingPage() {
-  const { t } = useTranslation();
+  const {t} = useTranslation();
   const [sidebarOpen, setSidebarOpen] = useState(false);
-  const { currentAccount } = useCurrentAccount();
-  const { currentUser } = useAuth();
-  const [subscriptions, setSubscriptions] = useState([]);
-  const [availablePlans, setAvailablePlans] = useState([]);
+  const {currentAccount} = useCurrentAccount();
+  const {currentUser} = useAuth();
+  const [billing, setBilling] = useState(null);
+  const [plans, setPlans] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
-  const [upgrading, setUpgrading] = useState(null);
+  const [portalLoading, setPortalLoading] = useState(false);
 
   const accountId = currentAccount?.id;
   const userRole = (currentUser?.role || "homeowner").toLowerCase();
@@ -34,14 +33,14 @@ function BillingPage() {
     async function fetch() {
       try {
         setError(null);
-        const [subs, plans] = await Promise.all([
-          AppApi.getSubscriptionsByAccountId(accountId),
-          AppApi.getSubscriptionProductsByRole(targetRole),
+        const [statusRes, plansRes] = await Promise.all([
+          AppApi.getBillingStatus(accountId).then((r) => r).catch(() => null),
+          AppApi.getBillingPlans(targetRole).then((r) => r.plans || []).catch(() => []),
         ]);
-        setSubscriptions(subs || []);
-        setAvailablePlans(plans || []);
+        setBilling(statusRes);
+        setPlans(plansRes);
       } catch (err) {
-        setError(err.message || "Failed to load billing data");
+        setError(err?.message || "Failed to load billing data");
       } finally {
         setLoading(false);
       }
@@ -49,44 +48,32 @@ function BillingPage() {
     fetch();
   }, [accountId, targetRole]);
 
-  const activeSubscription = subscriptions.find((s) => s.status === "active") || subscriptions[0];
-  const currentProduct = activeSubscription
-    ? { name: activeSubscription.productName, price: activeSubscription.productPrice }
-    : null;
-
-  async function handleUpgrade(productId) {
+  async function handleManageBilling() {
     if (!accountId) return;
-    setUpgrading(productId);
+    setPortalLoading(true);
     try {
-      const today = new Date();
-      const endDate = new Date(today);
-      endDate.setMonth(endDate.getMonth() + 1);
-      await AppApi.createAccountSubscription({
-        accountId,
-        subscriptionProductId: productId,
-        status: "active",
-        currentPeriodStart: today.toISOString(),
-        currentPeriodEnd: endDate.toISOString(),
-      });
-      const subs = await AppApi.getSubscriptionsByAccountId(accountId);
-      setSubscriptions(subs || []);
+      const origin = typeof window !== "undefined" ? window.location.origin : "";
+      const returnUrl = `${origin}/#/${currentAccount?.url || ""}/settings/billing`;
+      const {url} = await AppApi.createPortalSession({accountId, returnUrl});
+      if (url) window.location.href = url;
+      else setError("Could not open billing portal.");
     } catch (err) {
-      setError(err.message || "Failed to upgrade");
+      setError(err?.message || "Failed to open billing portal.");
     } finally {
-      setUpgrading(null);
+      setPortalLoading(false);
     }
   }
 
   const formatDate = (d) => {
     if (!d) return "—";
     const date = new Date(d);
-    return date.toLocaleDateString(undefined, { month: "short", day: "numeric", year: "numeric" });
+    return date.toLocaleDateString(undefined, {month: "short", day: "numeric", year: "numeric"});
   };
 
-  const formatPrice = (p) => {
-    if (p == null || p === undefined) return "$0";
-    return new Intl.NumberFormat("en-US", { style: "currency", currency: "USD" }).format(Number(p));
-  };
+  const sub = billing?.subscription;
+  const plan = billing?.plan;
+  const limits = billing?.limits;
+  const usage = billing?.usage || {};
 
   if (!accountId) {
     return (
@@ -131,36 +118,44 @@ function BillingPage() {
               </div>
             ) : (
               <div className="space-y-8">
-                {/* Current plan — industry standard: prominent, transparent */}
                 <section className="rounded-xl bg-white dark:bg-gray-800 shadow-xs overflow-hidden">
-                  <div className="px-6 py-5 border-b border-gray-200 dark:border-gray-700/60">
+                  <div className="px-6 py-5 border-b border-gray-200 dark:border-gray-700/60 flex flex-wrap items-center justify-between gap-4">
                     <h2 className="text-lg font-semibold text-gray-800 dark:text-gray-100">
                       {t("settings.currentPlan") || "Current Plan"}
                     </h2>
+                    {(sub?.status === "active" || sub?.status === "trialing" || billing?.mockMode) && (
+                      <button
+                        type="button"
+                        onClick={handleManageBilling}
+                        disabled={portalLoading}
+                        className="btn bg-gray-900 dark:bg-white text-white dark:text-gray-900 hover:bg-gray-800 dark:hover:bg-gray-100 disabled:opacity-50"
+                      >
+                        {portalLoading ? (t("loading") || "Loading...") : "Manage billing"}
+                      </button>
+                    )}
                   </div>
                   <div className="p-6">
-                    {activeSubscription ? (
+                    {sub || billing?.mockMode ? (
                       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
                         <div>
                           <p className="text-xl font-semibold text-gray-900 dark:text-white capitalize">
-                            {activeSubscription.productName || "Free"}
+                            {plan?.name || "Maintain"}
                           </p>
-                          <p className="mt-1 text-sm text-gray-500 dark:text-gray-400">
-                            {formatPrice(activeSubscription.productPrice)}/
-                            {(activeSubscription.billingInterval || "month").replace("ly", "")}
-                          </p>
-                          {activeSubscription.currentPeriodEnd && (
+                          {sub?.currentPeriodEnd && (
                             <p className="mt-2 text-sm text-gray-600 dark:text-gray-300">
                               {t("settings.renewsOn") || "Renews on"}{" "}
-                              <strong>{formatDate(activeSubscription.currentPeriodEnd)}</strong>
+                              <strong>{formatDate(sub.currentPeriodEnd)}</strong>
+                              {sub.cancelAtPeriodEnd && (
+                                <span className="ml-2 text-amber-600 dark:text-amber-400">
+                                  (cancels at period end)
+                                </span>
+                              )}
                             </p>
                           )}
                         </div>
-                        <div className="flex flex-wrap gap-2 text-sm">
-                          <span className="inline-flex items-center rounded-full bg-emerald-100 dark:bg-emerald-900/30 px-3 py-1 font-medium text-emerald-800 dark:text-emerald-300">
-                            {activeSubscription.status || "Active"}
-                          </span>
-                        </div>
+                        <span className="inline-flex items-center rounded-full bg-emerald-100 dark:bg-emerald-900/30 px-3 py-1 font-medium text-emerald-800 dark:text-emerald-300">
+                          {sub?.status || "Active"}
+                        </span>
                       </div>
                     ) : (
                       <p className="text-gray-500 dark:text-gray-400">
@@ -170,118 +165,76 @@ function BillingPage() {
                   </div>
                 </section>
 
-                {/* Plan limits — usage transparency (from matching plan) */}
-                {activeSubscription && (() => {
-                  const plan = availablePlans.find(
-                    (p) =>
-                      p.id === activeSubscription.subscriptionProductId ||
-                      p.name?.toLowerCase() === activeSubscription.productName?.toLowerCase()
-                  );
-                  if (!plan) return null;
-                  return (
-                    <section className="rounded-xl bg-white dark:bg-gray-800 shadow-xs overflow-hidden">
-                      <div className="px-6 py-5 border-b border-gray-200 dark:border-gray-700/60">
-                        <h2 className="text-lg font-semibold text-gray-800 dark:text-gray-100">
-                          {t("settings.planLimits") || "Plan Limits"}
-                        </h2>
-                      </div>
-                      <div className="p-6">
-                        <dl className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-                          <div>
-                            <dt className="text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">
-                              {t("settings.properties") || "Properties"}
-                            </dt>
-                            <dd className="mt-1 text-lg font-semibold text-gray-900 dark:text-white">
-                              {plan.maxProperties ?? "—"}
-                            </dd>
-                          </div>
-                          <div>
-                            <dt className="text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">
-                              {t("settings.contacts") || "Contacts"}
-                            </dt>
-                            <dd className="mt-1 text-lg font-semibold text-gray-900 dark:text-white">
-                              {plan.maxContacts ?? "—"}
-                            </dd>
-                          </div>
-                          <div>
-                            <dt className="text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">
-                              {t("settings.teamMembers") || "Team Members"}
-                            </dt>
-                            <dd className="mt-1 text-lg font-semibold text-gray-900 dark:text-white">
-                              {plan.maxTeamMembers ?? "—"}
-                            </dd>
-                          </div>
-                          <div>
-                            <dt className="text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">
-                              {t("settings.viewers") || "Viewers"}
-                            </dt>
-                            <dd className="mt-1 text-lg font-semibold text-gray-900 dark:text-white">
-                              {plan.maxViewers ?? "—"}
-                            </dd>
-                          </div>
-                        </dl>
-                      </div>
-                    </section>
-                  );
-                })()}
+                {limits && (
+                  <section className="rounded-xl bg-white dark:bg-gray-800 shadow-xs overflow-hidden">
+                    <div className="px-6 py-5 border-b border-gray-200 dark:border-gray-700/60">
+                      <h2 className="text-lg font-semibold text-gray-800 dark:text-gray-100">
+                        {t("settings.planLimits") || "Usage & Limits"}
+                      </h2>
+                    </div>
+                    <div className="p-6">
+                      <dl className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+                        <div>
+                          <dt className="text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">
+                            {t("settings.properties") || "Properties"}
+                          </dt>
+                          <dd className="mt-1 text-lg font-semibold text-gray-900 dark:text-white">
+                            {usage.propertiesCount ?? 0} / {limits.maxProperties ?? "—"}
+                          </dd>
+                        </div>
+                        <div>
+                          <dt className="text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">
+                            {t("settings.contacts") || "Contacts"}
+                          </dt>
+                          <dd className="mt-1 text-lg font-semibold text-gray-900 dark:text-white">
+                            {usage.contactsCount ?? 0} / {limits.maxContacts ?? "—"}
+                          </dd>
+                        </div>
+                        <div>
+                          <dt className="text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">
+                            AI tokens (this month)
+                          </dt>
+                          <dd className="mt-1 text-lg font-semibold text-gray-900 dark:text-white">
+                            {(usage.aiTokensUsed ?? 0).toLocaleString()} / {(limits.aiTokenMonthlyQuota ?? 0).toLocaleString()}
+                          </dd>
+                        </div>
+                      </dl>
+                    </div>
+                  </section>
+                )}
 
-                {/* Upgrade options — clear CTAs, plan comparison */}
-                {availablePlans.length > 0 && (
+                {plans.length > 0 && (
                   <section className="rounded-xl bg-white dark:bg-gray-800 shadow-xs overflow-hidden">
                     <div className="px-6 py-5 border-b border-gray-200 dark:border-gray-700/60">
                       <h2 className="text-lg font-semibold text-gray-800 dark:text-gray-100">
                         {t("settings.availablePlans") || "Available Plans"}
                       </h2>
                       <p className="mt-1 text-sm text-gray-500 dark:text-gray-400">
-                        {t("settings.upgradeDescription") || "Upgrade to unlock more features."}
+                        {t("settings.upgradeDescription") || "Upgrade via Manage billing above."}
                       </p>
                     </div>
                     <div className="p-6">
                       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-                        {availablePlans.map((plan) => {
-                          const isCurrent =
-                            activeSubscription?.subscriptionProductId === plan.id ||
-                            activeSubscription?.productName?.toLowerCase() === plan.name?.toLowerCase();
+                        {plans.map((p) => {
+                          const isCurrent = plan?.code === p.code;
+                          const lim = p.limits || {};
                           return (
                             <div
-                              key={plan.id}
+                              key={p.code}
                               className={`rounded-lg border-2 p-4 ${
                                 isCurrent
                                   ? "border-emerald-500 dark:border-emerald-500 bg-emerald-50/50 dark:bg-emerald-900/10"
-                                  : "border-gray-200 dark:border-gray-700 hover:border-gray-300 dark:hover:border-gray-600"
+                                  : "border-gray-200 dark:border-gray-700"
                               }`}
                             >
                               <p className="font-semibold text-gray-900 dark:text-white capitalize">
-                                {plan.name}
+                                {p.name}
                               </p>
-                              <p className="mt-1 text-2xl font-bold text-gray-900 dark:text-white">
-                                {formatPrice(plan.price)}
-                                <span className="text-sm font-normal text-gray-500">
-                                  /{(plan.billingInterval || "month").replace("ly", "")}
-                                </span>
-                              </p>
-                              {plan.description && (
-                                <p className="mt-2 text-sm text-gray-500 dark:text-gray-400">
-                                  {plan.description}
-                                </p>
-                              )}
                               <ul className="mt-3 space-y-1 text-sm text-gray-600 dark:text-gray-300">
-                                <li>• {plan.maxProperties} {t("settings.properties") || "properties"}</li>
-                                <li>• {plan.maxContacts} {t("settings.contacts") || "contacts"}</li>
-                                <li>• {plan.maxTeamMembers} {t("settings.teamMembers") || "team members"}</li>
+                                <li>• {lim.maxProperties ?? "—"} {t("settings.properties") || "properties"}</li>
+                                <li>• {lim.maxContacts ?? "—"} {t("settings.contacts") || "contacts"}</li>
+                                <li>• {(lim.aiTokenMonthlyQuota ?? 0).toLocaleString()} AI tokens/mo</li>
                               </ul>
-                              {!isCurrent && (
-                                <button
-                                  type="button"
-                                  onClick={() => handleUpgrade(plan.id)}
-                                  disabled={upgrading === plan.id}
-                                  className="mt-4 w-full rounded-lg bg-gray-900 dark:bg-white px-4 py-2 text-sm font-medium text-white dark:text-gray-900 hover:bg-gray-800 dark:hover:bg-gray-100 disabled:opacity-50"
-                                >
-                                  {upgrading === plan.id
-                                    ? t("saving") || "Saving..."
-                                    : t("settings.upgrade") || "Upgrade"}
-                                </button>
-                              )}
                               {isCurrent && (
                                 <p className="mt-4 text-sm font-medium text-emerald-600 dark:text-emerald-400">
                                   {t("settings.currentPlan") || "Current Plan"}
@@ -294,14 +247,6 @@ function BillingPage() {
                     </div>
                   </section>
                 )}
-
-                {/* Placeholder for future: Payment method, Invoices */}
-                <section className="rounded-xl border-2 border-dashed border-gray-200 dark:border-gray-700 p-8 text-center">
-                  <p className="text-sm text-gray-500 dark:text-gray-400">
-                    {t("settings.paymentMethodComingSoon") ||
-                      "Payment method and invoice history will be available when Stripe is integrated."}
-                  </p>
-                </section>
               </div>
             )}
           </div>
