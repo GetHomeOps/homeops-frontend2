@@ -892,7 +892,17 @@ function ScheduleSystemModal({
           </div>
         )}
 
-        <div className="flex justify-between mt-6 pt-4 border-t border-gray-200 dark:border-gray-700">
+        <div className="flex flex-col gap-3 mt-6 pt-4 border-t border-gray-200 dark:border-gray-700">
+          <div className="flex justify-center">
+            <button
+              type="button"
+              onClick={handleBrowseDirectory}
+              className="text-xs text-[#456564] hover:underline font-medium inline-flex items-center gap-1"
+            >
+              Find a professional in the directory
+            </button>
+          </div>
+          <div className="flex justify-between">
           <button
             type="button"
             onClick={currentStep === 0 ? () => onClose(false) : handleBack}
@@ -926,6 +936,7 @@ function ScheduleSystemModal({
               )}
             </button>
           )}
+          </div>
         </div>
       </div>
     </ModalBlank>

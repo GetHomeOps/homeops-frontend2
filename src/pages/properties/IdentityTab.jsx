@@ -294,6 +294,11 @@ function IdentityTab({
             )}
           </div>
 
+          <div className="md:col-span-3 pt-4 mt-4 border-t border-neutral-200 dark:border-neutral-600 w-full">
+            <p className="text-xs text-neutral-500 dark:text-neutral-400 mb-4 text-center">
+              Filled automatically when you select an address above
+            </p>
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
           <div className="md:col-span-2">
             <Field
               onChange={handleInputChange}
@@ -340,7 +345,13 @@ function IdentityTab({
             error={errors.zip}
             readOnly
           />
-
+            </div>
+            <div className="pt-4 mt-4 border-t border-neutral-200 dark:border-neutral-600">
+              <p className="text-xs text-neutral-500 dark:text-neutral-400 text-center">
+                Editable fields below
+              </p>
+            </div>
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mt-4">
           <Field
             onChange={handleInputChange}
             label="County"
@@ -355,6 +366,8 @@ function IdentityTab({
             value={propertyData.taxId || propertyData.parcelTaxId}
             placeholder="e.g. 9278300025"
           />
+            </div>
+          </div>
         </div>
       </SectionWithProgress>
 
@@ -463,20 +476,6 @@ function IdentityTab({
             type="number"
             value={propertyData.yearBuilt}
           />
-          <Field
-            onChange={handleInputChange}
-            label="Effective Yr Built"
-            name="effectiveYearBuilt"
-            type="number"
-            value={propertyData.effectiveYearBuilt}
-          />
-          <Field
-            onChange={handleInputChange}
-            label="Effective Yr Built Source"
-            name="effectiveYearBuiltSource"
-            value={propertyData.effectiveYearBuiltSource}
-            placeholder="e.g. Public Records"
-          />
         </div>
       </SectionWithProgress>
 
@@ -502,13 +501,6 @@ function IdentityTab({
             type="number"
             value={propertyData.sqFtFinished}
           />
-          <Field
-            onChange={handleInputChange}
-            label="Unfinished (ft²)"
-            name="sqFtUnfinished"
-            type="number"
-            value={propertyData.sqFtUnfinished}
-          />
 
           <Field
             onChange={handleInputChange}
@@ -524,13 +516,6 @@ function IdentityTab({
             type="number"
             value={propertyData.totalDwellingSqFt}
           />
-          <Field
-            onChange={handleInputChange}
-            label="Source (ft²)"
-            name="sqFtSource"
-            value={propertyData.sqFtSource}
-            placeholder="e.g. KCR"
-          />
 
           <Field
             onChange={handleInputChange}
@@ -538,13 +523,6 @@ function IdentityTab({
             name="lotSize"
             value={propertyData.lotSize}
             placeholder="e.g. .200 ac / 8,700 sf"
-          />
-          <Field
-            onChange={handleInputChange}
-            label="Lot Size Source"
-            name="lotSizeSource"
-            value={propertyData.lotSizeSource}
-            placeholder="e.g. KCR"
           />
           <Field
             onChange={handleInputChange}

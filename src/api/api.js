@@ -463,6 +463,16 @@ class AppApi {
   }
 
   /**
+   * Get maintenance events for a property.
+   * @param {string|number} propertyId - property ID or UID
+   * @returns {Promise<Array>} events
+   */
+  static async getMaintenanceEventsByProperty(propertyId) {
+    const res = await this.request(`maintenance-events/${propertyId}`);
+    return res.events ?? [];
+  }
+
+  /**
    * Create a maintenance event for a property.
    * @param {string} propertyId - property UID
    * @param {Object} payload - event payload (system_key, scheduled_date, etc.)
@@ -637,9 +647,11 @@ class AppApi {
     return res;
   }
 
-  static async aiConfirmSchedule(actionDraftId, { scheduledFor, notes }) {
+  static async aiConfirmSchedule(actionDraftId, { scheduledFor, scheduledTime, eventType, notes }) {
     const res = await this.request(`ai/actions/${actionDraftId}/confirm-schedule`, {
       scheduledFor,
+      scheduledTime: scheduledTime || undefined,
+      eventType: eventType || undefined,
       notes,
     }, "POST");
     return res;

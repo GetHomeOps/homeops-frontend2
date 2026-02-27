@@ -1,8 +1,22 @@
 import React, {useMemo} from "react";
-import {ChevronDown, ChevronRight, Check, AlertTriangle, Calendar, Sparkles} from "lucide-react";
+import {
+  ChevronDown,
+  ChevronRight,
+  Check,
+  AlertTriangle,
+  AlertCircle,
+  Calendar,
+  Sparkles,
+  ShieldCheck,
+  CheckCircle,
+  Gauge,
+  Wrench,
+  AlertOctagon,
+} from "lucide-react";
 import SystemActionButtons from "./SystemActionButtons";
 import Tooltip from "../../../utils/Tooltip";
 import {getSystemStatus} from "../helpers/systemStatusHelpers";
+import {getSystemFindingsFromAnalysis} from "../helpers/inspectionAnalysisHelpers";
 
 /**
  * Collapsible Section Component with Progress Bar and Action Buttons
@@ -29,14 +43,120 @@ function CollapsibleSection({
   systemsToShow = [],
   customSystemsData = {},
   onOpenAIAssistant,
+  aiCondition,
+  inspectionAnalysis,
+  onOpenInspectionReport,
+  maintenanceEvents = [],
 }) {
-  const {needsAttention, hasScheduledEvent} = useMemo(
+  const {needsAttention, hasScheduledEvent, scheduledDate} = useMemo(
     () =>
       showActionButtons
-        ? getSystemStatus(propertyData, systemType, isNewInstall, customSystemsData)
+        ? getSystemStatus(
+            propertyData,
+            systemType,
+            isNewInstall,
+            customSystemsData,
+            maintenanceEvents,
+          )
         : {needsAttention: false, hasScheduledEvent: false},
-    [showActionButtons, propertyData, systemType, isNewInstall, customSystemsData],
+    [
+      showActionButtons,
+      propertyData,
+      systemType,
+      isNewInstall,
+      customSystemsData,
+      maintenanceEvents,
+    ],
   );
+
+  const systemFindings = useMemo(
+    () => getSystemFindingsFromAnalysis(systemType, inspectionAnalysis),
+    [systemType, inspectionAnalysis],
+  );
+
+  const aiInspectionTooltip = useMemo(() => {
+    if (!aiCondition) return null;
+    const status = (aiCondition.status || "").toLowerCase();
+    const ConditionIcon =
+      status === "excellent"
+        ? CheckCircle
+        : status === "good"
+          ? ShieldCheck
+          : status === "fair"
+            ? AlertCircle
+            : AlertTriangle;
+    const conditionColor =
+      status === "excellent"
+        ? "text-emerald-600 dark:text-emerald-500"
+        : status === "good"
+          ? "text-emerald-500 dark:text-[#456564]"
+          : status === "fair"
+            ? "text-amber-600 dark:text-amber-500"
+            : "text-red-600 dark:text-red-500";
+
+    const sev = (aiCondition.severity || "").toLowerCase();
+    const PriorityIcon =
+      sev === "urgent" || sev === "high" || sev === "critical"
+        ? AlertOctagon
+        : sev === "medium"
+          ? AlertTriangle
+          : sev === "low"
+            ? AlertCircle
+            : null;
+    const priorityColor =
+      sev === "urgent" || sev === "high" || sev === "critical"
+        ? "text-red-600 dark:text-red-400"
+        : sev === "medium"
+          ? "text-amber-600 dark:text-amber-400"
+          : "text-gray-500 dark:text-gray-400";
+
+    const c = aiCondition.confidence;
+    const confLabel = c >= 0.8 ? "High" : c >= 0.5 ? "Med" : "Low";
+
+    const {needsAttention: needs, maintenanceSuggestions: maint} = systemFindings;
+
+    return (
+      <div className="flex flex-col gap-2 min-w-[180px]">
+        <div className="flex items-center gap-2">
+          <ConditionIcon className={`w-4 h-4 flex-shrink-0 ${conditionColor}`} strokeWidth={2} />
+          <span className="text-xs font-medium">AI Inspection</span>
+        </div>
+        {PriorityIcon && (
+          <div className="flex items-center gap-2">
+            <PriorityIcon className={`w-4 h-4 flex-shrink-0 ${priorityColor}`} strokeWidth={2} />
+            <span className="text-xs text-gray-600 dark:text-gray-400">
+              {sev === "urgent" || sev === "high" || sev === "critical" ? "High priority" : sev === "medium" ? "Medium priority" : "Low priority"}
+            </span>
+          </div>
+        )}
+        {c != null && (
+          <div className="flex items-center gap-2">
+            <Gauge className="w-4 h-4 flex-shrink-0 text-gray-500 dark:text-gray-400" strokeWidth={2} />
+            <span className="text-xs text-gray-600 dark:text-gray-400">{confLabel} confidence</span>
+          </div>
+        )}
+        {needs.length > 0 && (
+          <div className="flex items-start gap-2">
+            <AlertTriangle className="w-4 h-4 flex-shrink-0 mt-0.5 text-amber-600 dark:text-amber-400" strokeWidth={2} />
+            <span className="text-xs text-gray-600 dark:text-gray-400">
+              {needs.slice(0, 2).map((n) => n.title || n.suggestedAction || "—").filter(Boolean).join("; ")}
+              {needs.length > 2 ? ` +${needs.length - 2} more` : ""}
+            </span>
+          </div>
+        )}
+        {maint.length > 0 && (
+          <div className="flex items-start gap-2">
+            <Wrench className="w-4 h-4 flex-shrink-0 mt-0.5 text-gray-500 dark:text-gray-400" strokeWidth={2} />
+            <span className="text-xs text-gray-600 dark:text-gray-400">
+              {maint.slice(0, 2).map((m) => m.task || "—").filter(Boolean).join("; ")}
+              {maint.length > 2 ? ` +${maint.length - 2} more` : ""}
+            </span>
+          </div>
+        )}
+      </div>
+    );
+  }, [aiCondition, systemFindings]);
+
   const isComplete = progress.percent >= 100;
 
   return (
@@ -151,13 +271,50 @@ function CollapsibleSection({
             </div>
           )}
 
-          {/* Status Icons - Needs Attention, Scheduled Event, AI Assistant */}
+          {/* Status Icons - AI Inspection Condition, Needs Attention, Scheduled Event, AI Assistant */}
           {showActionButtons && (
             <div
               className="flex items-center gap-1.5 flex-shrink-0 ml-1"
               onClick={(e) => e.stopPropagation()}
               onKeyDown={(e) => e.stopPropagation()}
             >
+              {aiCondition && (aiCondition.confidence == null || aiCondition.confidence >= 0.5) && aiInspectionTooltip && (
+                <Tooltip
+                  content={aiInspectionTooltip}
+                  position="bottom"
+                  size="xl"
+                >
+                  <button
+                    type="button"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      onOpenInspectionReport?.();
+                    }}
+                    className={`inline-flex items-center justify-center w-[18px] h-[18px] transition-colors rounded hover:opacity-80 p-0.5 ${
+                      aiCondition.status === "excellent"
+                        ? "text-emerald-600 dark:text-emerald-500/90"
+                        : aiCondition.status === "good"
+                          ? "text-emerald-500 dark:text-[#456564]"
+                          : aiCondition.status === "fair"
+                            ? "text-amber-600 dark:text-amber-500/90"
+                            : aiCondition.status === "poor"
+                              ? "text-red-600 dark:text-red-500/90"
+                              : "text-gray-500 dark:text-gray-400"
+                    }`}
+                    aria-label={`AI Inspection: ${aiCondition.status || "unknown"} condition`}
+                  >
+                    {aiCondition.status === "excellent" ? (
+                      <CheckCircle className="w-[18px] h-[18px]" strokeWidth={2} />
+                    ) : aiCondition.status === "good" ? (
+                      <ShieldCheck className="w-[18px] h-[18px]" strokeWidth={2} />
+                    ) : aiCondition.status === "fair" ? (
+                      <AlertCircle className="w-[18px] h-[18px]" strokeWidth={2} />
+                    ) : (
+                      <AlertTriangle className="w-[18px] h-[18px]" strokeWidth={2} />
+                    )}
+                  </button>
+                </Tooltip>
+              )}
               {needsAttention && (
                 <Tooltip content="Needs attention" position="bottom">
                   <span className="inline-flex items-center justify-center w-[18px] h-[18px] text-amber-600 dark:text-amber-500/90 hover:text-amber-700 dark:hover:text-amber-400 transition-colors cursor-default">
@@ -166,7 +323,19 @@ function CollapsibleSection({
                 </Tooltip>
               )}
               {hasScheduledEvent && (
-                <Tooltip content="Scheduled event" position="bottom">
+                <Tooltip
+                  content={
+                    scheduledDate
+                      ? `Scheduled for ${new Date(scheduledDate).toLocaleDateString("en-US", {
+                          weekday: "short",
+                          month: "short",
+                          day: "numeric",
+                          year: "numeric",
+                        })}`
+                      : "Scheduled event"
+                  }
+                  position="bottom"
+                >
                   <span className="inline-flex items-center justify-center w-[18px] h-[18px] text-emerald-600 dark:text-emerald-500/90 hover:text-emerald-700 dark:hover:text-emerald-400 transition-colors cursor-default">
                     <Calendar className="w-[18px] h-[18px]" strokeWidth={2} />
                   </span>

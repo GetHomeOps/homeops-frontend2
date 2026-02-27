@@ -1,13 +1,16 @@
 import React, {useState, useRef, useEffect} from "react";
+import {useNavigate, useParams} from "react-router-dom";
 import {
   X,
   Sparkles,
   Send,
   Loader2,
   Calendar,
+  Clock,
   Users,
   CheckCircle2,
   Search,
+  ExternalLink,
 } from "lucide-react";
 import Transition from "../../../utils/Transition";
 import AppApi from "../../../api/api";
@@ -20,7 +23,11 @@ function AIAssistantSidebar({
   propertyId,
   contacts = [],
   initialPrompt,
+  onScheduleSuccess,
 }) {
+  const navigate = useNavigate();
+  const {accountUrl} = useParams();
+  const professionalsPath = accountUrl ? `/${accountUrl}/professionals` : "/professionals";
   const [messages, setMessages] = useState([]);
   const [input, setInput] = useState("");
   const [loading, setLoading] = useState(false);
@@ -29,7 +36,9 @@ function AIAssistantSidebar({
   const [contractorSearch, setContractorSearch] = useState("");
   const [scheduleDraft, setScheduleDraft] = useState(null);
   const [selectedContractor, setSelectedContractor] = useState(null);
+  const [eventType, setEventType] = useState(null);
   const [scheduledFor, setScheduledFor] = useState("");
+  const [scheduledTime, setScheduledTime] = useState("");
   const [scheduleNotes, setScheduleNotes] = useState("");
   const [scheduling, setScheduling] = useState(false);
   const [scheduleSuccess, setScheduleSuccess] = useState(null);
@@ -77,15 +86,17 @@ function AIAssistantSidebar({
             uiDirectives: res.uiDirectives,
           },
         ]);
-        if (res.uiDirectives?.type === "SCHEDULE_PROPOSAL") {
-          setScheduleDraft({
-            actionDraftId: res.uiDirectives.actionDraftId,
-            tasks: res.uiDirectives.tasks || [],
-          });
-          setSelectedContractor(null);
-          setScheduledFor("");
-          setScheduleNotes("");
-        }
+      if (res.uiDirectives?.type === "SCHEDULE_PROPOSAL") {
+        setScheduleDraft({
+          actionDraftId: res.uiDirectives.actionDraftId,
+          tasks: res.uiDirectives.tasks || [],
+        });
+        setSelectedContractor(null);
+        setEventType(null);
+        setScheduledFor("");
+        setScheduledTime("");
+        setScheduleNotes("");
+      }
       })
       .catch((err) => {
         setMessages((prev) => [
@@ -135,7 +146,9 @@ function AIAssistantSidebar({
           tasks: res.uiDirectives.tasks || [],
         });
         setSelectedContractor(null);
+        setEventType(null);
         setScheduledFor("");
+        setScheduledTime("");
         setScheduleNotes("");
       }
     } catch (err) {
@@ -166,16 +179,19 @@ function AIAssistantSidebar({
   };
 
   const handleConfirmSchedule = async () => {
-    if (!scheduleDraft?.actionDraftId || !selectedContractor || !scheduledFor) return;
+    if (!scheduleDraft?.actionDraftId || !selectedContractor || !eventType || !scheduledFor) return;
     setScheduling(true);
     try {
       const res = await AppApi.aiConfirmSchedule(scheduleDraft.actionDraftId, {
         scheduledFor,
+        scheduledTime: scheduledTime?.trim() || undefined,
+        eventType,
         notes: scheduleNotes || undefined,
       });
       setScheduleSuccess(res);
       setScheduleDraft(null);
       setSelectedContractor(null);
+      onScheduleSuccess?.();
     } catch (err) {
       console.error("Failed to schedule:", err);
     } finally {
@@ -257,7 +273,7 @@ function AIAssistantSidebar({
                 <p className="whitespace-pre-wrap">{msg.content}</p>
                 {msg.uiDirectives?.type === "SCHEDULE_PROPOSAL" && (
                   <p className="mt-2 text-xs opacity-90">
-                    I can help you schedule. Select a contractor below.
+                    I can help you schedule. Choose the event type, contractor, date, and time below.
                   </p>
                 )}
               </div>
@@ -287,7 +303,7 @@ function AIAssistantSidebar({
           {scheduleDraft && !scheduleSuccess && (
             <div className="rounded-xl border border-[#456564]/30 dark:border-[#456564]/50 bg-[#456564]/5 p-4 space-y-4">
               <p className="text-xs font-semibold text-gray-700 dark:text-gray-300">
-                Schedule (contractor required)
+                Schedule (fill in the details below)
               </p>
               <ul className="text-xs text-gray-600 dark:text-gray-400 space-y-1">
                 {scheduleDraft.tasks.map((t, i) => (
@@ -296,6 +312,36 @@ function AIAssistantSidebar({
                   </li>
                 ))}
               </ul>
+
+              <div>
+                <label className="block text-xs font-medium text-gray-600 dark:text-gray-400 mb-1.5">
+                  Event type
+                </label>
+                <div className="flex gap-2">
+                  <button
+                    type="button"
+                    onClick={() => setEventType("inspection")}
+                    className={`flex-1 py-2 rounded-lg text-xs font-medium border transition-colors ${
+                      eventType === "inspection"
+                        ? "border-[#456564] bg-[#456564]/10 text-[#456564] dark:text-[#7aa3a2]"
+                        : "border-gray-200 dark:border-gray-600 hover:border-gray-300"
+                    }`}
+                  >
+                    Inspection
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setEventType("maintenance")}
+                    className={`flex-1 py-2 rounded-lg text-xs font-medium border transition-colors ${
+                      eventType === "maintenance"
+                        ? "border-[#456564] bg-[#456564]/10 text-[#456564] dark:text-[#7aa3a2]"
+                        : "border-gray-200 dark:border-gray-600 hover:border-gray-300"
+                    }`}
+                  >
+                    Maintenance
+                  </button>
+                </div>
+              </div>
 
               <div>
                 <label className="block text-xs font-medium text-gray-600 dark:text-gray-400 mb-1.5">
@@ -332,29 +378,64 @@ function AIAssistantSidebar({
                   ))}
                   {filteredContractors.length === 0 && (
                     <p className="px-2 py-1.5 text-xs text-gray-500">
-                      No contractors found. Add contacts or save professionals.
+                      No contractors found.{" "}
+                      <button
+                        type="button"
+                        onClick={() => navigate(professionalsPath)}
+                        className="text-[#456564] hover:underline font-medium inline-flex items-center gap-0.5"
+                      >
+                        Browse professionals directory
+                        <ExternalLink className="w-3 h-3" />
+                      </button>
                     </p>
                   )}
                 </div>
               </div>
 
+              <div className="grid grid-cols-2 gap-2">
+                <div>
+                  <label className="block text-xs font-medium text-gray-600 dark:text-gray-400 mb-1.5">
+                    <Calendar className="w-3.5 h-3.5 inline mr-1" />
+                    Date
+                  </label>
+                  <DatePickerInput
+                    name="scheduledFor"
+                    value={scheduledFor}
+                    onChange={(e) => setScheduledFor(e.target.value)}
+                    popoverClassName="z-[300]"
+                  />
+                </div>
+                <div>
+                  <label className="block text-xs font-medium text-gray-600 dark:text-gray-400 mb-1.5">
+                    <Clock className="w-3.5 h-3.5 inline mr-1" />
+                    Time (optional)
+                  </label>
+                  <input
+                    type="time"
+                    value={scheduledTime}
+                    onChange={(e) => setScheduledTime(e.target.value)}
+                    className="form-input w-full text-sm py-1.5"
+                  />
+                </div>
+              </div>
+
               <div>
                 <label className="block text-xs font-medium text-gray-600 dark:text-gray-400 mb-1.5">
-                  <Calendar className="w-3.5 h-3.5 inline mr-1" />
-                  Date
+                  Notes (optional)
                 </label>
-                <DatePickerInput
-                  name="scheduledFor"
-                  value={scheduledFor}
-                  onChange={(e) => setScheduledFor(e.target.value)}
-                  popoverClassName="z-[300]"
+                <input
+                  type="text"
+                  value={scheduleNotes}
+                  onChange={(e) => setScheduleNotes(e.target.value)}
+                  placeholder="Add any notes..."
+                  className="form-input w-full text-sm py-1.5"
                 />
               </div>
 
               <button
                 type="button"
                 onClick={handleConfirmSchedule}
-                disabled={!selectedContractor || !scheduledFor || scheduling}
+                disabled={!selectedContractor || !eventType || !scheduledFor || scheduling}
                 className="w-full py-2 rounded-lg text-sm font-medium bg-[#456564] hover:bg-[#34514f] text-white disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
               >
                 {scheduling ? (

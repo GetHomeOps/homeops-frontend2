@@ -88,7 +88,7 @@ function HomeOpsTeam({teamMembers = [], onOpenShareModal}) {
                   className={`w-12 h-12 rounded-full flex items-center justify-center text-white text-sm font-semibold overflow-hidden flex-shrink-0 ${
                     isPending
                       ? "bg-neutral-400 dark:bg-neutral-500"
-                      : "bg-emerald-600 dark:bg-emerald-500"
+                      : "bg-[#456564] dark:bg-[#5a7a78]"
                   }`}
                 >
                   {photoUrl ? (
@@ -107,7 +107,7 @@ function HomeOpsTeam({teamMembers = [], onOpenShareModal}) {
                       {member.name || member.email}
                     </p>
                     {isOwner && (
-                      <span className="inline-flex items-center px-2 py-0.5 rounded-md bg-emerald-500/15 dark:bg-emerald-500/25 text-emerald-700 dark:text-emerald-400 text-xs font-semibold shrink-0">
+                      <span className="inline-flex items-center px-2 py-0.5 rounded-md bg-[#456564]/15 dark:bg-[#5a7a78]/25 text-[#456564] dark:text-[#5a7a78] text-xs font-semibold shrink-0">
                         Owner
                       </span>
                     )}
@@ -136,7 +136,7 @@ function HomeOpsTeam({teamMembers = [], onOpenShareModal}) {
             e.stopPropagation();
             onOpenShareModal?.();
           }}
-          className="w-14 h-14 rounded-xl border-2 border-dashed border-neutral-200 dark:border-neutral-600 flex items-center justify-center text-neutral-400 dark:text-neutral-500 hover:border-emerald-500/50 hover:text-emerald-600 dark:hover:border-emerald-500/50 dark:hover:text-emerald-400 hover:bg-emerald-500/5 transition-all duration-200 flex-shrink-0"
+          className="w-14 h-14 rounded-xl border-2 border-dashed border-neutral-200 dark:border-neutral-600 flex items-center justify-center text-neutral-400 dark:text-neutral-500 hover:border-[#456564]/50 hover:text-[#456564] dark:hover:border-[#5a7a78]/50 dark:hover:text-[#5a7a78] hover:bg-[#456564]/5 transition-all duration-200 flex-shrink-0"
           aria-label="Add team member"
           title="Add team member"
         >

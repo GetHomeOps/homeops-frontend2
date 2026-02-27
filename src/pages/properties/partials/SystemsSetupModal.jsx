@@ -65,7 +65,6 @@ const AI_FIELD_GROUPS = [
     fields: [
       {key: "sqFtTotal", label: "Total ft²", type: "number"},
       {key: "sqFtFinished", label: "Finished ft²", type: "number"},
-      {key: "sqFtUnfinished", label: "Unfinished ft²", type: "number"},
       {key: "garageSqFt", label: "Garage ft²", type: "number"},
       {key: "totalDwellingSqFt", label: "Total Dwelling ft²", type: "number"},
       {key: "lotSize", label: "Lot Size"},

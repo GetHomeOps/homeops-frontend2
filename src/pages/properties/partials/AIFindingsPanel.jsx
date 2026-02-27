@@ -1,4 +1,5 @@
 import React from "react";
+import {useNavigate, useParams} from "react-router-dom";
 import {
   Sparkles,
   Loader2,
@@ -8,6 +9,7 @@ import {
   ChevronDown,
   ChevronRight,
   RefreshCw,
+  ExternalLink,
 } from "lucide-react";
 import {PROPERTY_SYSTEMS} from "../constants/propertySystems";
 
@@ -37,6 +39,9 @@ function AIFindingsPanel({
   onScheduleMaintenance,
   onRetry,
 }) {
+  const navigate = useNavigate();
+  const {accountUrl} = useParams();
+  const professionalsPath = accountUrl ? `/${accountUrl}/professionals` : "/professionals";
   const [needsAttentionExpanded, setNeedsAttentionExpanded] = React.useState(true);
   const [maintenanceExpanded, setMaintenanceExpanded] = React.useState(true);
 
@@ -248,21 +253,31 @@ function AIFindingsPanel({
                     </p>
                   </div>
                   {onScheduleMaintenance && (
-                    <button
-                      type="button"
-                      onClick={() =>
-                        onScheduleMaintenance({
-                          systemType: item.systemType,
-                          systemLabel: getSystemLabel(item.systemType),
-                          task: item.task,
-                          suggestedWhen: item.suggestedWhen,
-                        })
-                      }
-                      className="flex-shrink-0 inline-flex items-center gap-1 px-2 py-1 rounded text-[11px] font-medium bg-[#456564]/10 hover:bg-[#456564]/20 text-[#456564] dark:text-[#7aa3a2] transition-colors"
-                    >
-                      <Calendar className="w-3 h-3" />
-                      Schedule
-                    </button>
+                    <div className="flex-shrink-0 flex items-center gap-2">
+                      <button
+                        type="button"
+                        onClick={() =>
+                          onScheduleMaintenance({
+                            systemType: item.systemType,
+                            systemLabel: getSystemLabel(item.systemType),
+                            task: item.task,
+                            suggestedWhen: item.suggestedWhen,
+                          })
+                        }
+                        className="inline-flex items-center gap-1 px-2 py-1 rounded text-[11px] font-medium bg-[#456564]/10 hover:bg-[#456564]/20 text-[#456564] dark:text-[#7aa3a2] transition-colors"
+                      >
+                        <Calendar className="w-3 h-3" />
+                        Schedule
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => navigate(professionalsPath)}
+                        className="inline-flex items-center gap-0.5 text-[11px] text-gray-500 hover:text-[#456564] dark:text-gray-400 dark:hover:text-[#7aa3a2] transition-colors"
+                      >
+                        Professionals
+                        <ExternalLink className="w-2.5 h-2.5" />
+                      </button>
+                    </div>
                   )}
                 </li>
               ))}

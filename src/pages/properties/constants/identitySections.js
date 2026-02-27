@@ -32,8 +32,6 @@ export const IDENTITY_SECTIONS = [
       "subType",
       "roofType",
       "yearBuilt",
-      "effectiveYearBuilt",
-      "effectiveYearBuiltSource",
     ],
   },
   {
@@ -43,12 +41,9 @@ export const IDENTITY_SECTIONS = [
     fields: [
       "sqFtTotal",
       "sqFtFinished",
-      "sqFtUnfinished",
       "garageSqFt",
       "totalDwellingSqFt",
-      "sqFtSource",
       "lotSize",
-      "lotSizeSource",
       "lotDim",
       "pricePerSqFt",
       "totalPricePerSqFt",

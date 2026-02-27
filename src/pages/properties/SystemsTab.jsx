@@ -20,6 +20,10 @@ import {
   getAgeFromInstallDate,
   formatAgeFromInstallDate,
 } from "./constants/systemSections";
+import {
+  getConditionFieldName,
+  getCurrentConditionValue,
+} from "./helpers/systemStatusHelpers";
 import {getDisplayNamesWithCounters} from "./helpers/systemKeyUtils";
 import DatePickerInput from "../../components/DatePickerInput";
 import ContactContext from "../../context/ContactContext";
@@ -34,6 +38,10 @@ function SystemsTab({
   handleInputChange,
   visibleSystemIds,
   customSystemsData = {},
+  systems = [],
+  inspectionAnalysis,
+  maintenanceEvents = [],
+  onOpenInspectionReport,
   onSystemsCompletionChange,
   aiSidebarOpen: aiSidebarOpenProp,
   onAiSidebarOpenChange,
@@ -178,6 +186,38 @@ function SystemsTab({
     onSystemsCompletionChange?.(completedCount, systemIdsToShow.length);
   }, [completedCount, systemIdsToShow.length, onSystemsCompletionChange]);
 
+  // Map system_key -> aiCondition from backend systems
+  const aiConditionBySystem = useMemo(() => {
+    const map = {};
+    for (const s of systems) {
+      const key = s.system_key ?? s.systemKey;
+      if (key && s.aiCondition) map[key] = s.aiCondition;
+    }
+    return map;
+  }, [systems]);
+
+  // Auto-populate condition fields from inspection analysis when empty
+  useEffect(() => {
+    if (!handleInputChange) return;
+    const validStatuses = ["excellent", "good", "fair", "poor"];
+    for (const [systemKey, aiCondition] of Object.entries(aiConditionBySystem)) {
+      if (!aiCondition?.status || !validStatuses.includes(aiCondition.status)) continue;
+      const conditionField = getConditionFieldName(systemKey);
+      if (!conditionField) continue;
+      const currentVal = getCurrentConditionValue(propertyData, systemKey);
+      if (currentVal !== "") continue;
+      const capitalized =
+        aiCondition.status.charAt(0).toUpperCase() + aiCondition.status.slice(1);
+      handleInputChange({
+        target: {name: conditionField, value: capitalized},
+      });
+    }
+  }, [
+    aiConditionBySystem,
+    propertyData,
+    handleInputChange,
+  ]);
+
   // Build systems list for upload modal (matches DocumentsTab: selected + custom, general first)
   const visibleSystemIdsForUpload =
     (propertyData?.selectedSystemIds?.length ?? 0) > 0
@@ -222,6 +262,10 @@ function SystemsTab({
           propertyData={propertyData}
           systemsToShow={systemsToShow}
           customSystemsData={customSystemsData}
+          maintenanceEvents={maintenanceEvents}
+          aiCondition={aiConditionBySystem.roof}
+          inspectionAnalysis={inspectionAnalysis}
+          onOpenInspectionReport={onOpenInspectionReport}
           onOpenAIAssistant={handleOpenAIAssistant}
         >
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
@@ -377,6 +421,10 @@ function SystemsTab({
           propertyData={propertyData}
           systemsToShow={systemsToShow}
           customSystemsData={customSystemsData}
+          maintenanceEvents={maintenanceEvents}
+          aiCondition={aiConditionBySystem.gutters}
+          inspectionAnalysis={inspectionAnalysis}
+          onOpenInspectionReport={onOpenInspectionReport}
           onOpenAIAssistant={handleOpenAIAssistant}
         >
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
@@ -531,6 +579,10 @@ function SystemsTab({
           propertyData={propertyData}
           systemsToShow={systemsToShow}
           customSystemsData={customSystemsData}
+          maintenanceEvents={maintenanceEvents}
+          aiCondition={aiConditionBySystem.foundation}
+          inspectionAnalysis={inspectionAnalysis}
+          onOpenInspectionReport={onOpenInspectionReport}
           onOpenAIAssistant={handleOpenAIAssistant}
         >
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
@@ -635,6 +687,10 @@ function SystemsTab({
           propertyData={propertyData}
           systemsToShow={systemsToShow}
           customSystemsData={customSystemsData}
+          maintenanceEvents={maintenanceEvents}
+          aiCondition={aiConditionBySystem.exterior}
+          inspectionAnalysis={inspectionAnalysis}
+          onOpenInspectionReport={onOpenInspectionReport}
           onOpenAIAssistant={handleOpenAIAssistant}
         >
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
@@ -746,6 +802,10 @@ function SystemsTab({
           propertyData={propertyData}
           systemsToShow={systemsToShow}
           customSystemsData={customSystemsData}
+          maintenanceEvents={maintenanceEvents}
+          aiCondition={aiConditionBySystem.windows}
+          inspectionAnalysis={inspectionAnalysis}
+          onOpenInspectionReport={onOpenInspectionReport}
           onOpenAIAssistant={handleOpenAIAssistant}
         >
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
@@ -901,6 +961,10 @@ function SystemsTab({
           propertyData={propertyData}
           systemsToShow={systemsToShow}
           customSystemsData={customSystemsData}
+          maintenanceEvents={maintenanceEvents}
+          aiCondition={aiConditionBySystem.heating}
+          inspectionAnalysis={inspectionAnalysis}
+          onOpenInspectionReport={onOpenInspectionReport}
           onOpenAIAssistant={handleOpenAIAssistant}
         >
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
@@ -1064,6 +1128,10 @@ function SystemsTab({
           propertyData={propertyData}
           systemsToShow={systemsToShow}
           customSystemsData={customSystemsData}
+          maintenanceEvents={maintenanceEvents}
+          aiCondition={aiConditionBySystem.ac}
+          inspectionAnalysis={inspectionAnalysis}
+          onOpenInspectionReport={onOpenInspectionReport}
           onOpenAIAssistant={handleOpenAIAssistant}
         >
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
@@ -1230,6 +1298,10 @@ function SystemsTab({
           propertyData={propertyData}
           systemsToShow={systemsToShow}
           customSystemsData={customSystemsData}
+          maintenanceEvents={maintenanceEvents}
+          aiCondition={aiConditionBySystem.waterHeating}
+          inspectionAnalysis={inspectionAnalysis}
+          onOpenInspectionReport={onOpenInspectionReport}
           onOpenAIAssistant={handleOpenAIAssistant}
         >
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
@@ -1398,6 +1470,10 @@ function SystemsTab({
           propertyData={propertyData}
           systemsToShow={systemsToShow}
           customSystemsData={customSystemsData}
+          maintenanceEvents={maintenanceEvents}
+          aiCondition={aiConditionBySystem.electrical}
+          inspectionAnalysis={inspectionAnalysis}
+          onOpenInspectionReport={onOpenInspectionReport}
           onOpenAIAssistant={handleOpenAIAssistant}
         >
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
@@ -1566,6 +1642,10 @@ function SystemsTab({
           propertyData={propertyData}
           systemsToShow={systemsToShow}
           customSystemsData={customSystemsData}
+          maintenanceEvents={maintenanceEvents}
+          aiCondition={aiConditionBySystem.plumbing}
+          inspectionAnalysis={inspectionAnalysis}
+          onOpenInspectionReport={onOpenInspectionReport}
           onOpenAIAssistant={handleOpenAIAssistant}
         >
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
@@ -1755,6 +1835,10 @@ function SystemsTab({
           propertyData={propertyData}
           systemsToShow={systemsToShow}
           customSystemsData={customSystemsData}
+          maintenanceEvents={maintenanceEvents}
+          aiCondition={aiConditionBySystem.safety}
+          inspectionAnalysis={inspectionAnalysis}
+          onOpenInspectionReport={onOpenInspectionReport}
           onOpenAIAssistant={handleOpenAIAssistant}
         >
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
@@ -1819,6 +1903,10 @@ function SystemsTab({
           propertyData={propertyData}
           systemsToShow={systemsToShow}
           customSystemsData={customSystemsData}
+          maintenanceEvents={maintenanceEvents}
+          aiCondition={aiConditionBySystem.inspections}
+          inspectionAnalysis={inspectionAnalysis}
+          onOpenInspectionReport={onOpenInspectionReport}
           onOpenAIAssistant={handleOpenAIAssistant}
         >
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
@@ -2095,6 +2183,10 @@ function SystemsTab({
               propertyData={propertyData}
               systemsToShow={systemsToShow}
               customSystemsData={customSystemsData}
+              maintenanceEvents={maintenanceEvents}
+              aiCondition={aiConditionBySystem[sectionId] ?? aiConditionBySystem[`custom-${systemName}`]}
+              inspectionAnalysis={inspectionAnalysis}
+              onOpenInspectionReport={onOpenInspectionReport}
               onOpenAIAssistant={handleOpenAIAssistant}
             >
               <div className="grid grid-cols-1 md:grid-cols-2 gap-6">

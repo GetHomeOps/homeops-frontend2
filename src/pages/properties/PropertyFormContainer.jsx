@@ -89,9 +89,12 @@ import {
   FileBarChart,
   Loader2,
   Sparkles,
+  X,
 } from "lucide-react";
 import AIAssistantSidebar from "./partials/AIAssistantSidebar";
 import InspectionReportModal from "./partials/InspectionReportModal";
+import ModalBlank from "../../components/ModalBlank";
+import InspectionAnalysisModalContent from "./partials/InspectionAnalysisModalContent";
 import useImageUpload from "../../hooks/useImageUpload";
 import usePresignedPreview from "../../hooks/usePresignedPreview";
 import useGooglePlacesAutocomplete from "../../hooks/useGooglePlacesAutocomplete";
@@ -344,13 +347,16 @@ function PropertyFormContainer() {
   const [scheduleFromAiModalOpen, setScheduleFromAiModalOpen] = useState(false);
   const [scheduleFromAiPrefill, setScheduleFromAiPrefill] = useState(null);
   const [createdPropertyFromModal, setCreatedPropertyFromModal] = useState(null);
+  const [maintenanceEvents, setMaintenanceEvents] = useState([]);
   const [actionsDropdownOpen, setActionsDropdownOpen] = useState(false);
   const [shareModalOpen, setShareModalOpen] = useState(false);
+  const [blankModalOpen, setBlankModalOpen] = useState(false);
   const [mainPhotoMenuOpen, setMainPhotoMenuOpen] = useState(false);
   const mainPhotoInputRef = useRef(null);
   const actionsTriggerRef = useRef(null);
   const actionsDropdownRef = useRef(null);
   const saveBarRef = useRef(null);
+  const blankModalButtonRef = useRef(null);
   const originalMaintenanceRecordIdsRef = useRef(new Set());
 
   const {
@@ -577,6 +583,33 @@ function PropertyFormContainer() {
     }
     loadPropertyAndSystems();
   }, [uid]);
+
+  /* Fetch maintenance events for Systems tab (scheduled icon + date) */
+  const effectivePropertyId =
+    state.property?.identity?.id ?? state.property?.id ?? (uid !== "new" ? uid : null);
+  const fetchMaintenanceEvents = useCallback(() => {
+    if (!effectivePropertyId) return;
+    AppApi.getMaintenanceEventsByProperty(effectivePropertyId)
+      .then((events) => setMaintenanceEvents(events ?? []))
+      .catch(() => setMaintenanceEvents([]));
+  }, [effectivePropertyId]);
+  useEffect(() => {
+    if (!effectivePropertyId) {
+      setMaintenanceEvents([]);
+      return;
+    }
+    let cancelled = false;
+    AppApi.getMaintenanceEventsByProperty(effectivePropertyId)
+      .then((events) => {
+        if (!cancelled) setMaintenanceEvents(events ?? []);
+      })
+      .catch(() => {
+        if (!cancelled) setMaintenanceEvents([]);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [effectivePropertyId]);
 
   /* Reset form when navigating TO new from another property (not on initial mount); clear 403 when uid changes */
   const prevUidRef = useRef(null);
@@ -1200,8 +1233,6 @@ function PropertyFormContainer() {
   /* console.log("systemsArray: ", systemsArray);
   console.log("state.formData: ", state.formData);
   console.log("maintenanceRecords: ", state.formData.maintenanceRecords); */
-  console.log("maintenanceRecords: ", maintenanceRecords);
-  console.log("Porperty Form Container: ", state.formData);
 
   // While loading an existing property, don't show empty form; show loading until we get data or a 403/404.
   // Never show loading during save so the form doesn't briefly disappear.
@@ -1213,7 +1244,7 @@ function PropertyFormContainer() {
     !state.isSubmitting;
   if (loadingExisting) {
     return (
-      <div className="mx-0 sm:mx-6 sm:px-6 lg:px-14 pt-6 pb-8 flex items-center justify-center min-h-[40vh]">
+      <div className="mx-0 sm:mx-4 sm:px-4 lg:px-8 pt-6 pb-8 flex items-center justify-center min-h-[40vh]">
         <div className="text-gray-500 dark:text-gray-400">
           Loading property...
         </div>
@@ -1223,7 +1254,7 @@ function PropertyFormContainer() {
 
   if (state.propertyNotFound && uid !== "new") {
     return (
-      <div className="mx-0 sm:mx-6 sm:px-6 lg:px-14 pt-6 pb-8">
+      <div className="mx-0 sm:mx-4 sm:px-4 lg:px-8 pt-6 pb-8">
         <PropertyNotFound />
       </div>
     );
@@ -1231,14 +1262,14 @@ function PropertyFormContainer() {
 
   if (state.propertyAccessDenied && uid !== "new") {
     return (
-      <div className="mx-0 sm:mx-6 sm:px-6 lg:px-14 pt-6 pb-8">
+      <div className="mx-0 sm:mx-4 sm:px-4 lg:px-8 pt-6 pb-8">
         <PropertyUnauthorized />
       </div>
     );
   }
 
   return (
-    <div className="mx-0 sm:mx-6 sm:px-6 lg:px-14 pt-6 pb-8">
+    <div className="mx-0 sm:mx-4 sm:px-4 lg:px-8 pt-6 pb-8">
       <SharePropertyModal
         modalOpen={shareModalOpen}
         setModalOpen={setShareModalOpen}
@@ -1419,6 +1450,42 @@ function PropertyFormContainer() {
                 ],
               },
             });
+          } else if (uid !== "new") {
+            const rawId = state.property?.identity?.id ?? state.property?.id ?? uid;
+            let numericId = null;
+            if (typeof rawId === "number") numericId = rawId;
+            else if (typeof rawId === "string" && /^\d+$/.test(rawId)) numericId = parseInt(rawId, 10);
+            else if (rawId) {
+              try {
+                const prop = await getPropertyById(rawId);
+                numericId = prop?.id ?? prop?.identity?.id ?? null;
+              } catch {
+                numericId = null;
+              }
+            }
+            if (numericId) {
+              const merged = mergeFormDataFromTabs({
+                ...state.formData,
+                systems: {
+                  ...state.formData.systems,
+                  selectedSystemIds: predefinedOnly,
+                  customSystemNames: names,
+                  customSystemsData: nextData,
+                },
+              });
+              const systemsArray = formSystemsToArray(merged, numericId, state.systems ?? []);
+              await updateSystemsForProperty(numericId, systemsArray);
+              const systemsFromBackend = await getSystemsByPropertyId(numericId);
+              dispatch({type: "SET_SYSTEMS", payload: systemsFromBackend ?? []});
+              dispatch({
+                type: "SET_BANNER",
+                payload: {
+                  open: true,
+                  type: "success",
+                  message: t("propertyUpdatedSuccessfullyMessage"),
+                },
+              });
+            }
           }
         }}
       />
@@ -1558,7 +1625,7 @@ function PropertyFormContainer() {
             </Transition>
           </div>
           <button
-            className="btn bg-emerald-600 hover:bg-emerald-700 text-white transition-colors duration-200 shadow-sm"
+            className="btn bg-[#456564] hover:bg-[#34514f] text-white transition-colors duration-200 shadow-sm"
             onClick={handleNewProperty}
           >
             {t("new")}
@@ -1572,13 +1639,14 @@ function PropertyFormContainer() {
           {uid !== "new" && (
             <>
               <button
+                ref={blankModalButtonRef}
                 type="button"
-                onClick={() => setInspectionReportModalOpen(true)}
+                onClick={() => setBlankModalOpen(true)}
                 className="flex items-center gap-2 px-3 py-2 bg-transparent border border-neutral-200/80 dark:border-neutral-600/50 rounded-xl text-neutral-700 dark:text-neutral-300 hover:bg-neutral-50 dark:hover:bg-neutral-800/50 hover:border-neutral-300 dark:hover:border-neutral-500 hover:text-neutral-900 dark:hover:text-neutral-100 transition-all duration-200"
                 title="Inspection report analysis"
               >
                 <FileCheck className="w-4 h-4 flex-shrink-0" />
-                <span className="text-sm font-semibold">Analysis</span>
+                <span className="text-sm font-semibold">Inspection Analysis</span>
               </button>
               <button
                 type="button"
@@ -1586,7 +1654,7 @@ function PropertyFormContainer() {
                 className="flex items-center gap-2 px-3 py-2 bg-transparent border border-neutral-200/80 dark:border-neutral-600/50 rounded-xl text-neutral-700 dark:text-neutral-300 hover:bg-neutral-50 dark:hover:bg-neutral-800/50 hover:border-neutral-300 dark:hover:border-neutral-500 hover:text-neutral-900 dark:hover:text-neutral-100 transition-all duration-200"
                 title="AI Assistant"
               >
-                <Sparkles className="w-4 h-4 flex-shrink-0 text-emerald-600" />
+                <Sparkles className="w-4 h-4 flex-shrink-0 text-[#456564]" />
                 <span className="text-sm font-semibold">AI Assistant</span>
               </button>
             </>
@@ -1749,16 +1817,6 @@ function PropertyFormContainer() {
                     >
                       {inspectionAnalysis.conditionRating}
                     </span>
-                  )}
-                  {uid !== "new" && (
-                    <button
-                      type="button"
-                      onClick={() => setInspectionReportModalOpen(true)}
-                      className="p-1.5 rounded-lg bg-emerald-500/15 hover:bg-emerald-500/25 border border-emerald-400/30 text-emerald-700 transition-colors"
-                      title="View report analysis"
-                    >
-                      <Sparkles className="w-4 h-4" />
-                    </button>
                   )}
                 </div>
                 <div className="flex items-center gap-6">
@@ -2041,7 +2099,7 @@ function PropertyFormContainer() {
                     }
                     className={`py-4 px-4 text-sm font-medium transition border-b-2 flex items-center gap-2 ${
                       state.activeTab === tab.id
-                        ? "border-emerald-600 text-emerald-600 dark:text-emerald-500 dark:border-emerald-500"
+                        ? "border-[#456564] text-[#456564] dark:text-[#5a7a78] dark:border-[#5a7a78]"
                         : "border-transparent text-neutral-500 hover:text-neutral-700 dark:text-neutral-400 dark:hover:text-neutral-300"
                     }`}
                   >
@@ -2074,6 +2132,10 @@ function PropertyFormContainer() {
                 customSystemsData={
                   state.formData.systems?.customSystemsData ?? {}
                 }
+                systems={state.systems}
+                inspectionAnalysis={inspectionAnalysis}
+                maintenanceEvents={maintenanceEvents}
+                onOpenInspectionReport={() => setInspectionReportModalOpen(true)}
                 aiSidebarOpen={aiSidebarOpen}
                 onAiSidebarOpenChange={setAiSidebarOpen}
                 onOpenAIAssistant={(label) => {
@@ -2152,15 +2214,16 @@ function PropertyFormContainer() {
             )}
 
             {state.activeTab === "documents" && (
-              <React.Suspense
-                fallback={
-                  <div className="flex items-center justify-center py-16 text-gray-500 dark:text-gray-400">
-                    <Loader2 className="w-8 h-8 animate-spin mr-2" />
-                    Loading documents…
-                  </div>
-                }
-              >
-                <DocumentsTab
+              <div data-documents-tab className="min-h-0">
+                <React.Suspense
+                  fallback={
+                    <div className="flex items-center justify-center py-16 text-gray-500 dark:text-gray-400">
+                      <Loader2 className="w-8 h-8 animate-spin mr-2" />
+                      Loading documents…
+                    </div>
+                  }
+                >
+                  <DocumentsTab
                   propertyData={mergedFormData}
                   onOpenAIAssistant={uid !== "new" ? () => setAiSidebarOpen(true) : undefined}
                   onOpenAIReport={
@@ -2168,49 +2231,50 @@ function PropertyFormContainer() {
                   }
                 />
               </React.Suspense>
+            </div>
             )}
           </div>
-        </section>
 
-        {/* Save/Cancel bar - sticky at bottom, visible as soon as form is in view */}
-        <div
-          ref={saveBarRef}
-          className={`${
-            state.formDataChanged || state.isNew ? "sticky" : "hidden"
-          } bottom-0 -mt-8 bg-white dark:bg-neutral-900 border-t border-x border-b border-neutral-100 dark:border-neutral-800 px-6 py-4 rounded-b-2xl transition-all duration-200`}
-        >
-          <div className="flex justify-end gap-3">
-            <button
-              type="button"
-              className="btn bg-white dark:bg-neutral-900 border border-neutral-200/80 dark:border-neutral-700/50 hover:border-neutral-300 dark:hover:border-neutral-600 text-neutral-800 dark:text-neutral-200 transition-colors duration-200 shadow-sm"
-              onClick={handleCancelChanges}
-            >
-              Cancel
-            </button>
-            <button
-              type="button"
-              className="btn text-white transition-colors duration-200 shadow-sm min-w-[100px] bg-emerald-600 hover:bg-emerald-700 flex items-center justify-center gap-2"
-              onClick={state.isNew ? handleSubmit : handleUpdate}
-            >
-              {state.isSubmitting && (
-                <Loader2
-                  className="w-4 h-4 animate-spin shrink-0"
-                  aria-hidden
-                />
-              )}
-              {state.isSubmitting
-                ? state.isNew
-                  ? "Saving..."
-                  : "Updating..."
-                : state.isNew
-                  ? "Save"
-                  : "Update"}
-            </button>
+          {/* Save/Cancel bar - tied to form card, visible when form has changes */}
+          <div
+            ref={saveBarRef}
+            className={`${
+              state.formDataChanged || state.isNew ? "sticky" : "hidden"
+            } bottom-0 bg-white dark:bg-neutral-900 border-t border-neutral-100 dark:border-neutral-800 px-6 py-4 rounded-b-2xl transition-all duration-200`}
+          >
+            <div className="flex justify-end gap-3">
+              <button
+                type="button"
+                className="btn bg-white dark:bg-neutral-900 border border-neutral-200/80 dark:border-neutral-700/50 hover:border-neutral-300 dark:hover:border-neutral-600 text-neutral-800 dark:text-neutral-200 transition-colors duration-200 shadow-sm"
+                onClick={handleCancelChanges}
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                className="btn text-white transition-colors duration-200 shadow-sm min-w-[100px] bg-[#456564] hover:bg-[#34514f] flex items-center justify-center gap-2"
+                onClick={state.isNew ? handleSubmit : handleUpdate}
+              >
+                {state.isSubmitting && (
+                  <Loader2
+                    className="w-4 h-4 animate-spin shrink-0"
+                    aria-hidden
+                  />
+                )}
+                {state.isSubmitting
+                  ? state.isNew
+                    ? "Saving..."
+                    : "Updating..."
+                  : state.isNew
+                    ? "Save"
+                    : "Update"}
+              </button>
+            </div>
           </div>
-        </div>
+        </section>
       </div>
 
-      {/* Inspection Report Analysis modal */}
+      {/* Inspection Report modal (legacy - for Systems/Documents tabs) */}
       {uid !== "new" && (
         <InspectionReportModal
           isOpen={inspectionReportModalOpen}
@@ -2218,10 +2282,46 @@ function PropertyFormContainer() {
           analysis={inspectionAnalysis}
           onChatWithAI={() => {
             setAiSidebarInitialPrompt("Summarize the inspection report analysis and key findings.");
+            setInspectionReportModalOpen(false);
             setAiSidebarOpen(true);
           }}
         />
       )}
+
+      {/* Large empty modal */}
+      <ModalBlank
+        modalOpen={blankModalOpen}
+        setModalOpen={setBlankModalOpen}
+        contentClassName="max-w-5xl min-h-[60vh]"
+        ignoreClickRef={blankModalButtonRef}
+      >
+        <div className="flex items-center justify-between px-6 py-4 border-b border-neutral-200 dark:border-neutral-700">
+          <span className="text-sm font-medium text-neutral-600 dark:text-neutral-400">
+            Inspection Report Analysis
+          </span>
+          <button
+            type="button"
+            onClick={() => setBlankModalOpen(false)}
+            className="p-1.5 rounded-lg text-neutral-500 hover:text-neutral-700 hover:bg-neutral-100 dark:hover:text-neutral-400 dark:hover:bg-neutral-800"
+            aria-label="Close"
+          >
+            <X className="w-5 h-5" />
+          </button>
+        </div>
+        <InspectionAnalysisModalContent
+          propertyId={
+            uid !== "new"
+              ? (state.property?.identity?.id ?? state.property?.id ?? uid)
+              : null
+          }
+          isOpen={blankModalOpen}
+          onScheduleMaintenance={(prefill) => {
+            setScheduleFromAiPrefill(prefill);
+            setScheduleFromAiModalOpen(true);
+            setBlankModalOpen(false);
+          }}
+        />
+      </ModalBlank>
 
       {/* AI Assistant sidebar - available from all tabs */}
       {uid !== "new" && (
@@ -2236,6 +2336,7 @@ function PropertyFormContainer() {
           propertyId={state.property?.identity?.id ?? state.property?.id ?? uid}
           contacts={contacts ?? []}
           initialPrompt={aiSidebarInitialPrompt}
+          onScheduleSuccess={fetchMaintenanceEvents}
         />
       )}
     </div>

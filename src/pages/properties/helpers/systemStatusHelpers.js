@@ -4,7 +4,7 @@
  */
 
 /** systemType -> { lastInspection, nextInspection, condition, issues } field names */
-const INSPECTION_FIELDS_BY_SYSTEM = {
+export const INSPECTION_FIELDS_BY_SYSTEM = {
   roof: { lastInspection: "roofLastInspection", nextInspection: "roofNextInspection", condition: "roofCondition", issues: "roofIssues" },
   gutters: { lastInspection: "gutterLastInspection", nextInspection: "gutterNextInspection", condition: "gutterCondition", issues: "gutterIssues" },
   foundation: { lastInspection: "foundationLastInspection", nextInspection: "foundationNextInspection", condition: "foundationCondition", issues: "foundationIssues" },
@@ -48,14 +48,49 @@ function isUpcomingDate(dateStr) {
 }
 
 /**
+ * Find the next upcoming maintenance event for a system from maintenance_events.
+ * @param {Array} maintenanceEvents - Events from API (scheduled_date, system_key, scheduled_time)
+ * @param {string} systemType - System ID (e.g. "roof", "heating")
+ * @returns {{ scheduledDate: string, scheduledTime: string|null }|null}
+ */
+function getUpcomingEventForSystem(maintenanceEvents, systemType) {
+  if (!Array.isArray(maintenanceEvents) || !systemType) return null;
+  const today = new Date().toISOString().slice(0, 10);
+  const upcoming = maintenanceEvents
+    .filter(
+      (e) =>
+        (e.system_key ?? e.systemKey) === systemType &&
+        (e.scheduled_date ?? e.scheduledDate) >= today &&
+        ["scheduled", "confirmed"].includes((e.status || "").toLowerCase()),
+    )
+    .sort((a, b) => {
+      const da = a.scheduled_date ?? a.scheduledDate ?? "";
+      const db = b.scheduled_date ?? b.scheduledDate ?? "";
+      return da.localeCompare(db);
+    })[0];
+  if (!upcoming) return null;
+  return {
+    scheduledDate: upcoming.scheduled_date ?? upcoming.scheduledDate ?? "",
+    scheduledTime: upcoming.scheduled_time ?? upcoming.scheduledTime ?? null,
+  };
+}
+
+/**
  * Compute status flags for a system.
  * @param {Object} propertyData - Property form data
  * @param {string} systemType - System ID (e.g. "roof", "custom-Solar-0")
  * @param {boolean} isNewInstall - Whether system is marked as new install
  * @param {Object} customSystemsData - Custom system data (for custom systems)
- * @returns {{ needsAttention: boolean, hasScheduledEvent: boolean }}
+ * @param {Array} [maintenanceEvents] - Upcoming maintenance events from API
+ * @returns {{ needsAttention: boolean, hasScheduledEvent: boolean, scheduledDate?: string, scheduledTime?: string|null }}
  */
-export function getSystemStatus(propertyData, systemType, isNewInstall, customSystemsData = {}) {
+export function getSystemStatus(
+  propertyData,
+  systemType,
+  isNewInstall,
+  customSystemsData = {},
+  maintenanceEvents = [],
+) {
   let lastInspection = null;
   let nextInspection = null;
 
@@ -84,8 +119,58 @@ export function getSystemStatus(propertyData, systemType, isNewInstall, customSy
   const requiresMaintenance = ["Poor", "Fair"].includes(condition) || isFilled(issues);
   const needsAttention = noInspectionRecorded || requiresMaintenance;
 
-  // Scheduled Event: upcoming inspection or maintenance
-  const hasScheduledEvent = isFilled(nextInspection) && isUpcomingDate(nextInspection);
+  // Scheduled Event: from form (nextInspection) OR from maintenance_events (e.g. AI chat scheduling)
+  const fromForm = isFilled(nextInspection) && isUpcomingDate(nextInspection);
+  const eventForSystem = getUpcomingEventForSystem(maintenanceEvents, systemType);
+  const fromEvents = !!eventForSystem;
+  const hasScheduledEvent = fromForm || fromEvents;
 
-  return { needsAttention, hasScheduledEvent };
+  const scheduledDate =
+    fromEvents && eventForSystem?.scheduledDate
+      ? eventForSystem.scheduledDate
+      : fromForm && nextInspection
+        ? nextInspection
+        : undefined;
+  const scheduledTime = fromEvents ? eventForSystem?.scheduledTime : undefined;
+
+  return {
+    needsAttention,
+    hasScheduledEvent,
+    ...(scheduledDate != null && {scheduledDate}),
+    ...(scheduledTime !== undefined && {scheduledTime}),
+  };
+}
+
+/**
+ * Get the condition field name for a system (for form input).
+ * @param {string} systemType - e.g. "roof", "custom-Solar-0"
+ * @param {string} [customSystemName] - For custom systems, the display name (e.g. "Solar")
+ * @returns {string|null} Field name or null if system has no condition field
+ */
+export function getConditionFieldName(systemType, customSystemName) {
+  const customName = getCustomSystemName(systemType);
+  if (customName) {
+    const name = customSystemName ?? customName;
+    return `customSystem_${name}::condition`;
+  }
+  const fields = INSPECTION_FIELDS_BY_SYSTEM[systemType];
+  return fields?.condition ?? null;
+}
+
+/**
+ * Get the current condition value from property data.
+ * @param {Object} propertyData - Merged form data
+ * @param {string} systemType - e.g. "roof", "custom-Solar-0"
+ * @returns {string} Current condition value or empty string
+ */
+export function getCurrentConditionValue(propertyData, systemType) {
+  const customName = getCustomSystemName(systemType);
+  if (customName) {
+    const val = propertyData?.customSystemsData?.[customName]?.condition;
+    return val != null && String(val).trim() !== "" ? String(val).trim() : "";
+  }
+  const fields = INSPECTION_FIELDS_BY_SYSTEM[systemType];
+  if (!fields) return "";
+  const val = propertyData?.[fields.condition];
+  return val != null && String(val).trim() !== "" ? String(val).trim() : "";
 }
