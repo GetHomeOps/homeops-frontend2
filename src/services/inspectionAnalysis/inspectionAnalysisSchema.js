@@ -35,33 +35,60 @@ function normalizeSeverity(raw) {
  * Normalize systems_detected / systemsDetected from backend.
  * Backend: { systemType, confidence, evidence }
  * Canonical: { name, condition, confidence, evidence_quotes[], page_refs[] }
+ * Deduplicates by systemType so repeated systems (e.g. waterHeater twice) appear only once.
  */
 function normalizeSystemsDetected(raw) {
   if (!Array.isArray(raw)) return [];
-  return raw.map((s) => {
-    const name = s.name ?? s.systemType ?? s.system_key ?? "—";
-    const condition = s.condition ?? "unknown";
-    const confidence = clamp(s.confidence ?? 0.5, 0, 1);
-    const evidence_quotes = Array.isArray(s.evidence_quotes)
-      ? s.evidence_quotes
-      : s.evidence
-        ? [String(s.evidence)]
-        : [];
-    const page_refs = Array.isArray(s.page_refs) ? s.page_refs : [];
-    return { name, condition, confidence, evidence_quotes, page_refs };
-  });
+  const seen = new Set();
+  return raw
+    .map((s) => {
+      const name = s.name ?? s.systemType ?? s.system_key ?? "—";
+      const condition = s.condition ?? "unknown";
+      const hasCondition = condition !== "unknown";
+      const confidence = hasCondition && s.confidence != null ? clamp(s.confidence, 0, 1) : null;
+      const evidence_quotes = Array.isArray(s.evidence_quotes)
+        ? s.evidence_quotes
+        : s.evidence
+          ? [String(s.evidence)]
+          : [];
+      const page_refs = Array.isArray(s.page_refs) ? s.page_refs : [];
+      return {
+        name,
+        condition,
+        confidence,
+        evidence_quotes,
+        page_refs,
+        systemType: s.systemType ?? s.system_key,
+      };
+    })
+    .filter((s) => {
+      const key = (s.systemType ?? s.name ?? "").toString().toLowerCase().trim();
+      if (!key || seen.has(key)) return false;
+      seen.add(key);
+      return true;
+    });
 }
 
 /**
  * Normalize systems_missing_suspected / suggestedSystemsToAdd.
+ * Deduplicates by systemType so repeated systems appear only once.
  */
 function normalizeSystemsMissingSuspected(raw) {
   if (!Array.isArray(raw)) return [];
-  return raw.map((s) => ({
-    name: s.name ?? s.systemType ?? s.system_key ?? "—",
-    reason: s.reason ?? "",
-    confidence: clamp(s.confidence ?? 0.5, 0, 1),
-  }));
+  const seen = new Set();
+  return raw
+    .map((s) => ({
+      name: s.name ?? s.systemType ?? s.system_key ?? "—",
+      systemType: s.systemType ?? s.system_key,
+      reason: s.reason ?? "",
+      confidence: clamp(s.confidence ?? 0.5, 0, 1),
+    }))
+    .filter((s) => {
+      const key = (s.systemType ?? s.name ?? "").toString().toLowerCase().trim();
+      if (!key || seen.has(key)) return false;
+      seen.add(key);
+      return true;
+    });
 }
 
 /**
@@ -127,14 +154,15 @@ export function parseInspectionAnalysis(raw) {
   }
 
   const conditionRating = raw.conditionRating ?? raw.condition_rating ?? raw.property_state ?? "unknown";
-  const conditionConfidence = raw.conditionConfidence ?? raw.condition_confidence ?? raw.confidence ?? 0.5;
+  const property_state = normalizePropertyState(conditionRating);
+  const conditionConfidence = property_state === "unknown"
+    ? null
+    : (raw.conditionConfidence ?? raw.condition_confidence ?? raw.confidence ?? 0.5);
+  const confidence = conditionConfidence != null ? clamp(conditionConfidence, 0, 1) : null;
 
   const summary = typeof raw.summary === "string"
     ? raw.summary.slice(0, 600)
     : "";
-
-  const property_state = normalizePropertyState(conditionRating);
-  const confidence = clamp(conditionConfidence, 0, 1);
 
   const systems_detected = raw.systems_detected
     ? normalizeSystemsDetected(raw.systems_detected)

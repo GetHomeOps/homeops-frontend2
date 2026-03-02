@@ -1,5 +1,5 @@
 import React, {useState} from "react";
-import {Link} from "react-router-dom";
+import {Link, Navigate} from "react-router-dom";
 
 import {useAuth} from "../../context/AuthContext";
 import Sidebar from "../../partials/Sidebar";
@@ -10,10 +10,16 @@ import NotFoundImageDark from "../../images/404-illustration-dark.svg";
 
 /**
  * 404 page. Does not show sidebar or navbar for non-logged-in users.
+ * Users who haven't completed onboarding are redirected to /onboarding instead.
  */
 function PageNotFound() {
   const {currentUser} = useAuth();
   const [sidebarOpen, setSidebarOpen] = useState(false);
+
+  // Users who haven't finished onboarding should complete it first, not see the 404 with sidebar
+  if (currentUser?.onboardingCompleted === false) {
+    return <Navigate to="/onboarding" replace />;
+  }
 
   const content = (
     <div className="max-w-2xl m-auto mt-16">

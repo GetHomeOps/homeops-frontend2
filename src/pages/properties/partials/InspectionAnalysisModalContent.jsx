@@ -134,7 +134,15 @@ export default function InspectionAnalysisModalContent({
   if (status === "ready" && data) {
     const condition = data.property_state ?? data.conditionRating ?? "unknown";
     const conditionClass = CONDITION_BADGES[condition] ?? CONDITION_BADGES.unknown;
-    const systems = data.systems_detected ?? data.systemsDetected ?? [];
+    const rawSystems = data.systems_detected ?? data.systemsDetected ?? [];
+    // Deduplicate by system type (AI may suggest same system multiple times, e.g. waterHeater twice)
+    const seenKeys = new Set();
+    const systems = rawSystems.filter((s) => {
+      const key = (s.systemType ?? s.system_key ?? s.name ?? "").toString().toLowerCase().trim();
+      if (!key || seenKeys.has(key)) return false;
+      seenKeys.add(key);
+      return true;
+    });
     // Support both recommended_actions (normalized) and maintenanceSuggestions (raw API)
     const rawActions = data.recommended_actions ?? data.maintenanceSuggestions ?? data.maintenance_suggestions ?? [];
     const actions = rawActions.map((a) => {
@@ -183,30 +191,47 @@ export default function InspectionAnalysisModalContent({
               No systems detected.
             </p>
           ) : (
-            <ul className="space-y-2">
-              {systems.map((s, i) => (
-                <li
-                  key={i}
-                  className="flex items-center justify-between gap-4 py-2 px-3 rounded-lg bg-neutral-50 dark:bg-neutral-800/50 border border-neutral-100 dark:border-neutral-700/50"
-                >
-                  <span className="text-sm font-medium text-neutral-800 dark:text-neutral-200">
-                    {s.name ?? "—"}
-                  </span>
-                  <div className="flex items-center gap-2">
-                    <span
-                      className={`text-xs px-2 py-0.5 rounded capitalize ${
-                        CONDITION_BADGES[s.condition] ?? CONDITION_BADGES.unknown
-                      }`}
+            <div className="rounded-lg border border-neutral-100 dark:border-neutral-700/50 overflow-hidden">
+              <table className="w-full text-sm">
+                <thead>
+                  <tr className="bg-neutral-100/80 dark:bg-neutral-800/80">
+                    <th className="text-left py-2.5 px-3 text-xs font-semibold text-neutral-600 dark:text-neutral-400 uppercase tracking-wider">
+                      System
+                    </th>
+                    <th className="text-left py-2.5 px-3 text-xs font-semibold text-neutral-600 dark:text-neutral-400 uppercase tracking-wider">
+                      Condition
+                    </th>
+                    <th className="text-right py-2.5 px-3 text-xs font-semibold text-neutral-600 dark:text-neutral-400 uppercase tracking-wider">
+                      Confidence
+                    </th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {systems.map((s, i) => (
+                    <tr
+                      key={i}
+                      className="border-t border-neutral-100 dark:border-neutral-700/50 bg-neutral-50/50 dark:bg-neutral-800/30 hover:bg-neutral-50 dark:hover:bg-neutral-800/50"
                     >
-                      {formatCondition(s.condition)}
-                    </span>
-                    <span className="text-xs text-neutral-500 dark:text-neutral-400 tabular-nums">
-                      {formatConfidence(s.confidence)}
-                    </span>
-                  </div>
-                </li>
-              ))}
-            </ul>
+                      <td className="py-2 px-3 font-medium text-neutral-800 dark:text-neutral-200">
+                        {(getSystemLabel(s.systemType ?? s.system_key ?? s.name) || s.name) ?? "—"}
+                      </td>
+                      <td className="py-2 px-3">
+                        <span
+                          className={`inline-flex text-xs px-2 py-0.5 rounded capitalize ${
+                            CONDITION_BADGES[s.condition] ?? CONDITION_BADGES.unknown
+                          }`}
+                        >
+                          {formatCondition(s.condition)}
+                        </span>
+                      </td>
+                      <td className="py-2 px-3 text-right text-neutral-500 dark:text-neutral-400 tabular-nums">
+                        {(s.condition || "").toLowerCase() === "unknown" ? "—" : formatConfidence(s.confidence)}
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
           )}
         </section>
 

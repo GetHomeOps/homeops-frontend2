@@ -153,7 +153,10 @@ function SectionWithProgress({
   const isComplete = percent >= 100;
 
   return (
-    <div className="bg-gray-50 dark:bg-gray-700/50 rounded-lg overflow-hidden relative">
+    <div
+      className="bg-gray-50 dark:bg-gray-700/50 rounded-lg overflow-hidden relative"
+      data-section-id={sectionId}
+    >
       <style>{`
         @keyframes identityCheckPop {
           from {

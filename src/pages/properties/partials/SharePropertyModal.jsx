@@ -443,6 +443,17 @@ function SharePropertyModal({
     if (!canSubmit || isSubmitting) return;
     if (activeTab === "homeowner" && atHomeownerLimit) return;
     setEmailError("");
+
+    const emailLower = (effectiveEmail || "").trim().toLowerCase();
+    const alreadyInTeam = (teamMembers ?? []).some((m) => {
+      const mEmail = (m.email ?? m.inviteeEmail ?? "").trim().toLowerCase();
+      return mEmail && mEmail === emailLower;
+    });
+    if (alreadyInTeam) {
+      setEmailError("This person is already on the team or has a pending invitation.");
+      return;
+    }
+
     setIsSubmitting(true);
     try {
       const perSystemPerms = {};

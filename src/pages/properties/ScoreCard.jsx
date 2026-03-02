@@ -22,7 +22,7 @@ import {
   DEFAULT_SYSTEM_IDS,
 } from "./constants/propertySystems";
 
-function ScoreCard({propertyData}) {
+function ScoreCard({propertyData, onCompleteOutstandingTasks}) {
   const [scorecardOpen, setScorecardOpen] = useState(false);
   const [identityOpen, setIdentityOpen] = useState(false);
   const [systemsOpen, setSystemsOpen] = useState(false);
@@ -171,6 +171,7 @@ function ScoreCard({propertyData}) {
           {/* CTA Button */}
           <div className="mt-1.5">
             <button
+              type="button"
               className="btn text-white text-xs py-1.5 px-3 transition-colors"
               style={{backgroundColor: "#456654"}}
               onMouseEnter={(e) => {
@@ -179,6 +180,7 @@ function ScoreCard({propertyData}) {
               onMouseLeave={(e) => {
                 e.target.style.backgroundColor = "#456654";
               }}
+              onClick={onCompleteOutstandingTasks}
             >
               Complete Outstanding Tasks
             </button>

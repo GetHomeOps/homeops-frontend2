@@ -1,6 +1,6 @@
 import React, {useState, useRef, useEffect} from "react";
 import {Link} from "react-router-dom";
-import {Bell, Clock, Calendar, AlertCircle, ChevronRight, BookOpen} from "lucide-react";
+import {Bell, Clock, Calendar, AlertCircle, ChevronRight, BookOpen, UserPlus} from "lucide-react";
 import Transition from "../utils/Transition";
 import AppApi from "../api/api";
 import useCurrentAccount from "../hooks/useCurrentAccount";
@@ -51,6 +51,7 @@ function DropdownNotifications({align = "right"}) {
   const accountUrl = currentAccount?.url || "";
   const calendarPath = accountUrl ? `/${accountUrl}/calendar` : "/calendar";
   const homePath = accountUrl ? `/${accountUrl}` : "/";
+  const invitationsPath = accountUrl ? `/${accountUrl}/invitations` : "/invitations";
 
   const fetchData = () => {
     setLoading(true);
@@ -176,35 +177,50 @@ function DropdownNotifications({align = "right"}) {
                         <BookOpen className="w-3 h-3" /> New resources
                       </span>
                     </li>
-                    {notifications.map((n) => (
-                      <li key={n.id} className="border-b border-gray-100 dark:border-gray-700/40 last:border-0">
-                        <Link
-                          to={homePath}
-                          onClick={async () => {
-                            if (!n.readAt) {
-                              try {
-                                await AppApi.markNotificationRead(n.id);
-                                setUnreadCount((c) => Math.max(0, c - 1));
-                              } catch {}
-                            }
-                            setDropdownOpen(false);
-                          }}
-                          className={`flex gap-3 px-4 py-3 hover:bg-gray-50 dark:hover:bg-gray-700/30 transition-colors ${!n.readAt ? "bg-[#456564]/5 dark:bg-[#456564]/10" : ""}`}
-                        >
-                          <div className="w-9 h-9 rounded-lg bg-[#456564]/15 dark:bg-[#456564]/20 flex items-center justify-center shrink-0">
-                            <BookOpen className="w-4 h-4 text-[#456564] dark:text-[#5a7a78]" />
-                          </div>
-                          <div className="flex-1 min-w-0">
-                            <p className="text-sm font-medium text-gray-900 dark:text-white truncate">
-                              {n.title || n.resourceSubject || "New resource shared"}
-                            </p>
-                            <p className="text-xs text-gray-500 dark:text-gray-400">
-                              {formatNotificationTime(n.createdAt)}
-                            </p>
-                          </div>
-                        </Link>
-                      </li>
-                    ))}
+                    {notifications.map((n) => {
+                      const isInvitation = n.type === "property_invitation";
+                      const basePath = isInvitation && n.propertyUid && n.accountUrl
+                        ? `/${n.accountUrl}/properties/${n.propertyUid}`
+                        : isInvitation
+                          ? invitationsPath
+                          : homePath;
+                      const linkTo = isInvitation && n.invitationId && basePath.includes("/properties/")
+                        ? `${basePath}?invitation=${n.invitationId}`
+                        : basePath;
+                      return (
+                        <li key={n.id} className="border-b border-gray-100 dark:border-gray-700/40 last:border-0">
+                          <Link
+                            to={linkTo}
+                            onClick={async () => {
+                              if (!n.readAt) {
+                                try {
+                                  await AppApi.markNotificationRead(n.id);
+                                  setUnreadCount((c) => Math.max(0, c - 1));
+                                } catch {}
+                              }
+                              setDropdownOpen(false);
+                            }}
+                            className={`flex gap-3 px-4 py-3 hover:bg-gray-50 dark:hover:bg-gray-700/30 transition-colors ${!n.readAt ? "bg-[#456564]/5 dark:bg-[#456564]/10" : ""}`}
+                          >
+                            <div className="w-9 h-9 rounded-lg bg-[#456564]/15 dark:bg-[#456564]/20 flex items-center justify-center shrink-0">
+                              {isInvitation ? (
+                                <UserPlus className="w-4 h-4 text-[#456564] dark:text-[#5a7a78]" />
+                              ) : (
+                                <BookOpen className="w-4 h-4 text-[#456564] dark:text-[#5a7a78]" />
+                              )}
+                            </div>
+                            <div className="flex-1 min-w-0">
+                              <p className="text-sm font-medium text-gray-900 dark:text-white truncate">
+                                {n.title || n.resourceSubject || "New resource shared"}
+                              </p>
+                              <p className="text-xs text-gray-500 dark:text-gray-400">
+                                {formatNotificationTime(n.createdAt)}
+                              </p>
+                            </div>
+                          </Link>
+                        </li>
+                      );
+                    })}
                     <li className="px-4 py-1.5 mt-1">
                       <span className="text-[10px] font-semibold uppercase tracking-wider text-gray-400 dark:text-gray-500 flex items-center gap-1.5">
                         <Calendar className="w-3 h-3" /> Upcoming events
@@ -308,6 +324,13 @@ function DropdownNotifications({align = "right"}) {
                 className="flex-1 flex items-center justify-center gap-1.5 py-2 text-sm font-medium text-[#456564] dark:text-teal-400 hover:text-[#3a5554] dark:hover:text-teal-300"
               >
                 View home <ChevronRight className="w-4 h-4" />
+              </Link>
+              <Link
+                to={invitationsPath}
+                onClick={() => setDropdownOpen(false)}
+                className="flex-1 flex items-center justify-center gap-1.5 py-2 text-sm font-medium text-[#456564] dark:text-teal-400 hover:text-[#3a5554] dark:hover:text-teal-300"
+              >
+                Invitations <ChevronRight className="w-4 h-4" />
               </Link>
               <Link
                 to={calendarPath}

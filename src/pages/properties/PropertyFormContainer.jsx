@@ -6,7 +6,7 @@ import React, {
   useEffect,
   useCallback,
 } from "react";
-import {useNavigate, useLocation, useParams} from "react-router-dom";
+import {useNavigate, useLocation, useParams, useSearchParams} from "react-router-dom";
 import PropertyContext from "../../context/PropertyContext";
 import UserContext from "../../context/UserContext";
 import ContactContext from "../../context/ContactContext";
@@ -63,7 +63,19 @@ import {
   computeMaintenanceSyncPlan,
   isNewMaintenanceRecord,
 } from "./helpers/maintenanceRecordMapping";
-import {STANDARD_CUSTOM_SYSTEM_FIELDS} from "./constants/propertySystems";
+import {
+  STANDARD_CUSTOM_SYSTEM_FIELDS,
+  PROPERTY_SYSTEMS,
+  DEFAULT_SYSTEM_IDS,
+} from "./constants/propertySystems";
+import {
+  IDENTITY_SECTIONS,
+  isSectionComplete,
+} from "./constants/identitySections";
+import {
+  isSystemComplete,
+  isCustomSystemComplete,
+} from "./constants/systemSections";
 import Banner from "../../partials/containers/Banner";
 import {useAutoCloseBanner} from "../../hooks/useAutoCloseBanner";
 import {
@@ -90,6 +102,8 @@ import {
   Loader2,
   Sparkles,
   X,
+  Check,
+  UserPlus,
 } from "lucide-react";
 import AIAssistantSidebar from "./partials/AIAssistantSidebar";
 import InspectionReportModal from "./partials/InspectionReportModal";
@@ -191,6 +205,14 @@ function reducer(state, action) {
         },
         formDataChanged: !state.isInitialLoad,
       };
+    case "SET_IDENTITY_FORM_DATA_SILENT":
+      return {
+        ...state,
+        formData: {
+          ...state.formData,
+          identity: {...state.formData.identity, ...action.payload},
+        },
+      };
     case "SET_SYSTEMS_FORM_DATA":
       return {
         ...state,
@@ -199,6 +221,14 @@ function reducer(state, action) {
           systems: {...state.formData.systems, ...action.payload},
         },
         formDataChanged: !state.isInitialLoad,
+      };
+    case "SET_SYSTEMS_FORM_DATA_SILENT":
+      return {
+        ...state,
+        formData: {
+          ...state.formData,
+          systems: {...state.formData.systems, ...action.payload},
+        },
       };
     case "SET_MAINTENANCE_FORM_DATA":
       return {
@@ -311,6 +341,9 @@ function PropertyFormContainer() {
   const navigate = useNavigate();
   const location = useLocation();
   const {uid, accountUrl: accountUrlParam} = useParams();
+  const [searchParams] = useSearchParams();
+  const invitationIdFromUrl = searchParams.get("invitation")?.trim?.() || searchParams.get("invitation");
+  const isInvitationView = Boolean(invitationIdFromUrl && uid !== "new");
   const {t} = useTranslation();
   const {
     currentAccount,
@@ -341,6 +374,7 @@ function PropertyFormContainer() {
   const [systemsSetupModalOpen, setSystemsSetupModalOpen] = useState(false);
   const [aiSidebarOpen, setAiSidebarOpen] = useState(false);
   const [aiSidebarSystemLabel, setAiSidebarSystemLabel] = useState(null);
+  const [aiSidebarSystemContext, setAiSidebarSystemContext] = useState(null);
   const [aiSidebarInitialPrompt, setAiSidebarInitialPrompt] = useState(null);
   const [inspectionAnalysis, setInspectionAnalysis] = useState(null);
   const [inspectionReportModalOpen, setInspectionReportModalOpen] =
@@ -353,6 +387,10 @@ function PropertyFormContainer() {
   const [actionsDropdownOpen, setActionsDropdownOpen] = useState(false);
   const [shareModalOpen, setShareModalOpen] = useState(false);
   const [blankModalOpen, setBlankModalOpen] = useState(false);
+  const [invitationModalOpen, setInvitationModalOpen] = useState(false);
+  const [invitationAcceptingId, setInvitationAcceptingId] = useState(null);
+  const [invitationDecliningId, setInvitationDecliningId] = useState(null);
+  const [invitationError, setInvitationError] = useState(null);
   const [mainPhotoMenuOpen, setMainPhotoMenuOpen] = useState(false);
   const mainPhotoInputRef = useRef(null);
   const actionsTriggerRef = useRef(null);
@@ -360,6 +398,10 @@ function PropertyFormContainer() {
   const saveBarRef = useRef(null);
   const blankModalButtonRef = useRef(null);
   const originalMaintenanceRecordIdsRef = useRef(new Set());
+  const [expandSectionId, setExpandSectionId] = useState(null);
+
+  // Merged formData – declared early so callbacks can reference it
+  const mergedFormData = mergeFormDataFromTabs(state.formData);
 
   const {
     uploadImage: uploadMainPhoto,
@@ -494,6 +536,13 @@ function PropertyFormContainer() {
       navigate(location.pathname, {replace: true, state: restState});
     }
   }, [uid]);
+
+  /* Open invitation modal when viewing property from invitation notification */
+  useEffect(() => {
+    if (isInvitationView && state.property && invitationIdFromUrl) {
+      setInvitationModalOpen(true);
+    }
+  }, [isInvitationView, state.property, invitationIdFromUrl]);
 
   /* Fetch inspection analysis for hero card pill and report context */
   const propertyIdForApi =
@@ -772,7 +821,15 @@ function PropertyFormContainer() {
   const formDataRef = useRef(state.formData);
   formDataRef.current = state.formData;
 
-  /* Handles changes in systems section completion – updates healthMetrics for persistence */
+  /* Silent systems update – used by auto-populate from AI analysis; does not show save bar. */
+  const handleSilentSystemsUpdate = useCallback((payload) => {
+    if (payload && typeof payload === "object") {
+      dispatch({type: "SET_SYSTEMS_FORM_DATA_SILENT", payload});
+    }
+  }, []);
+
+  /* Handles changes in systems section completion – updates healthMetrics for persistence.
+     Uses SET_IDENTITY_FORM_DATA_SILENT so switching to Systems tab doesn't show the save bar. */
   const handleSystemsCompletionChange = useCallback(
     (completedCount, totalCount) => {
       const currentHealthMetrics =
@@ -787,7 +844,7 @@ function PropertyFormContainer() {
         currentSystemsIdentified.total !== totalCount
       ) {
         dispatch({
-          type: "SET_IDENTITY_FORM_DATA",
+          type: "SET_IDENTITY_FORM_DATA_SILENT",
           payload: {
             healthMetrics: {
               ...currentHealthMetrics,
@@ -977,6 +1034,119 @@ function PropertyFormContainer() {
       navigate(`/${accountUrl}/properties`);
     }
   };
+
+  /** Scroll to section and highlight – runs after tab switch so target is in DOM. */
+  const runScrollToSection = useCallback((tab, sectionId) => {
+    const dataAttr =
+      sectionId === "__all_complete__"
+        ? "health-status"
+        : tab === "identity"
+          ? sectionId
+          : tab === "systems"
+            ? `system-${sectionId}`
+            : tab === "maintenance"
+              ? "maintenance"
+              : null;
+    if (!dataAttr) return;
+
+    const scrollAndHighlight = () => {
+      const el = document.querySelector(`[data-section-id="${dataAttr}"]`);
+      if (!el) return;
+      el.scrollIntoView({behavior: "smooth", block: "start"});
+      el.classList.add("ring-2", "ring-amber-400", "ring-offset-2", "dark:ring-offset-neutral-900");
+      const focusable = el.querySelector("input, select, textarea, [tabindex]:not([tabindex='-1'])");
+      const focusDelay = tab === "systems" ? 350 : 400;
+      if (focusable) {
+        setTimeout(() => focusable.focus({preventScroll: true}), focusDelay);
+      }
+      setTimeout(() => {
+        el.classList.remove("ring-2", "ring-amber-400", "ring-offset-2", "dark:ring-offset-neutral-900");
+      }, 2500);
+    };
+
+    const delay = sectionId === "__all_complete__" ? 50 : 200;
+    setTimeout(() => {
+      requestAnimationFrame(() => {
+        requestAnimationFrame(scrollAndHighlight);
+      });
+    }, delay);
+  }, []);
+
+  /** Find first incomplete section and navigate to it when "Complete Outstanding Tasks" is clicked. */
+  const handleCompleteOutstandingTasks = useCallback(() => {
+    try {
+      const data = mergedFormData ?? {};
+      const visibleSystemIds =
+        (data.selectedSystemIds?.length ?? 0) > 0
+          ? data.selectedSystemIds
+          : DEFAULT_SYSTEM_IDS;
+      const customSystemNames = data.customSystemNames ?? [];
+      const systemItems = [
+        ...PROPERTY_SYSTEMS.filter((s) => visibleSystemIds.includes(s.id)),
+        ...customSystemNames.map((name, index) => ({
+          id: `custom-${name}-${index}`,
+          name,
+        })),
+      ];
+      const currentMaintenance =
+        data.healthMetrics?.maintenanceCompleted?.current ?? 0;
+
+      // 1. First incomplete identity section
+      const firstIncompleteIdentity = IDENTITY_SECTIONS.find(
+        (s) => !isSectionComplete(data, s),
+      );
+      if (firstIncompleteIdentity) {
+        dispatch({type: "SET_ACTIVE_TAB", payload: "identity"});
+        setExpandSectionId(null);
+        runScrollToSection("identity", firstIncompleteIdentity.id);
+        return;
+      }
+
+      // 2. First incomplete system
+      for (const item of systemItems) {
+        const isComplete = item.id?.startsWith("custom-")
+          ? isCustomSystemComplete(data.customSystemsData ?? {}, item.name)
+          : isSystemComplete(data, item.id);
+        if (!isComplete) {
+          dispatch({type: "SET_ACTIVE_TAB", payload: "systems"});
+          setExpandSectionId(item.id);
+          runScrollToSection("systems", item.id);
+          return;
+        }
+      }
+
+      // 3. First incomplete maintenance
+      if (currentMaintenance < systemItems.length) {
+        dispatch({type: "SET_ACTIVE_TAB", payload: "maintenance"});
+        setExpandSectionId(null);
+        runScrollToSection("maintenance", "maintenance");
+        return;
+      }
+
+      // All sections complete
+      dispatch({type: "SET_ACTIVE_TAB", payload: "identity"});
+      setExpandSectionId(null);
+      runScrollToSection("identity", "__all_complete__");
+      dispatch({
+        type: "SET_BANNER",
+        payload: {
+          open: true,
+          type: "success",
+          message: "All outstanding tasks are complete!",
+        },
+      });
+    } catch (err) {
+      console.error("Complete Outstanding Tasks error:", err);
+      dispatch({
+        type: "SET_BANNER",
+        payload: {
+          open: true,
+          type: "error",
+          message: "Something went wrong. Please try again.",
+        },
+      });
+    }
+  }, [mergedFormData, runScrollToSection]);
 
   async function handleUpdate(event) {
     event.preventDefault();
@@ -1197,9 +1367,6 @@ function PropertyFormContainer() {
     };
   };
 
-  // Merged formData for components expecting flat structure
-  const mergedFormData = mergeFormDataFromTabs(state.formData);
-
   // Card shows saved property data only; updates after load or save, not while typing
   const cardData = state.property
     ? mergeFormDataFromTabs(state.property)
@@ -1254,7 +1421,7 @@ function PropertyFormContainer() {
     !state.isSubmitting;
   if (loadingExisting) {
     return (
-      <div className="mx-0 sm:mx-4 sm:px-4 lg:px-8 pt-6 pb-8 flex items-center justify-center min-h-[40vh]">
+      <div className="mx-0 sm:mx-4 sm:px-4 lg:px-8 pt-6 pb-2 flex items-center justify-center min-h-[40vh]">
         <div className="text-gray-500 dark:text-gray-400">
           Loading property...
         </div>
@@ -1264,7 +1431,7 @@ function PropertyFormContainer() {
 
   if (state.propertyNotFound && uid !== "new") {
     return (
-      <div className="mx-0 sm:mx-4 sm:px-4 lg:px-8 pt-6 pb-8">
+      <div className="mx-0 sm:mx-4 sm:px-4 lg:px-8 pt-6 pb-2">
         <PropertyNotFound />
       </div>
     );
@@ -1272,14 +1439,14 @@ function PropertyFormContainer() {
 
   if (state.propertyAccessDenied && uid !== "new") {
     return (
-      <div className="mx-0 sm:mx-4 sm:px-4 lg:px-8 pt-6 pb-8">
+      <div className="mx-0 sm:mx-4 sm:px-4 lg:px-8 pt-6 pb-2">
         <PropertyUnauthorized />
       </div>
     );
   }
 
   return (
-    <div className="mx-0 sm:mx-4 sm:px-4 lg:px-8 pt-6 pb-8">
+    <div className="mx-0 sm:mx-4 sm:px-4 lg:px-8 pt-6 pb-2">
       <SharePropertyModal
         modalOpen={shareModalOpen}
         setModalOpen={setShareModalOpen}
@@ -1316,17 +1483,26 @@ function PropertyFormContainer() {
             uid !== "new"
               ? (state.property?.identity?.id ?? state.property?.id ?? uid)
               : null;
+          const intendedRole =
+            role === "agent"
+              ? "editor"
+              : homeownerInviteType === "view_only"
+                ? "viewer"
+                : "editor";
+          const displayRole = role === "agent" ? "Agent" : "Homeowner";
+          const pendingMember = {
+            email: inviteEmail,
+            name: inviteEmail,
+            role: displayRole,
+            property_role: intendedRole,
+            permissions: permissions ?? {},
+            _pending: true,
+          };
           if (
             propertyId &&
             currentAccount?.id &&
             typeof AppApi.createInvitation === "function"
           ) {
-            const intendedRole =
-              role === "agent"
-                ? "editor"
-                : homeownerInviteType === "view_only"
-                  ? "viewer"
-                  : "editor";
             await AppApi.createInvitation({
               type: "property",
               inviteeEmail: inviteEmail,
@@ -1334,14 +1510,8 @@ function PropertyFormContainer() {
               propertyId,
               intendedRole,
             });
+            handleTeamChange([...homeopsTeam, pendingMember]);
           } else {
-            const pendingMember = {
-              email: inviteEmail,
-              name: inviteEmail,
-              role: role === "agent" ? "Agent" : "Homeowner",
-              permissions: permissions ?? {},
-              _pending: true,
-            };
             handleTeamChange([...homeopsTeam, pendingMember]);
           }
         }}
@@ -1571,6 +1741,7 @@ function PropertyFormContainer() {
           </svg>
           <span className="text-lg">Properties</span>
         </button>
+        {!isInvitationView && (
         <div className="flex items-center gap-3">
           <div className="relative inline-flex">
             <button
@@ -1663,8 +1834,10 @@ function PropertyFormContainer() {
             {t("new")}
           </button>
         </div>
+        )}
       </div>
 
+      {!isInvitationView && (
       <div className="flex justify-between items-center mb-2">
         {/* Analysis and AI Assistant buttons - Left aligned */}
         <div className="flex items-center gap-3 sm:ml-4">
@@ -1802,6 +1975,7 @@ function PropertyFormContainer() {
             })()}
         </div>
       </div>
+      )}
 
       <div className="space-y-8">
         {/* Property Passport Card - clean premium surface */}
@@ -1853,7 +2027,9 @@ function PropertyFormContainer() {
                             : "bg-neutral-100 text-neutral-600 border border-neutral-200"
                     }`}
                   >
-                    {inspectionAnalysis.conditionRating}
+                    {(inspectionAnalysis.conditionRating || "").toLowerCase() === "unknown"
+                      ? "Not specified"
+                      : inspectionAnalysis.conditionRating}
                   </span>
                 )}
               </div>
@@ -2094,18 +2270,25 @@ function PropertyFormContainer() {
         {/* HomeOps Team */}
         <HomeOpsTeam
           teamMembers={homeopsTeam}
-          onOpenShareModal={() => setShareModalOpen(true)}
+          onOpenShareModal={isInvitationView ? undefined : () => setShareModalOpen(true)}
+          hideAddButton={isInvitationView}
         />
 
+        {!isInvitationView && (
+        <>
         {/* Property Health & Completeness */}
         <section
+          data-section-id="health-status"
           className="rounded-2xl overflow-hidden border border-neutral-200/80 dark:border-neutral-700/50 bg-white dark:bg-neutral-900 p-5 md:p-6"
           style={{
             boxShadow:
               "0 4px 24px rgba(0,0,0,0.06), 0 1px 2px rgba(0,0,0,0.04)",
           }}
         >
-          <ScoreCard propertyData={mergedFormData} />
+          <ScoreCard
+            propertyData={mergedFormData}
+            onCompleteOutstandingTasks={handleCompleteOutstandingTasks}
+          />
         </section>
 
         {/* Navigation Tabs */}
@@ -2152,7 +2335,7 @@ function PropertyFormContainer() {
               })}
             </nav>
           </div>
-          <div className="p-6">
+          <div className={`px-6 pt-6 ${state.formDataChanged || state.isNew ? "pb-6" : "pb-2"}`}>
             {state.activeTab === "identity" && (
               <IdentityTab
                 propertyData={mergedFormData}
@@ -2170,6 +2353,8 @@ function PropertyFormContainer() {
                 propertyData={mergedFormData}
                 propertyIdFallback={uid !== "new" ? uid : undefined}
                 handleInputChange={handleChange}
+                expandSectionId={expandSectionId}
+                onSilentSystemsUpdate={handleSilentSystemsUpdate}
                 visibleSystemIds={visibleSystemIds}
                 customSystemsData={
                   state.formData.systems?.customSystemsData ?? {}
@@ -2182,11 +2367,14 @@ function PropertyFormContainer() {
                 }
                 aiSidebarOpen={aiSidebarOpen}
                 onAiSidebarOpenChange={setAiSidebarOpen}
-                onOpenAIAssistant={(label) => {
-                  setAiSidebarSystemLabel(label ?? null);
+                onOpenAIAssistant={(ctx) => {
+                  const obj = typeof ctx === "object" && ctx !== null ? ctx : { systemName: ctx };
+                  setAiSidebarSystemLabel(obj.systemName ?? ctx ?? null);
+                  setAiSidebarSystemContext(typeof ctx === "object" && ctx !== null ? ctx : null);
                   setAiSidebarOpen(true);
                 }}
                 aiSidebarSystemLabel={aiSidebarSystemLabel}
+                aiSidebarSystemContext={aiSidebarSystemContext}
                 onSystemsCompletionChange={handleSystemsCompletionChange}
               />
             )}
@@ -2287,12 +2475,13 @@ function PropertyFormContainer() {
 
         {/* Save/Cancel bar — direct child of space-y-8 so its sticky parent
              always has content in the viewport regardless of scroll position.
-             -mt-8 collapses the space-y gap to visually attach to the section above. */}
+             -mt-8 collapses the space-y gap to visually attach to the section above.
+             z-0 keeps it below tooltips (z-10) and popovers (z-50) on Systems tab. */}
         <div
           ref={saveBarRef}
           className={`${
             state.formDataChanged || state.isNew ? "sticky -mt-8" : "hidden"
-          } bottom-0 z-30 bg-white dark:bg-neutral-900 border border-neutral-200/80 dark:border-neutral-700/50 border-t border-t-neutral-100 dark:border-t-neutral-800 px-6 py-4 rounded-b-2xl transition-all duration-200`}
+          } bottom-0 z-0 bg-white dark:bg-neutral-900 border border-neutral-200/80 dark:border-neutral-700/50 border-t border-t-neutral-100 dark:border-t-neutral-800 px-6 py-4 rounded-b-2xl transition-all duration-200`}
           style={{
             boxShadow:
               "0 4px 24px rgba(0,0,0,0.06), 0 1px 2px rgba(0,0,0,0.04)",
@@ -2301,7 +2490,7 @@ function PropertyFormContainer() {
           <div className="flex justify-end gap-3">
             <button
               type="button"
-              className="btn bg-white dark:bg-neutral-900 border border-neutral-200/80 dark:border-neutral-700/50 hover:border-neutral-300 dark:hover:border-neutral-600 text-neutral-800 dark:text-neutral-200 transition-colors duration-200 shadow-sm"
+              className="btn bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 hover:border-gray-300 dark:hover:border-gray-600 text-gray-800 dark:text-gray-300 transition-colors duration-200 shadow-sm"
               onClick={handleCancelChanges}
             >
               Cancel
@@ -2327,7 +2516,113 @@ function PropertyFormContainer() {
             </button>
           </div>
         </div>
+        </>
+        )}
       </div>
+
+      {/* Invitation accept/decline modal */}
+      {isInvitationView && invitationIdFromUrl && (
+        <ModalBlank
+          modalOpen={invitationModalOpen}
+          setModalOpen={setInvitationModalOpen}
+          closeOnClickOutside={false}
+          closeOnBackdropClick={false}
+        >
+          <div className="p-6 max-w-md">
+            <div className="flex items-center gap-3 mb-4">
+              <div className="w-12 h-12 rounded-xl bg-[#456564]/15 dark:bg-[#5a7a78]/25 flex items-center justify-center">
+                <UserPlus className="w-6 h-6 text-[#456564] dark:text-[#5a7a78]" />
+              </div>
+              <div>
+                <h3 className="text-lg font-semibold text-neutral-900 dark:text-white">
+                  Property invitation
+                </h3>
+                <p className="text-sm text-neutral-500 dark:text-neutral-400">
+                  You&apos;ve been invited to join this property&apos;s Opsy team.
+                </p>
+              </div>
+            </div>
+            <p className="text-sm text-neutral-600 dark:text-neutral-300 mb-6">
+              Would you like to accept this invitation and get access to this property?
+            </p>
+            {invitationError && (
+              <p className="text-sm text-red-600 dark:text-red-400 mb-4" role="alert">
+                {invitationError}
+              </p>
+            )}
+            <div className="flex gap-3">
+              <button
+                type="button"
+                onClick={async () => {
+                  setInvitationError(null);
+                  setInvitationAcceptingId(invitationIdFromUrl);
+                  try {
+                    await AppApi.acceptInvitationInApp(invitationIdFromUrl);
+                    setInvitationModalOpen(false);
+                    const team = await getPropertyTeam(uid);
+                    const raw = team?.property_users ?? [];
+                    const enriched = raw.map((m) => {
+                      const u = users?.find(
+                        (us) => us && m?.id != null && Number(us.id) === Number(m.id),
+                      );
+                      return {
+                        ...m,
+                        role: m.property_role ?? m.role,
+                        image_url: m.image_url ?? u?.image_url,
+                        image: m.image ?? u?.image,
+                      };
+                    });
+                    setHomeopsTeam(enriched);
+                    navigate(`/${accountUrl}/properties/${uid}`, { replace: true });
+                  } catch (err) {
+                    console.error("Failed to accept invitation:", err);
+                    const msg = err?.messages?.[0] ?? err?.message ?? "Failed to accept invitation.";
+                    setInvitationError(typeof msg === "string" ? msg : "Failed to accept invitation.");
+                  } finally {
+                    setInvitationAcceptingId(null);
+                  }
+                }}
+                disabled={!!invitationAcceptingId || !!invitationDecliningId}
+                className="btn flex-1 bg-[#456564] hover:bg-[#34514f] text-white inline-flex items-center justify-center gap-2"
+              >
+                {invitationAcceptingId ? (
+                  <Loader2 className="w-4 h-4 animate-spin" />
+                ) : (
+                  <Check className="w-4 h-4" />
+                )}
+                Accept
+              </button>
+              <button
+                type="button"
+                onClick={async () => {
+                  setInvitationError(null);
+                  setInvitationDecliningId(invitationIdFromUrl);
+                  try {
+                    await AppApi.declineInvitation(invitationIdFromUrl);
+                    setInvitationModalOpen(false);
+                    navigate(`/${accountUrl}/properties`);
+                  } catch (err) {
+                    console.error("Failed to decline invitation:", err);
+                    const msg = err?.messages?.[0] ?? err?.message ?? "Failed to decline invitation.";
+                    setInvitationError(typeof msg === "string" ? msg : "Failed to decline invitation.");
+                  } finally {
+                    setInvitationDecliningId(null);
+                  }
+                }}
+                disabled={!!invitationAcceptingId || !!invitationDecliningId}
+                className="btn flex-1 border border-neutral-200 dark:border-neutral-600 text-neutral-700 dark:text-neutral-300 inline-flex items-center justify-center gap-2"
+              >
+                {invitationDecliningId ? (
+                  <Loader2 className="w-4 h-4 animate-spin" />
+                ) : (
+                  <X className="w-4 h-4" />
+                )}
+                Decline
+              </button>
+            </div>
+          </div>
+        </ModalBlank>
+      )}
 
       {/* Inspection Report modal (legacy - for Systems/Documents tabs) */}
       {uid !== "new" && (
@@ -2387,13 +2682,24 @@ function PropertyFormContainer() {
           onClose={() => {
             setAiSidebarOpen(false);
             setAiSidebarSystemLabel(null);
+            setAiSidebarSystemContext(null);
             setAiSidebarInitialPrompt(null);
           }}
           systemLabel={aiSidebarSystemLabel}
+          systemContext={aiSidebarSystemContext}
           propertyId={state.property?.identity?.id ?? state.property?.id ?? uid}
           contacts={contacts ?? []}
           initialPrompt={aiSidebarInitialPrompt}
           onScheduleSuccess={fetchMaintenanceEvents}
+          onOpenScheduleModal={uid !== "new" ? (prefill) => {
+            setScheduleFromAiPrefill(prefill);
+            setScheduleFromAiModalOpen(true);
+          } : undefined}
+          onMarkAsMaintained={uid !== "new" ? ({ systemId, systemName }) => {
+            setAiSidebarOpen(false);
+            dispatch({ type: "SET_ACTIVE_TAB", payload: "maintenance" });
+            // Could open add-maintenance-record flow in future
+          } : undefined}
         />
       )}
     </div>

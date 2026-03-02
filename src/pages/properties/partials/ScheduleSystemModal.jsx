@@ -1,6 +1,6 @@
 import React, {useState, useEffect, useMemo, useCallback, useRef} from "react";
 import {createPortal} from "react-dom";
-import {useNavigate, useParams} from "react-router-dom";
+import {useParams} from "react-router-dom";
 import useCurrentAccount from "../../../hooks/useCurrentAccount";
 import {
   X,
@@ -25,6 +25,13 @@ const STEPS = [
   {id: "details", label: "Details"},
   {id: "message", label: "Message"},
 ];
+
+/** Build hash-router URL for opening in new tab. */
+function toHashUrl(path) {
+  const base = window.location.href.split("#")[0];
+  const cleanPath = (path || "").replace(/^\//, "");
+  return `${base}#/${cleanPath}`;
+}
 
 function generateMessageTemplate(propertyName, systemName, date, scheduleType) {
   const formattedDate = date
@@ -53,9 +60,12 @@ Thank you!`;
 /* ──────────────────────────── Step Indicator ──────────────────────────── */
 
 function StepIndicator({currentStep, steps}) {
+  const circleSize = 32; // w-8 h-8 = 32px
+  const lineVerticalOffset = circleSize / 2; // align line with center of circles
+
   return (
-    <div className="mb-6">
-      <div className="flex items-center">
+    <div className="mb-6 flex justify-center">
+      <div className="flex items-start justify-center">
         {steps.map((step, idx) => {
           const isActive = idx === currentStep;
           const isCompleted = idx < currentStep;
@@ -63,11 +73,13 @@ function StepIndicator({currentStep, steps}) {
             <React.Fragment key={step.id}>
               {idx > 0 && (
                 <div
-                  className={`flex-shrink-0 h-0.5 w-4 sm:w-8 mx-0.5 self-center transition-colors duration-200 ${
+                  className={`flex-shrink-0 h-0.5 w-4 sm:w-8 mx-0.5 transition-colors duration-200 ${
                     idx <= currentStep
                       ? "bg-[#456564]"
                       : "bg-gray-200 dark:bg-gray-600"
                   }`}
+                  style={{ marginTop: `${lineVerticalOffset}px` }}
+                  aria-hidden
                 />
               )}
               <div className="flex flex-col items-center flex-shrink-0">
@@ -608,7 +620,6 @@ function ScheduleSystemModal({
   propertyId,
   propertyData = {},
 }) {
-  const navigate = useNavigate();
   const {accountUrl: paramAccountUrl} = useParams();
   const {currentAccount} = useCurrentAccount();
   const accountUrl = paramAccountUrl || currentAccount?.url || "";
@@ -677,9 +688,8 @@ function ScheduleSystemModal({
   }, [currentStep, scheduledDate, scheduleType, systemLabel, propertyName]);
 
   const handleBrowseDirectory = useCallback(() => {
-    onClose(false);
-    navigate(professionalsPath);
-  }, [navigate, professionalsPath, onClose]);
+    window.open(toHashUrl(professionalsPath), "_blank");
+  }, [professionalsPath]);
 
   const handleNext = () => {
     if (currentStep < STEPS.length - 1) {

@@ -2,7 +2,7 @@ import React, {useContext, useMemo} from "react";
 import {Plus, Mail} from "lucide-react";
 import UserContext from "../../../context/UserContext";
 
-function HomeOpsTeam({teamMembers = [], onOpenShareModal}) {
+function HomeOpsTeam({teamMembers = [], onOpenShareModal, hideAddButton}) {
   const {users = []} = useContext(UserContext);
 
   const isPropertyOwner = (m) =>
@@ -130,6 +130,7 @@ function HomeOpsTeam({teamMembers = [], onOpenShareModal}) {
             );
           })}
 
+        {!hideAddButton && (
         <button
           type="button"
           onClick={(e) => {
@@ -142,6 +143,7 @@ function HomeOpsTeam({teamMembers = [], onOpenShareModal}) {
         >
           <Plus className="w-6 h-6" />
         </button>
+        )}
         </div>
       </div>
     </section>

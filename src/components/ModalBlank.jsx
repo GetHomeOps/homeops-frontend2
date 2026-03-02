@@ -7,6 +7,7 @@ function ModalBlank({
   modalOpen,
   setModalOpen,
   closeOnClickOutside = true,
+  closeOnBackdropClick = true,
   contentClassName,
   ignoreClickRef,
 }) {
@@ -39,7 +40,7 @@ function ModalBlank({
   }, [modalOpen, setModalOpen]);
 
   const handleBackdropClick = (e) => {
-    if (e.target === e.currentTarget) setModalOpen(false);
+    if (e.target === e.currentTarget && closeOnBackdropClick) setModalOpen(false);
   };
 
   return (

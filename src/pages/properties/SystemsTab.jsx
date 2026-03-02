@@ -36,6 +36,7 @@ function SystemsTab({
   propertyData,
   propertyIdFallback,
   handleInputChange,
+  onSilentSystemsUpdate,
   visibleSystemIds,
   customSystemsData = {},
   systems = [],
@@ -47,6 +48,8 @@ function SystemsTab({
   onAiSidebarOpenChange,
   onOpenAIAssistant: onOpenAIAssistantProp,
   aiSidebarSystemLabel: aiSidebarSystemLabelProp,
+  aiSidebarSystemContext: aiSidebarSystemContextProp,
+  expandSectionId,
 }) {
   // Get contacts from context
   const contactContext = useContext(ContactContext);
@@ -92,7 +95,9 @@ function SystemsTab({
   const aiSidebarOpen = onAiSidebarOpenChange ? (aiSidebarOpenProp ?? false) : aiSidebarOpenLocal;
   const setAiSidebarOpen = onAiSidebarOpenChange || setAiSidebarOpenLocal;
   const [aiSidebarSystemLabelLocal, setAiSidebarSystemLabelLocal] = useState(null);
+  const [aiSidebarSystemContextLocal, setAiSidebarSystemContextLocal] = useState(null);
   const aiSidebarSystemLabel = aiSidebarSystemLabelProp ?? aiSidebarSystemLabelLocal;
+  const aiSidebarSystemContext = aiSidebarSystemContextProp ?? aiSidebarSystemContextLocal;
 
   const propertyId =
     propertyData?.id ??
@@ -100,11 +105,13 @@ function SystemsTab({
     propertyData?.property_uid ??
     propertyData?.identity?.property_uid ??
     propertyIdFallback;
-  const handleOpenAIAssistant = (label) => {
+  const handleOpenAIAssistant = (labelOrContext) => {
     if (onOpenAIAssistantProp) {
-      onOpenAIAssistantProp(label);
+      onOpenAIAssistantProp(labelOrContext);
     } else {
-      setAiSidebarSystemLabelLocal(label);
+      const ctx = typeof labelOrContext === "object" && labelOrContext !== null ? labelOrContext : { systemName: labelOrContext };
+      setAiSidebarSystemLabelLocal(ctx.systemName ?? labelOrContext);
+      setAiSidebarSystemContextLocal(typeof labelOrContext === "object" && labelOrContext !== null ? labelOrContext : null);
       setAiSidebarOpen(true);
     }
   };
@@ -115,6 +122,16 @@ function SystemsTab({
       [section]: !prev[section],
     }));
   };
+
+  // Expand section when navigating from "Complete Outstanding Tasks"
+  useEffect(() => {
+    if (expandSectionId) {
+      setExpandedSections((prev) => ({
+        ...prev,
+        [expandSectionId]: true,
+      }));
+    }
+  }, [expandSectionId]);
 
   const handleNewInstallChange = (systemType, isNew, customDataKey) => {
     setNewInstallStates((prev) => ({
@@ -196,9 +213,10 @@ function SystemsTab({
     return map;
   }, [systems]);
 
-  // Auto-populate condition fields from inspection analysis when empty
+  // Auto-populate condition fields from inspection analysis when empty.
+  // Uses onSilentSystemsUpdate so switching to Systems tab doesn't show the save bar.
   useEffect(() => {
-    if (!handleInputChange) return;
+    if (!onSilentSystemsUpdate && !handleInputChange) return;
     const validStatuses = ["excellent", "good", "fair", "poor"];
     for (const [systemKey, aiCondition] of Object.entries(aiConditionBySystem)) {
       if (!aiCondition?.status || !validStatuses.includes(aiCondition.status)) continue;
@@ -208,14 +226,19 @@ function SystemsTab({
       if (currentVal !== "") continue;
       const capitalized =
         aiCondition.status.charAt(0).toUpperCase() + aiCondition.status.slice(1);
-      handleInputChange({
-        target: {name: conditionField, value: capitalized},
-      });
+      if (onSilentSystemsUpdate) {
+        onSilentSystemsUpdate({[conditionField]: capitalized});
+      } else {
+        handleInputChange({
+          target: {name: conditionField, value: capitalized},
+        });
+      }
     }
   }, [
     aiConditionBySystem,
     propertyData,
     handleInputChange,
+    onSilentSystemsUpdate,
   ]);
 
   // Build systems list for upload modal (matches DocumentsTab: selected + custom, general first)
@@ -242,6 +265,7 @@ function SystemsTab({
       {/* Systems Section - Roof */}
       {isVisible("roof") && (
         <CollapsibleSection
+          sectionId="roof"
           title="Roof"
           icon={Building}
           isOpen={expandedSections.roof}
@@ -397,6 +421,7 @@ function SystemsTab({
       {/* Systems Section - Gutters */}
       {isVisible("gutters") && (
         <CollapsibleSection
+          sectionId="gutters"
           title="Gutters"
           icon={Droplet}
           isOpen={expandedSections.gutters}
@@ -556,6 +581,7 @@ function SystemsTab({
       {/* Systems Section - Foundation & Structure */}
       {isVisible("foundation") && (
         <CollapsibleSection
+          sectionId="foundation"
           title="Foundation & Structure"
           icon={Building}
           isOpen={expandedSections.foundation}
@@ -663,6 +689,7 @@ function SystemsTab({
       {/* Systems Section - Exterior */}
       {isVisible("exterior") && (
         <CollapsibleSection
+          sectionId="exterior"
           title="Exterior"
           icon={Building}
           isOpen={expandedSections.exterior}
@@ -778,6 +805,7 @@ function SystemsTab({
       {/* Systems Section - Windows */}
       {isVisible("windows") && (
         <CollapsibleSection
+          sectionId="windows"
           title="Windows"
           icon={Home}
           isOpen={expandedSections.windows}
@@ -937,6 +965,7 @@ function SystemsTab({
       {/* Systems Section - Heating */}
       {isVisible("heating") && (
         <CollapsibleSection
+          sectionId="heating"
           title="Heating"
           icon={Zap}
           isOpen={expandedSections.heating}
@@ -1108,6 +1137,7 @@ function SystemsTab({
       {/* Systems Section - Air Conditioning */}
       {isVisible("ac") && (
         <CollapsibleSection
+          sectionId="ac"
           title="Air Conditioning"
           icon={Zap}
           isOpen={expandedSections.ac}
@@ -1273,6 +1303,7 @@ function SystemsTab({
       {/* Systems Section - Water Heating */}
       {isVisible("waterHeating") && (
         <CollapsibleSection
+          sectionId="waterHeating"
           title="Water Heating"
           icon={Droplet}
           isOpen={expandedSections.waterHeating}
@@ -1446,6 +1477,7 @@ function SystemsTab({
       {/* Systems Section - Electrical */}
       {isVisible("electrical") && (
         <CollapsibleSection
+          sectionId="electrical"
           title="Electrical"
           icon={Zap}
           isOpen={expandedSections.electrical}
@@ -1618,6 +1650,7 @@ function SystemsTab({
       {/* Systems Section - Plumbing */}
       {isVisible("plumbing") && (
         <CollapsibleSection
+          sectionId="plumbing"
           title="Plumbing"
           icon={Droplet}
           isOpen={expandedSections.plumbing}
@@ -1816,6 +1849,7 @@ function SystemsTab({
       {/* Systems Section - Safety */}
       {isVisible("safety") && (
         <CollapsibleSection
+          sectionId="safety"
           title="Safety"
           icon={Shield}
           isOpen={expandedSections.safety}
@@ -1884,6 +1918,7 @@ function SystemsTab({
       {/* Inspections Section */}
       {isVisible("inspections") && (
         <CollapsibleSection
+          sectionId="inspections"
           title="Inspections"
           icon={FileCheck}
           isOpen={expandedSections.inspections}
@@ -2158,6 +2193,7 @@ function SystemsTab({
           return (
             <CollapsibleSection
               key={sectionId}
+              sectionId={sectionId}
               title={displayName}
               icon={Settings}
               isOpen={expandedSections[sectionId] ?? false}
@@ -2294,8 +2330,13 @@ function SystemsTab({
     {!onAiSidebarOpenChange && (
       <AIAssistantSidebar
         isOpen={aiSidebarOpen}
-        onClose={() => setAiSidebarOpen(false)}
+        onClose={() => {
+          setAiSidebarOpen(false);
+          setAiSidebarSystemLabelLocal(null);
+          setAiSidebarSystemContextLocal(null);
+        }}
         systemLabel={aiSidebarSystemLabel}
+        systemContext={aiSidebarSystemContext}
         propertyId={
           propertyData?.identity?.id ?? propertyData?.id ?? propertyIdFallback
         }

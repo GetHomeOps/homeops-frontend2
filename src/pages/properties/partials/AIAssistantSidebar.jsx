@@ -11,19 +11,26 @@ import {
   CheckCircle2,
   Search,
   ExternalLink,
+  ChevronDown,
+  Wrench,
+  UserPlus,
 } from "lucide-react";
 import Transition from "../../../utils/Transition";
 import AppApi from "../../../api/api";
 import DatePickerInput from "../../../components/DatePickerInput";
+import {PROPERTY_SYSTEMS} from "../constants/propertySystems";
 
 function AIAssistantSidebar({
   isOpen,
   onClose,
   systemLabel,
+  systemContext,
   propertyId,
   contacts = [],
   initialPrompt,
   onScheduleSuccess,
+  onOpenScheduleModal,
+  onMarkAsMaintained,
 }) {
   const navigate = useNavigate();
   const {accountUrl} = useParams();
@@ -31,6 +38,10 @@ function AIAssistantSidebar({
   const [messages, setMessages] = useState([]);
   const [input, setInput] = useState("");
   const [loading, setLoading] = useState(false);
+  const [conversationId, setConversationId] = useState(null);
+  const [activeSystemId, setActiveSystemId] = useState(systemContext?.systemId ?? null);
+  const [activeSystemName, setActiveSystemName] = useState(systemContext?.systemName ?? systemLabel ?? null);
+  const [changeSystemOpen, setChangeSystemOpen] = useState(false);
   const hasSentInitialPromptRef = useRef(false);
   const [contractors, setContractors] = useState([]);
   const [contractorSearch, setContractorSearch] = useState("");
@@ -66,7 +77,56 @@ function AIAssistantSidebar({
     }
   }, [isOpen, propertyId]);
 
-  /* Auto-send initialPrompt when sidebar opens with report context */
+  /* Sync active system when systemContext or systemLabel changes */
+  useEffect(() => {
+    if (systemContext?.systemId) {
+      setActiveSystemId(systemContext.systemId);
+      setActiveSystemName(systemContext.systemName ?? systemLabel ?? null);
+    } else {
+      setActiveSystemId(null);
+      setActiveSystemName(systemLabel ?? null);
+    }
+  }, [systemContext?.systemId, systemContext?.systemName, systemLabel]);
+
+  const [overrideSystemContext, setOverrideSystemContext] = useState(null);
+
+  /* Reset when sidebar closes */
+  useEffect(() => {
+    if (!isOpen) {
+      setConversationId(null);
+      setMessages([]);
+      setOverrideSystemContext(null);
+      hasSentInitialPromptRef.current = false;
+    }
+  }, [isOpen]);
+
+  const handleChangeSystem = async (sys) => {
+    setChangeSystemOpen(false);
+    if (sys.id === activeSystemId) return;
+    setConversationId(null);
+    setMessages([]);
+    hasSentInitialPromptRef.current = false;
+    try {
+      const ctx = await AppApi.getAiSystemContext(propertyId, sys.id);
+      const mergedCtx = {
+        systemId: ctx.systemId,
+        systemName: ctx.systemName,
+        systemCondition: ctx.systemCondition,
+        lastMaintenanceDate: ctx.lastMaintenanceDate,
+        upcomingEvents: ctx.upcomingEvents,
+        inspectionFindingsForThisSystemOnly: ctx.inspectionFindingsForThisSystemOnly,
+      };
+      setOverrideSystemContext(mergedCtx);
+      setActiveSystemId(mergedCtx.systemId);
+      setActiveSystemName(mergedCtx.systemName);
+    } catch {
+      // Ignore
+    }
+  };
+
+  const effectiveSystemContext = overrideSystemContext || systemContext;
+
+  /* Auto-send initialPrompt when sidebar opens with report context (once per open) */
   useEffect(() => {
     if (!isOpen) {
       hasSentInitialPromptRef.current = false;
@@ -76,8 +136,19 @@ function AIAssistantSidebar({
     hasSentInitialPromptRef.current = true;
     setMessages((prev) => [...prev, {role: "user", content: initialPrompt}]);
     setLoading(true);
-    AppApi.aiChat({propertyId, message: initialPrompt})
+    const ctx = effectiveSystemContext;
+    AppApi.aiChat({
+      propertyId,
+      message: initialPrompt,
+      conversationId: conversationId || undefined,
+      systemContext: ctx,
+    })
       .then((res) => {
+        setConversationId(res.conversationId ?? null);
+        if (res.contextSwitched && res.systemName) {
+          setActiveSystemId(res.systemId ?? null);
+          setActiveSystemName(res.systemName);
+        }
         setMessages((prev) => [
           ...prev,
           {
@@ -86,17 +157,17 @@ function AIAssistantSidebar({
             uiDirectives: res.uiDirectives,
           },
         ]);
-      if (res.uiDirectives?.type === "SCHEDULE_PROPOSAL") {
-        setScheduleDraft({
-          actionDraftId: res.uiDirectives.actionDraftId,
-          tasks: res.uiDirectives.tasks || [],
-        });
-        setSelectedContractor(null);
-        setEventType(null);
-        setScheduledFor("");
-        setScheduledTime("");
-        setScheduleNotes("");
-      }
+        if (res.uiDirectives?.type === "SCHEDULE_PROPOSAL") {
+          setScheduleDraft({
+            actionDraftId: res.uiDirectives.actionDraftId,
+            tasks: res.uiDirectives.tasks || [],
+          });
+          setSelectedContractor(null);
+          setEventType(null);
+          setScheduledFor("");
+          setScheduledTime("");
+          setScheduleNotes("");
+        }
       })
       .catch((err) => {
         setMessages((prev) => [
@@ -108,7 +179,7 @@ function AIAssistantSidebar({
         ]);
       })
       .finally(() => setLoading(false));
-  }, [isOpen, initialPrompt, propertyId]);
+  }, [isOpen, initialPrompt, propertyId, effectiveSystemContext]);
 
   useEffect(() => {
     if (!propertyId || !scheduleDraft) return;
@@ -129,7 +200,15 @@ function AIAssistantSidebar({
       const res = await AppApi.aiChat({
         propertyId,
         message: text,
+        conversationId: conversationId || undefined,
+        systemContext: effectiveSystemContext,
       });
+
+      setConversationId(res.conversationId ?? null);
+      if (res.contextSwitched && res.systemName) {
+        setActiveSystemId(res.systemId ?? null);
+        setActiveSystemName(res.systemName);
+      }
 
       setMessages((prev) => [
         ...prev,
@@ -237,11 +316,41 @@ function AIAssistantSidebar({
           </button>
         </div>
 
-        {systemLabel && (
-          <div className="px-4 py-2 border-b border-gray-100 dark:border-gray-700">
+        {(activeSystemId || systemContext?.systemId) && (activeSystemName || systemLabel || systemContext?.systemName) && (
+          <div className="px-4 py-2 border-b border-gray-100 dark:border-gray-700 flex items-center justify-between gap-2">
             <p className="text-xs text-gray-500 dark:text-gray-400">
-              Context: <span className="font-medium text-gray-700 dark:text-gray-300">{systemLabel}</span>
+              Discussing: <span className="font-medium text-gray-700 dark:text-gray-300">{activeSystemName || systemLabel || systemContext?.systemName} System</span>
             </p>
+            <div className="relative">
+              <button
+                type="button"
+                onClick={() => setChangeSystemOpen((o) => !o)}
+                className="flex items-center gap-0.5 text-xs text-[#456564] hover:text-[#34514f] dark:text-[#7aa3a2] font-medium"
+              >
+                Change system <ChevronDown className={`w-3.5 h-3.5 transition-transform ${changeSystemOpen ? "rotate-180" : ""}`} />
+              </button>
+              {changeSystemOpen && (
+                <>
+                  <div className="fixed inset-0 z-10" onClick={() => setChangeSystemOpen(false)} aria-hidden="true" />
+                  <div className="absolute right-0 top-full mt-1 py-1.5 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-600 rounded-lg shadow-lg z-20 max-h-48 overflow-y-auto min-w-[160px]">
+                    {PROPERTY_SYSTEMS.map((sys) => (
+                      <button
+                        key={sys.id}
+                        type="button"
+                        onClick={() => handleChangeSystem(sys)}
+                        className={`w-full text-left px-3 py-1.5 text-xs ${
+                          sys.id === (activeSystemId || systemContext?.systemId)
+                            ? "bg-[#456564]/10 text-[#456564] dark:text-[#7aa3a2] font-medium"
+                            : "text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700"
+                        }`}
+                      >
+                        {sys.name}
+                      </button>
+                    ))}
+                  </div>
+                </>
+              )}
+            </div>
           </div>
         )}
 
@@ -275,6 +384,38 @@ function AIAssistantSidebar({
                   <p className="mt-2 text-xs opacity-90">
                     I can help you schedule. Choose the event type, contractor, date, and time below.
                   </p>
+                )}
+                {msg.role === "assistant" && (activeSystemId || systemContext?.systemId) && idx === messages.length - 1 && (
+                  <div className="mt-3 flex flex-wrap gap-1.5">
+                    {onOpenScheduleModal && (
+                      <button
+                        type="button"
+                        onClick={() => onOpenScheduleModal({ systemId: activeSystemId || systemContext?.systemId, systemLabel: activeSystemName || systemContext?.systemName || activeSystemId, systemType: activeSystemId || systemContext?.systemId, serviceType: "inspection" })}
+                        className="inline-flex items-center gap-1 px-2 py-1 rounded text-xs font-medium bg-[#456564]/20 text-[#456564] dark:text-[#7aa3a2] hover:bg-[#456564]/30 border border-[#456564]/30"
+                      >
+                        <Calendar className="w-3 h-3" />
+                        Schedule Inspection
+                      </button>
+                    )}
+                    <button
+                      type="button"
+                      onClick={() => navigate(professionalsPath)}
+                      className="inline-flex items-center gap-1 px-2 py-1 rounded text-xs font-medium bg-gray-200 dark:bg-gray-600 text-gray-700 dark:text-gray-300 hover:bg-gray-300 dark:hover:bg-gray-500"
+                    >
+                      <UserPlus className="w-3 h-3" />
+                      Find Contractor
+                    </button>
+                    {onMarkAsMaintained && (
+                      <button
+                        type="button"
+                        onClick={() => onMarkAsMaintained({ systemId: activeSystemId || systemContext?.systemId, systemName: activeSystemName || systemContext?.systemName })}
+                        className="inline-flex items-center gap-1 px-2 py-1 rounded text-xs font-medium bg-emerald-100 dark:bg-emerald-900/30 text-emerald-700 dark:text-emerald-400 hover:bg-emerald-200 dark:hover:bg-emerald-900/50"
+                      >
+                        <Wrench className="w-3 h-3" />
+                        Mark as Maintained
+                      </button>
+                    )}
+                  </div>
                 )}
               </div>
             </div>

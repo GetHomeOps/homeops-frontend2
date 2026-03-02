@@ -272,6 +272,7 @@ function MaintenanceTab({
 
   return (
     <div
+      data-section-id="maintenance"
       className={`relative flex h-[calc(100vh-200px)] min-h-[600px] bg-gray-100 dark:bg-gray-900 rounded-lg overflow-hidden border border-gray-200 dark:border-gray-700 ${sidebarCollapsed ? "" : "gap-4"}`}
     >
       {/* Delete confirmation modal - rendered via portal to escape overflow:hidden */}

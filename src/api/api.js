@@ -262,6 +262,15 @@ class AppApi {
     return res.invitations;
   }
 
+  static async getReceivedInvitations(params = {}) {
+    let res = await this.request("invitations/received", params);
+    return res.invitations;
+  }
+
+  static async acceptInvitationInApp(invitationId) {
+    return this.request(`invitations/${invitationId}/accept-in-app`, {}, "POST");
+  }
+
   static async confirmInvitation(data) {
     let res = await this.request(`auth/confirm`, data, 'POST');
     return res;
@@ -687,8 +696,18 @@ class AppApi {
 
   /* --------- AI Chat --------- */
 
-  static async aiChat({ conversationId, propertyId, message }) {
-    const res = await this.request("ai/chat", { conversationId, propertyId, message }, "POST");
+  static async getAiSystemContext(propertyId, systemId) {
+    const res = await this.request("ai/system-context", { propertyId, systemId }, "GET");
+    return res;
+  }
+
+  static async aiChat({ conversationId, propertyId, message, systemContext }) {
+    const res = await this.request("ai/chat", {
+      conversationId,
+      propertyId,
+      message,
+      systemContext,
+    }, "POST");
     return res;
   }
 

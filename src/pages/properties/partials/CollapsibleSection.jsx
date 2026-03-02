@@ -15,7 +15,7 @@ import {
 } from "lucide-react";
 import SystemActionButtons from "./SystemActionButtons";
 import Tooltip from "../../../utils/Tooltip";
-import {getSystemStatus} from "../helpers/systemStatusHelpers";
+import {getSystemStatus, getCurrentConditionValue} from "../helpers/systemStatusHelpers";
 import {getSystemFindingsFromAnalysis} from "../helpers/inspectionAnalysisHelpers";
 
 /**
@@ -28,6 +28,7 @@ function CollapsibleSection({
   isOpen,
   onToggle,
   children,
+  sectionId,
   showActionButtons = false,
   installerId,
   installerName,
@@ -160,7 +161,10 @@ function CollapsibleSection({
   const isComplete = progress.percent >= 100;
 
   return (
-    <div className="bg-gray-50 dark:bg-gray-700/50 rounded-lg border border-gray-200 dark:border-gray-700 hover:border-gray-300 dark:hover:border-gray-600 transition-all duration-200 hover:shadow-sm relative">
+    <div
+      className="bg-gray-50 dark:bg-gray-700/50 rounded-lg border border-gray-200 dark:border-gray-700 hover:border-gray-300 dark:hover:border-gray-600 transition-all duration-200 hover:shadow-sm relative"
+      data-section-id={sectionId != null ? `system-${sectionId}` : undefined}
+    >
       <style>{`
         @keyframes systemCheckPop {
           from {
@@ -347,7 +351,42 @@ function CollapsibleSection({
                     type="button"
                     onClick={(e) => {
                       e.stopPropagation();
-                      onOpenAIAssistant(systemLabel || title);
+                      const cond = aiCondition?.status || getCurrentConditionValue(propertyData, systemType) || null;
+                      const {needsAttention: _n, hasScheduledEvent: _s, scheduledDate: nextDate, scheduledTime: nextTime} =
+                        showActionButtons
+                          ? getSystemStatus(propertyData, systemType, isNewInstall, customSystemsData, maintenanceEvents)
+                          : {};
+                      const upcomingForSystem = (maintenanceEvents || []).filter(
+                        (e) => (e.system_key ?? e.systemKey) === systemType && (e.scheduled_date ?? e.scheduledDate) >= new Date().toISOString().slice(0, 10)
+                      );
+                      const findings = getSystemFindingsFromAnalysis(systemType, inspectionAnalysis);
+                      const lastInspField = systemType?.startsWith("custom-")
+                        ? null
+                        : {roof: "roofLastInspection", gutters: "gutterLastInspection", foundation: "foundationLastInspection", exterior: "sidingLastInspection", windows: "windowLastInspection", heating: "heatingLastInspection", ac: "acLastInspection", waterHeating: "waterHeatingLastInspection", electrical: "electricalLastInspection", plumbing: "plumbingLastInspection"}[systemType];
+                      const lastMaint = lastInspField ? propertyData?.[lastInspField] : null;
+                      onOpenAIAssistant({
+                        systemId: systemType,
+                        systemName: systemLabel || title,
+                        systemCondition: cond ? String(cond).toLowerCase() : null,
+                        lastMaintenanceDate: lastMaint || null,
+                        upcomingEvents: upcomingForSystem.map((ev) => ({
+                          date: ev.scheduled_date ?? ev.scheduledDate,
+                          type: ev.system_name ?? ev.system_key,
+                          status: ev.status,
+                        })),
+                        inspectionFindingsForThisSystemOnly: [
+                          ...(findings.needsAttention || []).map((n) => ({
+                            title: n.title,
+                            severity: n.severity,
+                            suggestedAction: n.suggestedAction,
+                          })),
+                          ...(findings.maintenanceSuggestions || []).map((m) => ({
+                            title: m.task || m.systemType,
+                            severity: m.priority,
+                            suggestedAction: m.suggestedWhen || m.rationale,
+                          })),
+                        ],
+                      });
                     }}
                     className="inline-flex items-center justify-center w-[18px] h-[18px] text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200 transition-colors rounded hover:bg-gray-100 dark:hover:bg-gray-600/50 p-0.5"
                     aria-label="Open AI Assistant"

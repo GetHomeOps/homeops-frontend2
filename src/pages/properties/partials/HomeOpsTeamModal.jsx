@@ -184,6 +184,19 @@ function HomeOpsTeamModal({
 
   const handleSendInvite = async () => {
     if (!inviteEmail || !propertyId || !currentAccount?.id) return;
+    const emailLower = inviteEmail.trim().toLowerCase();
+    const alreadyInTeam = (teamMembers ?? []).some((m) => {
+      const mEmail = (m.email ?? m.inviteeEmail ?? "").trim().toLowerCase();
+      return mEmail && mEmail === emailLower;
+    });
+    const alreadyPending = (pendingInvitations ?? []).some((i) => {
+      const iEmail = (i.invitee_email ?? i.inviteeEmail ?? "").trim().toLowerCase();
+      return iEmail && iEmail === emailLower;
+    });
+    if (alreadyInTeam || alreadyPending) {
+      setInviteError("This person is already on the team or has a pending invitation.");
+      return;
+    }
     setInviteSending(true);
     setInviteSuccess(null);
     setInviteError(null);
