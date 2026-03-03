@@ -1,4 +1,4 @@
-import React, {useState, useRef, useEffect} from "react";
+import React, {useState, useRef, useEffect, useCallback} from "react";
 import {useNavigate, useParams} from "react-router-dom";
 import {
   X,
@@ -14,6 +14,8 @@ import {
   ChevronDown,
   Wrench,
   UserPlus,
+  RotateCcw,
+  Database,
 } from "lucide-react";
 import Transition from "../../../utils/Transition";
 import AppApi from "../../../api/api";
@@ -53,6 +55,10 @@ function AIAssistantSidebar({
   const [scheduleNotes, setScheduleNotes] = useState("");
   const [scheduling, setScheduling] = useState(false);
   const [scheduleSuccess, setScheduleSuccess] = useState(null);
+  const [contextLoaded, setContextLoaded] = useState(false);
+  const [inspectionDate, setInspectionDate] = useState(null);
+  const [loadingHistory, setLoadingHistory] = useState(false);
+  const hasLoadedConversationRef = useRef(false);
 
   useEffect(() => {
     if (scheduleSuccess) {
@@ -77,7 +83,6 @@ function AIAssistantSidebar({
     }
   }, [isOpen, propertyId]);
 
-  /* Sync active system when systemContext or systemLabel changes */
   useEffect(() => {
     if (systemContext?.systemId) {
       setActiveSystemId(systemContext.systemId);
@@ -90,15 +95,51 @@ function AIAssistantSidebar({
 
   const [overrideSystemContext, setOverrideSystemContext] = useState(null);
 
-  /* Reset when sidebar closes */
+  const resetLocalState = useCallback(() => {
+    setConversationId(null);
+    setMessages([]);
+    setOverrideSystemContext(null);
+    setContextLoaded(false);
+    setInspectionDate(null);
+    hasSentInitialPromptRef.current = false;
+    hasLoadedConversationRef.current = false;
+  }, []);
+
+  // Load persisted conversation when sidebar opens
   useEffect(() => {
     if (!isOpen) {
-      setConversationId(null);
-      setMessages([]);
-      setOverrideSystemContext(null);
-      hasSentInitialPromptRef.current = false;
+      hasLoadedConversationRef.current = false;
+      return;
     }
-  }, [isOpen]);
+    if (!propertyId || hasLoadedConversationRef.current) return;
+    hasLoadedConversationRef.current = true;
+
+    setLoadingHistory(true);
+    AppApi.aiLoadConversation(propertyId)
+      .then((data) => {
+        if (data.conversation && data.messages?.length > 0) {
+          setConversationId(data.conversation.id);
+          setMessages(
+            data.messages
+              .filter((m) => m.role !== "system")
+              .map((m) => ({
+                role: m.role,
+                content: m.content,
+                uiDirectives: m.uiDirectives,
+              }))
+          );
+          if (data.conversation.systemId) {
+            setActiveSystemId(data.conversation.systemId);
+          }
+          setContextLoaded(true);
+        }
+        if (data.inspectionAnalysisDate) {
+          setInspectionDate(data.inspectionAnalysisDate);
+        }
+      })
+      .catch(() => {})
+      .finally(() => setLoadingHistory(false));
+  }, [isOpen, propertyId]);
 
   const handleChangeSystem = async (sys) => {
     setChangeSystemOpen(false);
@@ -126,13 +167,13 @@ function AIAssistantSidebar({
 
   const effectiveSystemContext = overrideSystemContext || systemContext;
 
-  /* Auto-send initialPrompt when sidebar opens with report context (once per open) */
+  // Auto-send initialPrompt (once per open)
   useEffect(() => {
     if (!isOpen) {
       hasSentInitialPromptRef.current = false;
       return;
     }
-    if (!initialPrompt || !propertyId || hasSentInitialPromptRef.current || loading) return;
+    if (!initialPrompt || !propertyId || hasSentInitialPromptRef.current || loading || loadingHistory) return;
     hasSentInitialPromptRef.current = true;
     setMessages((prev) => [...prev, {role: "user", content: initialPrompt}]);
     setLoading(true);
@@ -148,6 +189,9 @@ function AIAssistantSidebar({
         if (res.contextSwitched && res.systemName) {
           setActiveSystemId(res.systemId ?? null);
           setActiveSystemName(res.systemName);
+        }
+        if (res.inspectionAnalysisDate) {
+          setInspectionDate(res.inspectionAnalysisDate);
         }
         setMessages((prev) => [
           ...prev,
@@ -179,7 +223,7 @@ function AIAssistantSidebar({
         ]);
       })
       .finally(() => setLoading(false));
-  }, [isOpen, initialPrompt, propertyId, effectiveSystemContext]);
+  }, [isOpen, initialPrompt, propertyId, effectiveSystemContext, loadingHistory]);
 
   useEffect(() => {
     if (!propertyId || !scheduleDraft) return;
@@ -208,6 +252,9 @@ function AIAssistantSidebar({
       if (res.contextSwitched && res.systemName) {
         setActiveSystemId(res.systemId ?? null);
         setActiveSystemName(res.systemName);
+      }
+      if (res.inspectionAnalysisDate) {
+        setInspectionDate(res.inspectionAnalysisDate);
       }
 
       setMessages((prev) => [
@@ -241,6 +288,19 @@ function AIAssistantSidebar({
     } finally {
       setLoading(false);
     }
+  };
+
+  const handleResetConversation = async () => {
+    if (!conversationId) {
+      resetLocalState();
+      return;
+    }
+    try {
+      await AppApi.aiResetConversation(conversationId);
+    } catch {
+      // proceed with local reset even if server fails
+    }
+    resetLocalState();
   };
 
   const handleSelectContractor = async (contractor) => {
@@ -286,6 +346,19 @@ function AIAssistantSidebar({
       )
     : contractors;
 
+  const formatInspectionDate = (dateStr) => {
+    if (!dateStr) return null;
+    try {
+      return new Date(dateStr).toLocaleDateString("en-US", {
+        month: "short",
+        day: "numeric",
+        year: "numeric",
+      });
+    } catch {
+      return null;
+    }
+  };
+
   return (
     <Transition
       show={isOpen}
@@ -306,15 +379,44 @@ function AIAssistantSidebar({
               AI Assistant
             </h3>
           </div>
-          <button
-            type="button"
-            onClick={onClose}
-            className="p-2 rounded-lg text-gray-500 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-700 hover:text-gray-700 dark:hover:text-gray-200 transition-colors"
-            aria-label="Close"
-          >
-            <X className="w-5 h-5" />
-          </button>
+          <div className="flex items-center gap-1">
+            {(conversationId || messages.length > 0) && (
+              <button
+                type="button"
+                onClick={handleResetConversation}
+                className="p-2 rounded-lg text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-700 hover:text-gray-600 dark:hover:text-gray-300 transition-colors"
+                title="Reset conversation"
+              >
+                <RotateCcw className="w-4 h-4" />
+              </button>
+            )}
+            <button
+              type="button"
+              onClick={onClose}
+              className="p-2 rounded-lg text-gray-500 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-700 hover:text-gray-700 dark:hover:text-gray-200 transition-colors"
+              aria-label="Close"
+            >
+              <X className="w-5 h-5" />
+            </button>
+          </div>
         </div>
+
+        {/* Context indicators */}
+        {(contextLoaded || inspectionDate) && (
+          <div className="px-4 py-1.5 border-b border-gray-100 dark:border-gray-700 flex flex-wrap items-center gap-2">
+            {contextLoaded && (
+              <span className="inline-flex items-center gap-1 text-[10px] font-medium text-emerald-600 dark:text-emerald-400 bg-emerald-50 dark:bg-emerald-900/20 px-2 py-0.5 rounded-full">
+                <Database className="w-3 h-3" />
+                Context Loaded
+              </span>
+            )}
+            {inspectionDate && (
+              <span className="text-[10px] text-gray-500 dark:text-gray-400">
+                Using inspection findings from {formatInspectionDate(inspectionDate)}
+              </span>
+            )}
+          </div>
+        )}
 
         {(activeSystemId || systemContext?.systemId) && (activeSystemName || systemLabel || systemContext?.systemName) && (
           <div className="px-4 py-2 border-b border-gray-100 dark:border-gray-700 flex items-center justify-between gap-2">
@@ -355,7 +457,13 @@ function AIAssistantSidebar({
         )}
 
         <div className="flex-1 overflow-auto p-4 space-y-4">
-          {messages.length === 0 && (
+          {loadingHistory && messages.length === 0 && (
+            <div className="flex justify-center py-8">
+              <Loader2 className="w-5 h-5 animate-spin text-[#456564]" />
+            </div>
+          )}
+
+          {!loadingHistory && messages.length === 0 && (
             <div className="rounded-lg bg-gray-50 dark:bg-gray-700/50 border border-gray-200 dark:border-gray-600 p-6 text-center">
               <Sparkles className="w-10 h-10 text-[#456564] mx-auto mb-3" />
               <p className="text-sm text-gray-600 dark:text-gray-300">

@@ -8,7 +8,7 @@ import {
   AlertTriangle,
   MessageCircle,
 } from "lucide-react";
-import { supportToColumnStatus, feedbackToColumnStatus } from "../kanbanConfig";
+import {supportToColumnStatus, feedbackToColumnStatus} from "../kanbanConfig";
 
 /**
  * KPI tracker for support/feedback management pages.
@@ -19,21 +19,34 @@ import { supportToColumnStatus, feedbackToColumnStatus } from "../kanbanConfig";
  * @param {boolean} props.loading
  * @param {Function} props.tierToPriority - (tier) => 'urgent'|'high'|'medium'|'low' - support only
  */
-function TicketKpiTracker({ variant, tickets = [], loading = false, tierToPriority }) {
+function TicketKpiTracker({
+  variant,
+  tickets = [],
+  loading = false,
+  tierToPriority,
+}) {
   const list = tickets || [];
-  const toColumnStatus = variant === "support" ? supportToColumnStatus : feedbackToColumnStatus;
+  const toColumnStatus =
+    variant === "support" ? supportToColumnStatus : feedbackToColumnStatus;
 
   const total = list.length;
-  const newCount = list.filter((t) => toColumnStatus(t.status) === "new").length;
-  const inProgress = list.filter((t) => toColumnStatus(t.status) === "in_progress").length;
+  const newCount = list.filter(
+    (t) => toColumnStatus(t.status) === "new",
+  ).length;
+  const inProgress = list.filter(
+    (t) => toColumnStatus(t.status) === "in_progress",
+  ).length;
   const resolved =
     variant === "support"
       ? list.filter((t) => toColumnStatus(t.status) === "completed").length
       : list.filter((t) => toColumnStatus(t.status) === "completed").length;
-  const closed = list.filter((t) => toColumnStatus(t.status) === "closed").length;
+  const closed = list.filter(
+    (t) => toColumnStatus(t.status) === "closed",
+  ).length;
   const urgent =
     variant === "support" && tierToPriority
-      ? list.filter((t) => tierToPriority(t.subscriptionTier) === "urgent").length
+      ? list.filter((t) => tierToPriority(t.subscriptionTier) === "urgent")
+          .length
       : 0;
 
   const kpiItems = [
@@ -41,7 +54,8 @@ function TicketKpiTracker({ variant, tickets = [], loading = false, tierToPriori
       label: "Total",
       value: total,
       icon: variant === "support" ? MessageSquare : MessageCircle,
-      color: "bg-slate-100 dark:bg-slate-800/60 text-slate-700 dark:text-slate-300",
+      color:
+        "bg-slate-100 dark:bg-slate-800/60 text-slate-700 dark:text-slate-300",
       iconColor: "text-slate-500 dark:text-slate-400",
     },
     {
@@ -55,14 +69,16 @@ function TicketKpiTracker({ variant, tickets = [], loading = false, tierToPriori
       label: "In Progress",
       value: inProgress,
       icon: Loader2,
-      color: "bg-amber-50 dark:bg-amber-900/20 text-amber-700 dark:text-amber-300",
+      color:
+        "bg-amber-50 dark:bg-amber-900/20 text-amber-700 dark:text-amber-300",
       iconColor: "text-amber-500 dark:text-amber-400",
     },
     {
       label: variant === "support" ? "Resolved" : "Implemented",
       value: resolved,
       icon: CheckCircle2,
-      color: "bg-emerald-50 dark:bg-emerald-900/20 text-emerald-700 dark:text-emerald-300",
+      color:
+        "bg-emerald-50 dark:bg-emerald-900/20 text-emerald-700 dark:text-emerald-300",
       iconColor: "text-emerald-500 dark:text-emerald-400",
     },
     {
@@ -94,8 +110,13 @@ function TicketKpiTracker({ variant, tickets = [], loading = false, tierToPriori
             key={item.label}
             className={`inline-flex items-center gap-2 px-4 py-2.5 rounded-lg border border-gray-200/60 dark:border-gray-600/40 ${item.color}`}
           >
-            <Icon className={`w-4 h-4 shrink-0 ${item.iconColor}`} strokeWidth={2} />
-            <span className="text-sm font-medium tabular-nums">{displayValue}</span>
+            <Icon
+              className={`w-4 h-4 shrink-0 ${item.iconColor}`}
+              strokeWidth={2}
+            />
+            <span className="text-sm font-medium tabular-nums">
+              {displayValue}
+            </span>
             <span className="text-sm opacity-90">{item.label}</span>
           </div>
         );

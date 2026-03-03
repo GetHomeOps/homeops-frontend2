@@ -245,7 +245,8 @@ function SupportManagement() {
                   Support Management
                 </h1>
                 <p className="mt-0.5 text-sm text-gray-500 dark:text-gray-400">
-                  Click a ticket to open it. Use the grip handle to drag between columns.
+                  Click a ticket to open it. Use the grip handle to drag between
+                  columns.
                 </p>
               </div>
               <button

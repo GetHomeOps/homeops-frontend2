@@ -106,9 +106,11 @@ function HomeownerHome() {
 
   const [homeEvents, setHomeEvents] = useState(null);
   const [resources, setResources] = useState(null);
+  const [communications, setCommunications] = useState(null);
   const [savedProfessionals, setSavedProfessionals] = useState(null);
   const [eventsLoading, setEventsLoading] = useState(true);
   const [resourcesLoading, setResourcesLoading] = useState(true);
+  const [communicationsLoading, setCommunicationsLoading] = useState(true);
   const [professionalsLoading, setProfessionalsLoading] = useState(true);
 
   const accountUrl = currentAccount?.url || currentAccount?.name || "";
@@ -146,6 +148,16 @@ function HomeownerHome() {
       .finally(() => setResourcesLoading(false));
   }, [currentUser?.id]);
 
+  // ─── Fetch communications sent to user for Discover ───
+  useEffect(() => {
+    if (!currentUser?.id) return;
+    setCommunicationsLoading(true);
+    AppApi.getCommunicationsForRecipient()
+      .then((list) => setCommunications(list))
+      .catch(() => setCommunications([]))
+      .finally(() => setCommunicationsLoading(false));
+  }, [currentUser?.id]);
+
   // ─── Fetch presigned URLs for resources with imageKey ───
   const [resourcePresignedUrls, setResourcePresignedUrls] = useState({});
   const fetchedResourceKeysRef = useRef(new Set());
@@ -160,6 +172,32 @@ function HomeownerHome() {
         .catch(() => fetchedResourceKeysRef.current.delete(key));
     });
   }, [resources]);
+
+  // ─── Presigned URLs for communication preview images ───
+  const [commPresignedUrls, setCommPresignedUrls] = React.useState({});
+  const fetchedCommKeysRef = useRef(new Set());
+  useEffect(() => {
+    if (!communications?.length) return;
+    communications.forEach((c) => {
+      const key = c.imageKey;
+      if (!key || key.startsWith("http") || fetchedCommKeysRef.current.has(key)) return;
+      fetchedCommKeysRef.current.add(key);
+      AppApi.getPresignedPreviewUrl(key)
+        .then((url) => setCommPresignedUrls((prev) => ({ ...prev, [key]: url })))
+        .catch(() => fetchedCommKeysRef.current.delete(key));
+    });
+  }, [communications]);
+
+  // ─── Merged Discover feed: resources + communications, sorted by sentAt ───
+  const discoverItems = React.useMemo(() => {
+    const resourcesWithType = (resources || []).map((r) => ({ ...r, _feedType: "resource" }));
+    const commsWithType = (communications || []).map((c) => ({ ...c, _feedType: "communication" }));
+    return [...resourcesWithType, ...commsWithType].sort((a, b) => {
+      const aAt = a.sentAt || a.sent_at || a.createdAt || 0;
+      const bAt = b.sentAt || b.sent_at || b.createdAt || 0;
+      return new Date(bAt) - new Date(aAt);
+    });
+  }, [resources, communications]);
 
   // ─── Fetch saved professionals ───
   useEffect(() => {
@@ -239,7 +277,8 @@ function HomeownerHome() {
       try {
         const property = await getPropertyById(uid);
         if (cancelled) return;
-        const systemsArr = await getSystemsByPropertyId(property.id);
+        const systemsRes = await getSystemsByPropertyId(property.id);
+        const systemsArr = systemsRes?.systems ?? systemsRes ?? [];
         if (cancelled) return;
         const rawRecords = await getMaintenanceRecordsByPropertyId(property.id);
         if (cancelled) return;
@@ -1006,55 +1045,70 @@ function HomeownerHome() {
           <h2 className="text-lg font-semibold text-gray-900 dark:text-white">
             Discover
           </h2>
-          {!resourcesLoading && (resources?.length ?? 0) > 0 && (
+          {!resourcesLoading && !communicationsLoading && discoverItems.length > 0 && (
             <span className="text-sm text-gray-500 dark:text-gray-400">
-              {resources.length} resources
+              {discoverItems.length} item{discoverItems.length !== 1 ? "s" : ""}
             </span>
           )}
         </div>
 
-        {/* Cards - Horizontal Scroll (sent resources) */}
-        {resourcesLoading ? (
+        {/* Cards - Horizontal Scroll */}
+        {resourcesLoading || communicationsLoading ? (
           <div className="flex gap-4 overflow-x-auto pb-4 -mx-4 px-4 sm:mx-0 sm:px-0">
             {[1, 2, 3].map((i) => (
               <ResourceCardSkeleton key={i} />
             ))}
           </div>
-        ) : (resources?.length ?? 0) > 0 ? (
+        ) : discoverItems.length > 0 ? (
           <div className="flex gap-4 overflow-x-auto pb-4 -mx-4 px-4 sm:mx-0 sm:px-0 snap-x snap-mandatory scrollbar-hide">
-            {resources.map((post) => {
+            {discoverItems.map((post) => {
+              const isComm = post._feedType === "communication";
               const title = post.subject || post.title || "Resource";
-              const shortDesc = (post.bodyText || post.shortDescription || "").slice(0, 120);
-              const thumbnailUrl = getResourceThumbnailUrl(post);
-              const imageUrl =
-                post.imageUrl || resourcePresignedUrls[post.imageKey] || thumbnailUrl || DEFAULT_HEADER_IMAGE;
+              const rawBody = post.bodyText || post.shortDescription || post.content?.body || "";
+              const shortDesc = (typeof rawBody === "string"
+                ? rawBody.replace(/<[^>]*>/g, "").trim()
+                : ""
+              ).slice(0, 120);
+              const thumbnailUrl = isComm ? null : getResourceThumbnailUrl(post);
+              const imageUrl = isComm
+                ? (post.imageKey ? commPresignedUrls[post.imageKey] : null)
+                : (post.imageUrl || resourcePresignedUrls[post.imageKey] || thumbnailUrl || DEFAULT_HEADER_IMAGE);
+              const hasImage = !!imageUrl;
+              const viewPath = isComm
+                ? `/${accountUrl}/communications/${post.id}/view`
+                : `/${accountUrl}/resources/${post.id}/view`;
+              const typeLabel = isComm ? null : (post.type?.replace("_", " ") || "Post");
               return (
                 <article
-                  key={post.id}
-                  onClick={() => navigate(`/${accountUrl}/resources/${post.id}/view`)}
-                  onKeyDown={(e) => e.key === "Enter" && navigate(`/${accountUrl}/resources/${post.id}/view`)}
+                  key={isComm ? `comm-${post.id}` : `res-${post.id}`}
+                  onClick={() => navigate(viewPath)}
+                  onKeyDown={(e) => e.key === "Enter" && navigate(viewPath)}
                   role="button"
                   tabIndex={0}
                   className="flex-shrink-0 w-72 sm:w-80 bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 overflow-hidden group snap-start hover:shadow-lg transition-shadow cursor-pointer"
                 >
-                  <div className="aspect-[16/10] overflow-hidden">
-                    <img
-                      src={imageUrl}
-                      alt={title}
-                      className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
-                      onError={(e) => {
-                        if (e.target.src !== RESOURCE_THUMBNAIL_PLACEHOLDER) {
-                          e.target.src = RESOURCE_THUMBNAIL_PLACEHOLDER;
-                        }
-                      }}
-                    />
-                  </div>
-                  <div className="p-4">
-                    <div className="flex items-center gap-2 mb-2">
-                      <span className="text-xs font-medium text-blue-600 dark:text-blue-400">
-                        {post.type?.replace("_", " ") || "Post"}
-                      </span>
+                  {hasImage && (
+                    <div className="aspect-[16/10] overflow-hidden">
+                      <img
+                        src={imageUrl}
+                        alt={title}
+                        className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
+                        onError={(e) => {
+                          if (e.target.src !== RESOURCE_THUMBNAIL_PLACEHOLDER) {
+                            e.target.src = RESOURCE_THUMBNAIL_PLACEHOLDER;
+                          }
+                        }}
+                      />
                     </div>
+                  )}
+                  <div className="p-4">
+                    {typeLabel && (
+                      <div className="flex items-center gap-2 mb-2">
+                        <span className="text-xs font-medium text-blue-600 dark:text-blue-400">
+                          {typeLabel}
+                        </span>
+                      </div>
+                    )}
                     <h3 className="text-sm font-semibold text-gray-900 dark:text-white line-clamp-2 group-hover:text-blue-600 dark:group-hover:text-blue-400 transition-colors">
                       {title}
                     </h3>
@@ -1075,7 +1129,7 @@ function HomeownerHome() {
               No resources yet
             </p>
             <p className="text-xs text-gray-400 dark:text-gray-500 mt-1">
-              Sent resources will appear here
+              Sent resources and communications will appear here
             </p>
           </div>
         )}

@@ -385,26 +385,43 @@ function SystemsSetupModal({
     setStep("systems");
   };
 
-  // Pre-select recommended systems when first reaching Systems step
+  // Pre-select recommended systems when first reaching Systems step (including custom AI-suggested)
   useEffect(() => {
     if (step !== "systems" || !analysisResult?.suggestedSystemsToAdd?.length || hasAppliedSuggestedRef.current) return;
     hasAppliedSuggestedRef.current = true;
-    const suggestedIds = analysisResult.suggestedSystemsToAdd
-      .map((s) => {
-        const raw = String(s.systemType || "").trim();
-        const match = SETUP_SYSTEMS.find(
-          (sys) => sys.id === raw || sys.id.toLowerCase() === raw.toLowerCase(),
-        );
-        return match?.id;
-      })
-      .filter(Boolean);
-    if (suggestedIds.length === 0) return;
-    setSelected((prev) => {
-      const next = new Set(prev);
-      suggestedIds.forEach((id) => next.add(id));
-      return next;
+    const suggested = analysisResult.suggestedSystemsToAdd;
+    const standardIds = [];
+    const customNames = [];
+    suggested.forEach((s) => {
+      const raw = String(s.systemType ?? s.system_key ?? "").trim();
+      if (!raw) return;
+      const match = SETUP_SYSTEMS.find(
+        (sys) => sys.id === raw || sys.id.toLowerCase() === raw.toLowerCase(),
+      );
+      if (match) {
+        standardIds.push(match.id);
+      } else {
+        const displayName =
+          raw.charAt(0).toUpperCase() + raw.slice(1).replace(/([A-Z])/g, " $1").trim();
+        customNames.push(displayName);
+      }
     });
-  }, [step, analysisResult?.suggestedSystemsToAdd]);
+    const existingCustomNames = new Set(custom.map((c) => c.name.toLowerCase()));
+    const newCustomEntries = customNames
+      .filter((name) => !existingCustomNames.has(name.toLowerCase()))
+      .map((name) => ({id: `custom-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`, name}));
+    const idsToAddToSelected = [...standardIds, ...newCustomEntries.map((c) => c.id)];
+    if (idsToAddToSelected.length > 0) {
+      setSelected((prev) => {
+        const next = new Set(prev);
+        idsToAddToSelected.forEach((id) => next.add(id));
+        return next;
+      });
+    }
+    if (newCustomEntries.length > 0) {
+      setCustom((prev) => [...prev, ...newCustomEntries]);
+    }
+  }, [step, analysisResult?.suggestedSystemsToAdd, custom]);
 
   const handleSkipSystems = () => {
     persistSystems();
@@ -556,12 +573,43 @@ function SystemsSetupModal({
   };
 
   const handleAddSelectedSystems = () => {
-    const toAdd = [...selectedSuggestedSystems];
-    setSelected((prev) => {
-      const next = new Set(prev);
-      toAdd.forEach((id) => next.add(id));
-      return next;
+    const suggested = analysisResult?.suggestedSystemsToAdd ?? [];
+    const toAdd = suggested.length > 0 ? suggested : [...selectedSuggestedSystems];
+    const existingCustomNames = new Set(custom.map((s) => s.name.toLowerCase()));
+    const idsToAddToSelected = [];
+    const newCustomEntries = [];
+
+    toAdd.forEach((item) => {
+      const sysKey = (item.systemType ?? item.system_key ?? item).toString().trim();
+      const match = SETUP_SYSTEMS.find(
+        (s) => s.id === sysKey || s.id.toLowerCase() === sysKey.toLowerCase(),
+      );
+      if (match) {
+        idsToAddToSelected.push(match.id);
+      } else if (sysKey) {
+        const displayName =
+          sysKey.charAt(0).toUpperCase() +
+          sysKey.slice(1).replace(/([A-Z])/g, " $1").trim();
+        const nameKey = displayName.toLowerCase();
+        if (!existingCustomNames.has(nameKey)) {
+          existingCustomNames.add(nameKey);
+          const customId = `custom-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`;
+          newCustomEntries.push({id: customId, name: displayName});
+          idsToAddToSelected.push(customId);
+        }
+      }
     });
+
+    if (idsToAddToSelected.length > 0) {
+      setSelected((prev) => {
+        const next = new Set(prev);
+        idsToAddToSelected.forEach((id) => next.add(id));
+        return next;
+      });
+      if (newCustomEntries.length > 0) {
+        setCustom((prev) => [...prev, ...newCustomEntries]);
+      }
+    }
     setSelectedSuggestedSystems(new Set());
   };
 
@@ -1316,10 +1364,20 @@ function SystemsSetupModal({
               <button
                 type="button"
                 onClick={handleInspectionContinue}
-                className="btn bg-[#456564] hover:bg-[#34514f] text-white inline-flex items-center gap-2 ml-auto"
+                disabled={analysisStatus === "queued" || analysisStatus === "processing"}
+                className="btn bg-[#456564] hover:bg-[#34514f] text-white inline-flex items-center gap-2 ml-auto disabled:opacity-60 disabled:cursor-not-allowed"
               >
-                Continue
-                <ChevronRight className="w-4 h-4" />
+                {analysisStatus === "queued" || analysisStatus === "processing" ? (
+                  <>
+                    <Loader2 className="w-4 h-4 animate-spin" />
+                    Analyzing…
+                  </>
+                ) : (
+                  <>
+                    Continue
+                    <ChevronRight className="w-4 h-4" />
+                  </>
+                )}
               </button>
             </div>
           </div>

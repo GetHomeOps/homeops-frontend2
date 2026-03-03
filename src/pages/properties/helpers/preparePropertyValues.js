@@ -401,8 +401,13 @@ export function prepareTeamForProperty(team) {
   if (!Array.isArray(team)) return [];
   return team
     .filter((m) => m && typeof m === "object" && m.id != null && !m._pending)
-    .map((member) => ({
-      ...member,
-      role: toPropertyRole(member.property_role || member.role),
-    }));
+    .map((member) => {
+      const currentRole = (member.property_role || member.role || "").toLowerCase();
+      /* Owner must always keep full access - never downgrade to viewer */
+      const role =
+        currentRole === "owner"
+          ? "owner"
+          : toPropertyRole(member.property_role || member.role);
+      return {...member, role};
+    });
 }

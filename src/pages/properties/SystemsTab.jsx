@@ -31,6 +31,7 @@ import CollapsibleSection from "./partials/CollapsibleSection";
 import InstallerSelect from "./partials/InstallerSelect";
 import Tooltip from "../../utils/Tooltip";
 import AIAssistantSidebar from "./partials/AIAssistantSidebar";
+import AIReanalysisAuditModal from "./partials/AIReanalysisAuditModal";
 
 function SystemsTab({
   propertyData,
@@ -50,6 +51,8 @@ function SystemsTab({
   aiSidebarSystemLabel: aiSidebarSystemLabelProp,
   aiSidebarSystemContext: aiSidebarSystemContextProp,
   expandSectionId,
+  aiSummaryUpdatedAt,
+  propertyId: propertyIdProp,
 }) {
   // Get contacts from context
   const contactContext = useContext(ContactContext);
@@ -100,11 +103,14 @@ function SystemsTab({
   const aiSidebarSystemContext = aiSidebarSystemContextProp ?? aiSidebarSystemContextLocal;
 
   const propertyId =
+    propertyIdProp ??
     propertyData?.id ??
     propertyData?.identity?.id ??
     propertyData?.property_uid ??
     propertyData?.identity?.property_uid ??
     propertyIdFallback;
+
+  const [aiAuditModalOpen, setAiAuditModalOpen] = useState(false);
   const handleOpenAIAssistant = (labelOrContext) => {
     if (onOpenAIAssistantProp) {
       onOpenAIAssistantProp(labelOrContext);
@@ -262,6 +268,20 @@ function SystemsTab({
   return (
     <>
     <div className="space-y-4">
+      {aiSummaryUpdatedAt && propertyId && (
+        <div className="flex items-center justify-between text-sm text-neutral-500 dark:text-neutral-400">
+          <span>
+            AI analysis updated {new Date(aiSummaryUpdatedAt).toLocaleDateString(undefined, { dateStyle: "medium" })}
+          </span>
+          <button
+            type="button"
+            onClick={() => setAiAuditModalOpen(true)}
+            className="text-[#456564] dark:text-[#5a7a78] hover:underline"
+          >
+            View before vs after
+          </button>
+        </div>
+      )}
       {/* Systems Section - Roof */}
       {isVisible("roof") && (
         <CollapsibleSection
@@ -2343,6 +2363,12 @@ function SystemsTab({
         contacts={contacts}
       />
     )}
+
+    <AIReanalysisAuditModal
+      isOpen={aiAuditModalOpen}
+      onClose={() => setAiAuditModalOpen(false)}
+      propertyId={propertyId}
+    />
     </>
   );
 }

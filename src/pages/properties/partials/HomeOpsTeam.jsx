@@ -2,7 +2,12 @@ import React, {useContext, useMemo} from "react";
 import {Plus, Mail} from "lucide-react";
 import UserContext from "../../../context/UserContext";
 
-function HomeOpsTeam({teamMembers = [], onOpenShareModal, hideAddButton}) {
+function HomeOpsTeam({
+  teamMembers = [],
+  onOpenShareModal,
+  onMemberClick,
+  hideAddButton,
+}) {
   const {users = []} = useContext(UserContext);
 
   const isPropertyOwner = (m) =>
@@ -75,10 +80,46 @@ function HomeOpsTeam({teamMembers = [], onOpenShareModal, hideAddButton}) {
               userFromContext?.image_url ??
               userFromContext?.image;
 
+            const roleLower = (member.role ?? member.property_role ?? "").toLowerCase();
+            const memberTab =
+              ["agent", "admin", "super_admin"].includes(roleLower)
+                ? "agent"
+                : ["insurer", "insurance", "insurance agent"].includes(roleLower)
+                  ? "insurance"
+                  : ["mortgage partner", "mortgage", "mortgage agent"].includes(roleLower)
+                    ? "mortgage"
+                    : "homeowner";
+
+            const handleMemberClick =
+              onMemberClick && !isPending
+                ? (e) => {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    onMemberClick(memberTab);
+                  }
+                : undefined;
+
             return (
               <div
                 key={member.id ?? `pending-${member.email}`}
-                className={`flex items-center gap-3 py-3 pl-3 pr-5 rounded-xl transition-colors duration-150 cursor-default ${
+                role={onMemberClick && !isPending ? "button" : undefined}
+                tabIndex={onMemberClick && !isPending ? 0 : undefined}
+                onClick={handleMemberClick}
+                onKeyDown={
+                  onMemberClick && !isPending
+                    ? (e) => {
+                        if (e.key === "Enter" || e.key === " ") {
+                          e.preventDefault();
+                          onMemberClick(memberTab);
+                        }
+                      }
+                    : undefined
+                }
+                className={`flex items-center gap-3 py-3 pl-3 pr-5 rounded-xl transition-colors duration-150 ${
+                  onMemberClick && !isPending
+                    ? "cursor-pointer"
+                    : "cursor-default"
+                } ${
                   isPending
                     ? "bg-neutral-100/80 dark:bg-neutral-800/50 border border-neutral-200 dark:border-neutral-600/60 opacity-75"
                     : "bg-neutral-50/80 dark:bg-neutral-800/50 hover:bg-neutral-100 dark:hover:bg-neutral-700/50 border border-neutral-200/60 dark:border-neutral-700/50"
@@ -120,9 +161,14 @@ function HomeOpsTeam({teamMembers = [], onOpenShareModal, hideAddButton}) {
                   </div>
                   {!isPending && !isOwner && (
                     <p className="text-xs text-neutral-500 dark:text-neutral-400 truncate leading-tight">
-                      {(member.property_role ?? member.role ?? "editor") === "viewer"
-                        ? "Viewer"
-                        : "Editor"}
+                      {(() => {
+                        const r = roleLower;
+                        if (["agent", "admin", "super_admin"].includes(r)) return "Agent";
+                        if (r === "homeowner") return "Homeowner";
+                        if (["insurer", "insurance", "insurance agent"].includes(r)) return "Insurance";
+                        if (["mortgage partner", "mortgage", "mortgage agent"].includes(r)) return "Mortgage";
+                        return (member.property_role ?? member.role ?? "editor") === "viewer" ? "Viewer" : "Editor";
+                      })()}
                     </p>
                   )}
                 </div>

@@ -37,6 +37,7 @@ export default defineConfig({
       '/saved-professionals': API_PROXY_TARGET,
       '/support-tickets': API_PROXY_TARGET,
       '/resources': API_PROXY_TARGET,
+      '/communications': API_PROXY_TARGET,
       '/notifications': API_PROXY_TARGET,
       '/inspection-analysis': API_PROXY_TARGET,
       '/ai': API_PROXY_TARGET,

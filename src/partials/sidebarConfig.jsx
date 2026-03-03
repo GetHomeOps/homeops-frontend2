@@ -79,7 +79,7 @@ export const SIDEBAR_CONFIG = [
         ],
       },
       { id: "contacts", label: "My Contacts", path: "contacts", icon: icon(UserCircle), roles: "all" },
-      { id: "resources", label: "Communications", path: "resources", icon: icon(BookOpen), roles: "adminOrAgent" },
+      { id: "communications", label: "Communications", path: "communications", icon: icon(BookOpen), roles: "adminOrAgent" },
     ],
   },
 

@@ -106,7 +106,11 @@ function AIFindingsPanel({
 
   const getSystemLabel = (systemKey) => {
     const sys = PROPERTY_SYSTEMS.find((s) => s.id === systemKey);
-    return sys?.name || systemKey;
+    if (sys?.name) return sys.name;
+    if (typeof systemKey === "string" && systemKey) {
+      return systemKey.charAt(0).toUpperCase() + systemKey.slice(1).replace(/([A-Z])/g, " $1").trim();
+    }
+    return systemKey;
   };
 
   return (

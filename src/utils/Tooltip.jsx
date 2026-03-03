@@ -1,79 +1,24 @@
-import React, {useState, useRef, useEffect, useCallback} from "react";
+import React, {useState, useRef} from "react";
 import {createPortal} from "react-dom";
 import Transition from "../utils/Transition";
+import {useDynamicPosition} from "../hooks/useDynamicPosition";
 
-const VIEWPORT_PADDING = 8;
 const TOOLTIP_GAP = 8;
-
-/** Estimated tooltip heights by size (used when measuring not yet available). */
-const ESTIMATED_HEIGHTS = {xl: 140, lg: 64, md: 48, sm: 36, default: 48};
 
 function Tooltip({children, className, bg, size, position, content}) {
   const [tooltipOpen, setTooltipOpen] = useState(false);
-  const [coords, setCoords] = useState({top: 0, left: 0});
-  const [effectivePosition, setEffectivePosition] = useState("bottom");
   const triggerRef = useRef(null);
   const tooltipRef = useRef(null);
 
   const isVertical = position === "bottom" || position === "top" || !position;
 
-  const updatePosition = useCallback(() => {
-    if (!triggerRef.current || !content) return;
-    const rect = triggerRef.current.getBoundingClientRect();
-    const viewportHeight = window.innerHeight;
-    const estimatedHeight =
-      ESTIMATED_HEIGHTS[size] ?? ESTIMATED_HEIGHTS.default;
-    const measuredHeight = tooltipRef.current?.offsetHeight ?? 0;
-    const height = measuredHeight > 0 ? measuredHeight : estimatedHeight;
-
-    const spaceBelow = viewportHeight - rect.bottom - VIEWPORT_PADDING;
-    const spaceAbove = rect.top - VIEWPORT_PADDING;
-    const minTop = VIEWPORT_PADDING;
-    const maxTop = viewportHeight - height - VIEWPORT_PADDING;
-
-    if (isVertical) {
-      const preferAbove = position === "top";
-      let placeAbove;
-      if (preferAbove) {
-        placeAbove = spaceAbove >= height || spaceBelow < height;
-      } else {
-        /* When not enough space below, render above. When both spaces are
-           tight, prefer whichever has more room (e.g. bottom-most elements). */
-        placeAbove =
-          (spaceBelow < height && spaceAbove >= height) ||
-          (spaceBelow < height && spaceAbove > spaceBelow);
-      }
-
-      let top;
-      const left = rect.left + rect.width / 2;
-      if (placeAbove) {
-        top = rect.top - height - TOOLTIP_GAP;
-        setEffectivePosition("top");
-      } else {
-        top = rect.bottom + TOOLTIP_GAP;
-        setEffectivePosition("bottom");
-      }
-      top = Math.max(minTop, Math.min(maxTop, top));
-      setCoords({top, left});
-    }
-  }, [content, position, size, isVertical]);
-
-  useEffect(() => {
-    if (!tooltipOpen || !isVertical) return;
-    updatePosition();
-    const raf = requestAnimationFrame(() => {
-      updatePosition();
-      requestAnimationFrame(updatePosition);
-    });
-    const el = tooltipRef.current;
-    if (!el) return;
-    const ro = new ResizeObserver(() => updatePosition());
-    ro.observe(el);
-    return () => {
-      cancelAnimationFrame(raf);
-      ro.disconnect();
-    };
-  }, [tooltipOpen, isVertical, updatePosition]);
+  const {top, left, effectivePosition} = useDynamicPosition({
+    triggerRef,
+    floatingRef: tooltipRef,
+    isVisible: tooltipOpen && !!content,
+    preferredPosition: position || "bottom",
+    gap: TOOLTIP_GAP,
+  });
 
   const handleEnter = () => {
     setTooltipOpen(true);
@@ -83,19 +28,11 @@ function Tooltip({children, className, bg, size, position, content}) {
     setTooltipOpen(false);
   };
 
-  const positionOuterClasses = (pos) => {
-    if (!isVertical) {
-      switch (pos) {
-        case "right":
-          return "left-full top-1/2 -translate-y-1/2";
-        case "left":
-          return "right-full top-1/2 -translate-y-1/2";
-        default:
-          return "top-full left-1/2 -translate-x-1/2";
-      }
-    }
-    return null;
-  };
+  /** For portal: vertical uses translateX(-50%) to center; horizontal uses no transform. */
+  const portalTransform =
+    isVertical || effectivePosition === "top" || effectivePosition === "bottom"
+      ? "translateX(-50%)"
+      : "none";
 
   const sizeClasses = (s) => {
     switch (s) {
@@ -166,24 +103,18 @@ function Tooltip({children, className, bg, size, position, content}) {
     >
       {children}
       {content &&
-        (isVertical ? (
-          createPortal(
-            <div
-              className="fixed z-[9999] pointer-events-none"
-              style={{
-                top: coords.top,
-                left: coords.left,
-                transform: "translateX(-50%)",
-              }}
-            >
-              {tooltipContent}
-            </div>,
-            document.body,
-          )
-        ) : (
-          <div className={`z-10 absolute ${positionOuterClasses(position)}`}>
+        (createPortal(
+          <div
+            className="fixed z-[9999] pointer-events-none"
+            style={{
+              top,
+              left,
+              transform: portalTransform,
+            }}
+          >
             {tooltipContent}
-          </div>
+          </div>,
+          document.body,
         ))}
     </div>
   );

@@ -31,6 +31,37 @@ class AppApi {
     return null;
   }
 
+  /** Decode JWT payload without verification to read exp. Returns null if invalid. */
+  static decodeTokenPayload(token) {
+    if (!token || typeof token !== "string") return null;
+    try {
+      const parts = token.split(".");
+      if (parts.length !== 3) return null;
+      const payload = JSON.parse(
+        atob(parts[1].replace(/-/g, "+").replace(/_/g, "/"))
+      );
+      return payload;
+    } catch {
+      return null;
+    }
+  }
+
+  /** Returns true if token is expired or will expire within bufferSeconds. */
+  static isTokenExpiredOrExpiringSoon(token, bufferSeconds = 60) {
+    const payload = AppApi.decodeTokenPayload(token);
+    if (!payload || typeof payload.exp !== "number") return true;
+    return payload.exp * 1000 <= Date.now() + bufferSeconds * 1000;
+  }
+
+  /** Refresh token if expired/expiring. Returns fresh token or null. Skips for auth endpoints. */
+  static async ensureValidToken(endpoint) {
+    const token = AppApi.getToken();
+    if (!token || endpoint.startsWith("auth/")) return token;
+    if (!AppApi.isTokenExpiredOrExpiringSoon(token)) return token;
+    await AppApi.refreshAccessToken();
+    return AppApi.getToken();
+  }
+
   static async refreshAccessToken() {
     if (AppApi._refreshPromise) return AppApi._refreshPromise;
 
@@ -68,7 +99,7 @@ class AppApi {
 
   static async request(endpoint, data = {}, method = "GET", customHeaders = {}) {
     const url = new URL(`${BASE_URL}/${endpoint}`);
-    const token = AppApi.getToken();
+    const token = await AppApi.ensureValidToken(endpoint);
     const headers = {
       ...(token ? { Authorization: `Bearer ${token}` } : {}),
       "Content-Type": "application/json",
@@ -102,7 +133,7 @@ class AppApi {
 
   static async requestFormData(endpoint, formData, method = "POST") {
     const url = new URL(`${BASE_URL}/${endpoint}`);
-    const token = AppApi.getToken();
+    const token = await AppApi.ensureValidToken(endpoint);
     const headers = { ...(token ? { Authorization: `Bearer ${token}` } : {}) };
 
     let resp = await fetch(url, { method, body: formData, headers });
@@ -472,7 +503,19 @@ class AppApi {
 
   static async getSystemsByPropertyId(propertyId) {
     let res = await this.request(`systems/${propertyId}`);
-    return res.systems;
+    return res;
+  }
+
+  /** Get property AI summary state (for Systems tab badge, before/after view). */
+  static async getPropertyAiSummary(propertyId) {
+    let res = await this.request(`ai/property-ai-summary/${propertyId}`);
+    return res.aiSummary;
+  }
+
+  /** Get property AI reanalysis audit trail (before/after comparison). */
+  static async getPropertyAiAudit(propertyId, limit = 20) {
+    let res = await this.request(`ai/property-ai-audit/${propertyId}?limit=${limit}`);
+    return res.audit;
   }
 
   /* --------- Maintenance Records --------- */
@@ -727,6 +770,16 @@ class AppApi {
       eventType: eventType || undefined,
       notes,
     }, "POST");
+    return res;
+  }
+
+  static async aiLoadConversation(propertyId) {
+    const res = await this.request("ai/conversations/latest", { propertyId }, "GET");
+    return res;
+  }
+
+  static async aiResetConversation(conversationId) {
+    const res = await this.request(`ai/conversations/${conversationId}`, {}, "DELETE");
     return res;
   }
 
@@ -995,6 +1048,84 @@ class AppApi {
 
   static async deleteResource(id) {
     await this.request(`resources/${id}`, {}, "DELETE");
+  }
+
+  /* --------- Communications (refactored) --------- */
+
+  static async getCommunications(accountId, params = {}) {
+    const res = await this.request("communications", { accountId, ...params });
+    return res.communications ?? [];
+  }
+
+  /** Get communications sent to current user (for Discover feed). */
+  static async getCommunicationsForRecipient(params = {}) {
+    const res = await this.request("communications/received", params);
+    return res.communications ?? [];
+  }
+
+  /** Get a communication for viewing (recipient must be in comm_recipients). */
+  static async getCommunicationView(id) {
+    const res = await this.request(`communications/${id}/view`);
+    return res;
+  }
+
+  static async getCommunication(id) {
+    const res = await this.request(`communications/${id}`);
+    return res;
+  }
+
+  static async createCommunication(data) {
+    const res = await this.request("communications", data, "POST");
+    return res;
+  }
+
+  static async updateCommunication(id, data) {
+    const res = await this.request(`communications/${id}`, data, "PATCH");
+    return res;
+  }
+
+  static async deleteCommunication(id) {
+    await this.request(`communications/${id}`, {}, "DELETE");
+  }
+
+  static async sendCommunication(id) {
+    const res = await this.request(`communications/${id}/send`, {}, "POST");
+    return res;
+  }
+
+  static async scheduleCommunication(id, scheduledAt) {
+    const res = await this.request(`communications/${id}/schedule`, { scheduledAt }, "POST");
+    return res;
+  }
+
+  static async cancelScheduleCommunication(id) {
+    const res = await this.request(`communications/${id}/cancel-schedule`, {}, "POST");
+    return res;
+  }
+
+  static async getCommRecipientOptions() {
+    const res = await this.request("communications/recipients/options");
+    return res;
+  }
+
+  static async estimateCommRecipients(data) {
+    const res = await this.request("communications/recipients/estimate", data, "POST");
+    return res.count ?? 0;
+  }
+
+  static async getCommTemplates(accountId) {
+    const res = await this.request("communications/templates", { accountId });
+    return res.templates ?? [];
+  }
+
+  static async getCommDefaultTemplate(accountId) {
+    const res = await this.request("communications/templates/default", { accountId });
+    return res.template;
+  }
+
+  static async updateCommTemplate(templateId, data) {
+    const res = await this.request(`communications/templates/${templateId}`, data, "PATCH");
+    return res.template;
   }
 
   /* --------- Notifications --------- */

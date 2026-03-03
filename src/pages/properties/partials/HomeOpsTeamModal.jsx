@@ -7,8 +7,8 @@ import useCurrentAccount from "../../../hooks/useCurrentAccount";
 import AppApi from "../../../api/api";
 
 const MEMBER_ROLES = [
-  {id: "Mortgage Partner", name: "Mortgage Partner"},
-  {id: "Insurer", name: "Insurer"},
+  {id: "Mortgage Partner", name: "Mortgage Agent"},
+  {id: "Insurer", name: "Insurance Agent"},
 ];
 
 /* Converts a user to a member (use image_url for display when available) */

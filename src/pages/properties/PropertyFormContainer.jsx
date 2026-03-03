@@ -6,7 +6,12 @@ import React, {
   useEffect,
   useCallback,
 } from "react";
-import {useNavigate, useLocation, useParams, useSearchParams} from "react-router-dom";
+import {
+  useNavigate,
+  useLocation,
+  useParams,
+  useSearchParams,
+} from "react-router-dom";
 import PropertyContext from "../../context/PropertyContext";
 import UserContext from "../../context/UserContext";
 import ContactContext from "../../context/ContactContext";
@@ -142,6 +147,8 @@ const initialState = {
   propertyAccessDenied: false,
   /** Set when GET property returns 404 or 403 "Property not found" */
   propertyNotFound: false,
+  /** When AI reanalysis last ran (for Systems tab badge) */
+  aiSummaryUpdatedAt: null,
 };
 
 /** Build default team member for the current user (creator) so new property always has at least one. */
@@ -299,6 +306,8 @@ function reducer(state, action) {
       return {...state, propertyNotFound: action.payload};
     case "SET_SYSTEMS":
       return {...state, systems: action.payload ?? []};
+    case "SET_AI_SUMMARY_UPDATED_AT":
+      return {...state, aiSummaryUpdatedAt: action.payload ?? null};
     case "SET_ACTIVE_TAB":
       return {...state, activeTab: action.payload};
     case "SET_FORM_CHANGED":
@@ -342,7 +351,8 @@ function PropertyFormContainer() {
   const location = useLocation();
   const {uid, accountUrl: accountUrlParam} = useParams();
   const [searchParams] = useSearchParams();
-  const invitationIdFromUrl = searchParams.get("invitation")?.trim?.() || searchParams.get("invitation");
+  const invitationIdFromUrl =
+    searchParams.get("invitation")?.trim?.() || searchParams.get("invitation");
   const isInvitationView = Boolean(invitationIdFromUrl && uid !== "new");
   const {t} = useTranslation();
   const {
@@ -386,6 +396,7 @@ function PropertyFormContainer() {
   const [maintenanceEvents, setMaintenanceEvents] = useState([]);
   const [actionsDropdownOpen, setActionsDropdownOpen] = useState(false);
   const [shareModalOpen, setShareModalOpen] = useState(false);
+  const [shareModalInitialTab, setShareModalInitialTab] = useState("owner");
   const [blankModalOpen, setBlankModalOpen] = useState(false);
   const [invitationModalOpen, setInvitationModalOpen] = useState(false);
   const [invitationAcceptingId, setInvitationAcceptingId] = useState(null);
@@ -570,14 +581,22 @@ function PropertyFormContainer() {
         });
         const propertyId = preloaded.identity?.id ?? preloaded.id;
         if (propertyId) {
-          const systemsArr = await getSystemsByPropertyId(propertyId);
-          dispatch({type: "SET_SYSTEMS", payload: systemsArr ?? []});
+          const systemsRes = await getSystemsByPropertyId(propertyId);
+          const systemsArr = systemsRes?.systems ?? systemsRes ?? [];
+          dispatch({type: "SET_SYSTEMS", payload: systemsArr});
+          if (systemsRes?.aiSummaryUpdatedAt) {
+            dispatch({type: "SET_AI_SUMMARY_UPDATED_AT", payload: systemsRes.aiSummaryUpdatedAt});
+          }
         }
         return;
       }
       try {
         const property = await getPropertyById(uid);
-        const systemsArr = await getSystemsByPropertyId(property.id);
+        const systemsRes = await getSystemsByPropertyId(property.id);
+        const systemsArr = systemsRes?.systems ?? systemsRes ?? [];
+        if (systemsRes?.aiSummaryUpdatedAt) {
+          dispatch({type: "SET_AI_SUMMARY_UPDATED_AT", payload: systemsRes.aiSummaryUpdatedAt});
+        }
         const rawRecords = await getMaintenanceRecordsByPropertyId(property.id);
         const maintenanceRecords = mapMaintenanceRecordsFromBackend(
           rawRecords ?? [],
@@ -748,7 +767,9 @@ function PropertyFormContainer() {
         );
         return {
           ...m,
-          role: m.property_role ?? m.role,
+          /* Preserve role (user type: agent, homeowner) for tab categorization; property_role for access (owner, editor, viewer) */
+          role: m.role,
+          property_role: m.property_role ?? "editor",
           image_url: m.image_url ?? u?.image_url,
           image: m.image ?? u?.image,
         };
@@ -959,7 +980,8 @@ function PropertyFormContainer() {
             .filter((r) => !isNewMaintenanceRecord(r))
             .map((r) => r.id),
         );
-        const systemsFromBackend = await getSystemsByPropertyId(propertyId);
+        const systemsRes = await getSystemsByPropertyId(propertyId);
+        const systemsFromBackend = systemsRes?.systems ?? systemsRes ?? [];
         const preloadedPayload = {
           ...buildPropertyPayloadFromRefresh(
             refreshed,
@@ -1036,6 +1058,10 @@ function PropertyFormContainer() {
   };
 
   /** Scroll to section and highlight – runs after tab switch so target is in DOM. */
+  const INCOMPLETE_SECTION_GLOW = [
+    "shadow-[0_0_0_1px_rgba(251,146,60,0.45),0_0_20px_rgba(251,146,60,0.25)]",
+    "hover:!shadow-[0_0_0_1px_rgba(251,146,60,0.45),0_0_20px_rgba(251,146,60,0.25)]",
+  ];
   const runScrollToSection = useCallback((tab, sectionId) => {
     const dataAttr =
       sectionId === "__all_complete__"
@@ -1053,15 +1079,15 @@ function PropertyFormContainer() {
       const el = document.querySelector(`[data-section-id="${dataAttr}"]`);
       if (!el) return;
       el.scrollIntoView({behavior: "smooth", block: "start"});
-      el.classList.add("ring-2", "ring-amber-400", "ring-offset-2", "dark:ring-offset-neutral-900");
-      const focusable = el.querySelector("input, select, textarea, [tabindex]:not([tabindex='-1'])");
+      el.classList.add(...INCOMPLETE_SECTION_GLOW);
+      const focusable = el.querySelector(
+        "input, select, textarea, [tabindex]:not([tabindex='-1'])",
+      );
       const focusDelay = tab === "systems" ? 350 : 400;
       if (focusable) {
         setTimeout(() => focusable.focus({preventScroll: true}), focusDelay);
       }
-      setTimeout(() => {
-        el.classList.remove("ring-2", "ring-amber-400", "ring-offset-2", "dark:ring-offset-neutral-900");
-      }, 2500);
+      setTimeout(() => el.classList.remove(...INCOMPLETE_SECTION_GLOW), 1500);
     };
 
     const delay = sectionId === "__all_complete__" ? 50 : 200;
@@ -1214,7 +1240,8 @@ function PropertyFormContainer() {
           );
           return {
             ...m,
-            role: m.property_role ?? m.role,
+            role: m.role,
+            property_role: m.property_role ?? "editor",
             image_url: m.image_url ?? u?.image_url,
             image: m.image ?? u?.image,
           };
@@ -1278,7 +1305,11 @@ function PropertyFormContainer() {
             .filter((r) => !isNewMaintenanceRecord(r))
             .map((r) => r.id),
         );
-        const systemsFromBackend = await getSystemsByPropertyId(res.id);
+        const systemsResAfter = await getSystemsByPropertyId(res.id);
+        const systemsFromBackend = systemsResAfter?.systems ?? systemsResAfter ?? [];
+        if (systemsResAfter?.aiSummaryUpdatedAt) {
+          dispatch({type: "SET_AI_SUMMARY_UPDATED_AT", payload: systemsResAfter.aiSummaryUpdatedAt});
+        }
 
         const scrollEl = document.querySelector(".flex-1.overflow-y-auto");
         const scrollPos = scrollEl?.scrollTop ?? window.scrollY ?? 0;
@@ -1450,6 +1481,7 @@ function PropertyFormContainer() {
       <SharePropertyModal
         modalOpen={shareModalOpen}
         setModalOpen={setShareModalOpen}
+        initialTab={shareModalInitialTab}
         propertyAddress={
           [
             state.formData.identity?.address,
@@ -1473,6 +1505,27 @@ function PropertyFormContainer() {
             : null
         }
         systems={state.formData.systems}
+        onUpdateAgentPermissions={(memberId, permissions) => {
+          const next = homeopsTeam.map((m) =>
+            String(m.id) === String(memberId)
+              ? {...m, permissions: permissions ?? {}}
+              : m,
+          );
+          handleTeamChange(next);
+        }}
+        onTransferOwnership={(newOwnerId) => {
+          const currentUserId = currentUser?.id;
+          const next = homeopsTeam.map((m) => {
+            if (String(m.id) === String(newOwnerId)) {
+              return {...m, property_role: "owner"};
+            }
+            if (currentUserId != null && String(m.id) === String(currentUserId)) {
+              return {...m, property_role: "editor"};
+            }
+            return m;
+          });
+          handleTeamChange(next);
+        }}
         onInvite={async ({
           email: inviteEmail,
           role,
@@ -1489,7 +1542,13 @@ function PropertyFormContainer() {
               : homeownerInviteType === "view_only"
                 ? "viewer"
                 : "editor";
-          const displayRole = role === "agent" ? "Agent" : "Homeowner";
+          const displayRoleMap = {
+            agent: "Agent",
+            homeowner: "Homeowner",
+            insurance: "Insurer",
+            mortgage: "Mortgage Partner",
+          };
+          const displayRole = displayRoleMap[role] ?? "Homeowner";
           const pendingMember = {
             email: inviteEmail,
             name: inviteEmail,
@@ -1670,12 +1729,12 @@ function PropertyFormContainer() {
                 state.systems ?? [],
               );
               await updateSystemsForProperty(numericId, systemsArray);
-              const systemsFromBackend =
-                await getSystemsByPropertyId(numericId);
-              dispatch({
-                type: "SET_SYSTEMS",
-                payload: systemsFromBackend ?? [],
-              });
+              const systemsResAfter = await getSystemsByPropertyId(numericId);
+              const systemsFromBackend = systemsResAfter?.systems ?? systemsResAfter ?? [];
+              dispatch({type: "SET_SYSTEMS", payload: systemsFromBackend});
+              if (systemsResAfter?.aiSummaryUpdatedAt) {
+                dispatch({type: "SET_AI_SUMMARY_UPDATED_AT", payload: systemsResAfter.aiSummaryUpdatedAt});
+              }
               dispatch({
                 type: "SET_BANNER",
                 payload: {
@@ -1742,239 +1801,239 @@ function PropertyFormContainer() {
           <span className="text-lg">Properties</span>
         </button>
         {!isInvitationView && (
-        <div className="flex items-center gap-3">
-          <div className="relative inline-flex">
-            <button
-              ref={actionsTriggerRef}
-              type="button"
-              className="btn px-2.5 bg-white dark:bg-neutral-900 border border-neutral-200/80 dark:border-neutral-700/50 hover:border-neutral-300 dark:hover:border-neutral-600 text-neutral-500 dark:text-neutral-400"
-              aria-haspopup="true"
-              aria-expanded={actionsDropdownOpen}
-              onClick={() => setActionsDropdownOpen(!actionsDropdownOpen)}
-            >
-              <span className="sr-only">Actions</span>
-              <svg
-                className="fill-current"
-                width="16"
-                height="16"
-                viewBox="0 0 16 16"
+          <div className="flex items-center gap-3">
+            <div className="relative inline-flex">
+              <button
+                ref={actionsTriggerRef}
+                type="button"
+                className="btn px-2.5 bg-white dark:bg-neutral-900 border border-neutral-200/80 dark:border-neutral-700/50 hover:border-neutral-300 dark:hover:border-neutral-600 text-neutral-500 dark:text-neutral-400"
+                aria-haspopup="true"
+                aria-expanded={actionsDropdownOpen}
+                onClick={() => setActionsDropdownOpen(!actionsDropdownOpen)}
               >
-                <path d="M0 3a1 1 0 0 1 1-1h14a1 1 0 1 1 0 2H1a1 1 0 0 1-1-1ZM3 8a1 1 0 0 1 1-1h8a1 1 0 1 1 0 2H4a1 1 0 0 1-1-1ZM7 12a1 1 0 1 0 0 2h2a1 1 0 1 0 0-2H7Z" />
-              </svg>
-            </button>
-            <Transition
-              show={actionsDropdownOpen}
-              tag="div"
-              className="origin-top-right z-10 absolute top-full left-0 right-auto min-w-56 bg-white dark:bg-neutral-900 border border-neutral-200/80 dark:border-neutral-700/50 pt-1.5 rounded-xl overflow-hidden mt-1 md:left-auto md:right-0"
-              style={{
-                boxShadow:
-                  "0 4px 24px rgba(0,0,0,0.06), 0 1px 2px rgba(0,0,0,0.04)",
-              }}
-              enter="transition ease-out duration-200 transform"
-              enterStart="opacity-0 -translate-y-2"
-              enterEnd="opacity-100 translate-y-0"
-              leave="transition ease-out duration-200"
-              leaveStart="opacity-100"
-              leaveEnd="opacity-0"
-            >
-              <div ref={actionsDropdownRef}>
-                <div className="text-xs font-semibold text-neutral-500 dark:text-neutral-400 uppercase tracking-wider pt-1.5 pb-2 px-3">
-                  {t("actions")}
+                <span className="sr-only">Actions</span>
+                <svg
+                  className="fill-current"
+                  width="16"
+                  height="16"
+                  viewBox="0 0 16 16"
+                >
+                  <path d="M0 3a1 1 0 0 1 1-1h14a1 1 0 1 1 0 2H1a1 1 0 0 1-1-1ZM3 8a1 1 0 0 1 1-1h8a1 1 0 1 1 0 2H4a1 1 0 0 1-1-1ZM7 12a1 1 0 1 0 0 2h2a1 1 0 1 0 0-2H7Z" />
+                </svg>
+              </button>
+              <Transition
+                show={actionsDropdownOpen}
+                tag="div"
+                className="origin-top-right z-10 absolute top-full left-0 right-auto min-w-56 bg-white dark:bg-neutral-900 border border-neutral-200/80 dark:border-neutral-700/50 pt-1.5 rounded-xl overflow-hidden mt-1 md:left-auto md:right-0"
+                style={{
+                  boxShadow:
+                    "0 4px 24px rgba(0,0,0,0.06), 0 1px 2px rgba(0,0,0,0.04)",
+                }}
+                enter="transition ease-out duration-200 transform"
+                enterStart="opacity-0 -translate-y-2"
+                enterEnd="opacity-100 translate-y-0"
+                leave="transition ease-out duration-200"
+                leaveStart="opacity-100"
+                leaveEnd="opacity-0"
+              >
+                <div ref={actionsDropdownRef}>
+                  <div className="text-xs font-semibold text-neutral-500 dark:text-neutral-400 uppercase tracking-wider pt-1.5 pb-2 px-3">
+                    {t("actions")}
+                  </div>
+                  <ul className="mb-1">
+                    <li>
+                      <button
+                        type="button"
+                        className="w-full flex items-center cursor-pointer hover:bg-neutral-50 dark:hover:bg-neutral-800 px-3 py-2"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          setActionsDropdownOpen(false);
+                          setSystemsSetupModalOpen(true);
+                        }}
+                      >
+                        <Settings className="w-5 h-5 shrink-0 text-neutral-500 dark:text-neutral-400" />
+                        <span className="text-sm font-medium ml-2">
+                          {t("configure") || "Configure"}
+                        </span>
+                      </button>
+                    </li>
+                    <li>
+                      <button
+                        type="button"
+                        className="w-full flex items-center cursor-pointer hover:bg-neutral-50 dark:hover:bg-neutral-800 px-3 py-2"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          setActionsDropdownOpen(false);
+                          // TODO: Call API to generate PDF report
+                          dispatch({
+                            type: "SET_BANNER",
+                            payload: {
+                              open: true,
+                              type: "success",
+                              message:
+                                "Report generation is not yet implemented.",
+                            },
+                          });
+                        }}
+                      >
+                        <FileBarChart className="w-5 h-5 shrink-0 text-neutral-500 dark:text-neutral-400" />
+                        <span className="text-sm font-medium ml-2">
+                          Generate report
+                        </span>
+                      </button>
+                    </li>
+                  </ul>
                 </div>
-                <ul className="mb-1">
-                  <li>
-                    <button
-                      type="button"
-                      className="w-full flex items-center cursor-pointer hover:bg-neutral-50 dark:hover:bg-neutral-800 px-3 py-2"
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        setActionsDropdownOpen(false);
-                        setSystemsSetupModalOpen(true);
-                      }}
-                    >
-                      <Settings className="w-5 h-5 shrink-0 text-neutral-500 dark:text-neutral-400" />
-                      <span className="text-sm font-medium ml-2">
-                        {t("configure") || "Configure"}
-                      </span>
-                    </button>
-                  </li>
-                  <li>
-                    <button
-                      type="button"
-                      className="w-full flex items-center cursor-pointer hover:bg-neutral-50 dark:hover:bg-neutral-800 px-3 py-2"
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        setActionsDropdownOpen(false);
-                        // TODO: Call API to generate PDF report
-                        dispatch({
-                          type: "SET_BANNER",
-                          payload: {
-                            open: true,
-                            type: "success",
-                            message:
-                              "Report generation is not yet implemented.",
-                          },
-                        });
-                      }}
-                    >
-                      <FileBarChart className="w-5 h-5 shrink-0 text-neutral-500 dark:text-neutral-400" />
-                      <span className="text-sm font-medium ml-2">
-                        Generate report
-                      </span>
-                    </button>
-                  </li>
-                </ul>
-              </div>
-            </Transition>
+              </Transition>
+            </div>
+            <button
+              className="btn bg-[#456564] hover:bg-[#34514f] text-white transition-colors duration-200 shadow-sm"
+              onClick={handleNewProperty}
+            >
+              {t("new")}
+            </button>
           </div>
-          <button
-            className="btn bg-[#456564] hover:bg-[#34514f] text-white transition-colors duration-200 shadow-sm"
-            onClick={handleNewProperty}
-          >
-            {t("new")}
-          </button>
-        </div>
         )}
       </div>
 
       {!isInvitationView && (
-      <div className="flex justify-between items-center mb-2">
-        {/* Analysis and AI Assistant buttons - Left aligned */}
-        <div className="flex items-center gap-3 sm:ml-4">
-          {uid !== "new" && (
-            <>
-              <button
-                ref={blankModalButtonRef}
-                type="button"
-                onClick={() => setBlankModalOpen(true)}
-                className="flex items-center gap-2 px-3 py-2 bg-transparent border border-neutral-200/80 dark:border-neutral-600/50 rounded-xl text-neutral-700 dark:text-neutral-300 hover:bg-neutral-50 dark:hover:bg-neutral-800/50 hover:border-neutral-300 dark:hover:border-neutral-500 hover:text-neutral-900 dark:hover:text-neutral-100 transition-all duration-200"
-                title="Inspection report analysis"
-              >
-                <FileCheck className="w-4 h-4 flex-shrink-0" />
-                <span className="text-sm font-semibold">
-                  Inspection Analysis
-                </span>
-              </button>
-              <button
-                type="button"
-                onClick={() => setAiSidebarOpen(true)}
-                className="flex items-center gap-2 px-3 py-2 bg-transparent border border-neutral-200/80 dark:border-neutral-600/50 rounded-xl text-neutral-700 dark:text-neutral-300 hover:bg-neutral-50 dark:hover:bg-neutral-800/50 hover:border-neutral-300 dark:hover:border-neutral-500 hover:text-neutral-900 dark:hover:text-neutral-100 transition-all duration-200"
-                title="AI Assistant"
-              >
-                <Sparkles className="w-4 h-4 flex-shrink-0 text-[#456564]" />
-                <span className="text-sm font-semibold">AI Assistant</span>
-              </button>
-            </>
-          )}
-        </div>
-
-        {/* Property Navigation */}
-        <div className="flex items-center">
-          {uid &&
-            uid !== "new" &&
-            (() => {
-              // Use location.state if available, otherwise build from properties
-              const navState = location.state || buildNavigationState(uid);
-
-              if (!navState) return null;
-
-              return (
-                <>
-                  <span className="text-sm text-neutral-500 dark:text-neutral-400 mr-2">
-                    {navState.currentIndex || 1} / {navState.totalItems || 1}
+        <div className="flex justify-between items-center mb-2">
+          {/* Analysis and AI Assistant buttons - Left aligned */}
+          <div className="flex items-center gap-3 sm:ml-4">
+            {uid !== "new" && (
+              <>
+                <button
+                  ref={blankModalButtonRef}
+                  type="button"
+                  onClick={() => setBlankModalOpen(true)}
+                  className="flex items-center gap-2 px-3 py-2 bg-transparent border border-neutral-200/80 dark:border-neutral-600/50 rounded-xl text-neutral-700 dark:text-neutral-300 hover:bg-neutral-50 dark:hover:bg-neutral-800/50 hover:border-neutral-300 dark:hover:border-neutral-500 hover:text-neutral-900 dark:hover:text-neutral-100 transition-all duration-200"
+                  title="Inspection report analysis"
+                >
+                  <FileCheck className="w-4 h-4 flex-shrink-0" />
+                  <span className="text-sm font-semibold">
+                    Inspection Analysis
                   </span>
-                  <button
-                    className="btn shadow-none p-1"
-                    title="Previous"
-                    onClick={() => {
-                      if (
-                        navState.visiblePropertyIds &&
-                        navState.currentIndex > 1
-                      ) {
-                        const prevIndex = navState.currentIndex - 2;
-                        const prevPropertyId =
-                          navState.visiblePropertyIds[prevIndex];
-                        const prevNavState =
-                          buildNavigationState(prevPropertyId);
-                        navigate(
-                          `/${accountUrl}/properties/${prevPropertyId}`,
-                          {
-                            state: prevNavState || {
-                              ...navState,
-                              currentIndex: navState.currentIndex - 1,
-                            },
-                          },
-                        );
-                      }
-                    }}
-                    disabled={
-                      !navState.currentIndex || navState.currentIndex <= 1
-                    }
-                  >
-                    <svg
-                      className={`fill-current shrink-0 ${
-                        !navState.currentIndex || navState.currentIndex <= 1
-                          ? "text-neutral-200 dark:text-neutral-700"
-                          : "text-neutral-500 dark:text-neutral-400 hover:text-neutral-600 dark:hover:text-neutral-300"
-                      }`}
-                      width="24"
-                      height="24"
-                      viewBox="0 0 18 18"
-                    >
-                      <path d="M9.4 13.4l1.4-1.4-4-4 4-4-1.4-1.4L4 8z"></path>
-                    </svg>
-                  </button>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setAiSidebarOpen(true)}
+                  className="flex items-center gap-2 px-3 py-2 bg-transparent border border-neutral-200/80 dark:border-neutral-600/50 rounded-xl text-neutral-700 dark:text-neutral-300 hover:bg-neutral-50 dark:hover:bg-neutral-800/50 hover:border-neutral-300 dark:hover:border-neutral-500 hover:text-neutral-900 dark:hover:text-neutral-100 transition-all duration-200"
+                  title="AI Assistant"
+                >
+                  <Sparkles className="w-4 h-4 flex-shrink-0 text-[#456564]" />
+                  <span className="text-sm font-semibold">AI Assistant</span>
+                </button>
+              </>
+            )}
+          </div>
 
-                  <button
-                    className="btn shadow-none p-1"
-                    title="Next"
-                    onClick={() => {
-                      if (
-                        navState.visiblePropertyIds &&
-                        navState.currentIndex < navState.totalItems
-                      ) {
-                        const nextIndex = navState.currentIndex;
-                        const nextPropertyId =
-                          navState.visiblePropertyIds[nextIndex];
-                        const nextNavState =
-                          buildNavigationState(nextPropertyId);
-                        navigate(
-                          `/${accountUrl}/properties/${nextPropertyId}`,
-                          {
-                            state: nextNavState || {
-                              ...navState,
-                              currentIndex: navState.currentIndex + 1,
+          {/* Property Navigation */}
+          <div className="flex items-center">
+            {uid &&
+              uid !== "new" &&
+              (() => {
+                // Use location.state if available, otherwise build from properties
+                const navState = location.state || buildNavigationState(uid);
+
+                if (!navState) return null;
+
+                return (
+                  <>
+                    <span className="text-sm text-neutral-500 dark:text-neutral-400 mr-2">
+                      {navState.currentIndex || 1} / {navState.totalItems || 1}
+                    </span>
+                    <button
+                      className="btn shadow-none p-1"
+                      title="Previous"
+                      onClick={() => {
+                        if (
+                          navState.visiblePropertyIds &&
+                          navState.currentIndex > 1
+                        ) {
+                          const prevIndex = navState.currentIndex - 2;
+                          const prevPropertyId =
+                            navState.visiblePropertyIds[prevIndex];
+                          const prevNavState =
+                            buildNavigationState(prevPropertyId);
+                          navigate(
+                            `/${accountUrl}/properties/${prevPropertyId}`,
+                            {
+                              state: prevNavState || {
+                                ...navState,
+                                currentIndex: navState.currentIndex - 1,
+                              },
                             },
-                          },
-                        );
+                          );
+                        }
+                      }}
+                      disabled={
+                        !navState.currentIndex || navState.currentIndex <= 1
                       }
-                    }}
-                    disabled={
-                      !navState.currentIndex ||
-                      !navState.totalItems ||
-                      navState.currentIndex >= navState.totalItems
-                    }
-                  >
-                    <svg
-                      className={`fill-current shrink-0 ${
+                    >
+                      <svg
+                        className={`fill-current shrink-0 ${
+                          !navState.currentIndex || navState.currentIndex <= 1
+                            ? "text-neutral-200 dark:text-neutral-700"
+                            : "text-neutral-500 dark:text-neutral-400 hover:text-neutral-600 dark:hover:text-neutral-300"
+                        }`}
+                        width="24"
+                        height="24"
+                        viewBox="0 0 18 18"
+                      >
+                        <path d="M9.4 13.4l1.4-1.4-4-4 4-4-1.4-1.4L4 8z"></path>
+                      </svg>
+                    </button>
+
+                    <button
+                      className="btn shadow-none p-1"
+                      title="Next"
+                      onClick={() => {
+                        if (
+                          navState.visiblePropertyIds &&
+                          navState.currentIndex < navState.totalItems
+                        ) {
+                          const nextIndex = navState.currentIndex;
+                          const nextPropertyId =
+                            navState.visiblePropertyIds[nextIndex];
+                          const nextNavState =
+                            buildNavigationState(nextPropertyId);
+                          navigate(
+                            `/${accountUrl}/properties/${nextPropertyId}`,
+                            {
+                              state: nextNavState || {
+                                ...navState,
+                                currentIndex: navState.currentIndex + 1,
+                              },
+                            },
+                          );
+                        }
+                      }}
+                      disabled={
                         !navState.currentIndex ||
                         !navState.totalItems ||
                         navState.currentIndex >= navState.totalItems
-                          ? "text-neutral-200 dark:text-neutral-700"
-                          : "text-neutral-500 dark:text-neutral-400 hover:text-neutral-600 dark:hover:text-neutral-300"
-                      }`}
-                      width="24"
-                      height="24"
-                      viewBox="0 0 18 18"
+                      }
                     >
-                      <path d="M6.6 13.4L5.2 12l4-4-4-4 1.4-1.4L12 8z"></path>
-                    </svg>
-                  </button>
-                </>
-              );
-            })()}
+                      <svg
+                        className={`fill-current shrink-0 ${
+                          !navState.currentIndex ||
+                          !navState.totalItems ||
+                          navState.currentIndex >= navState.totalItems
+                            ? "text-neutral-200 dark:text-neutral-700"
+                            : "text-neutral-500 dark:text-neutral-400 hover:text-neutral-600 dark:hover:text-neutral-300"
+                        }`}
+                        width="24"
+                        height="24"
+                        viewBox="0 0 18 18"
+                      >
+                        <path d="M6.6 13.4L5.2 12l4-4-4-4 1.4-1.4L12 8z"></path>
+                      </svg>
+                    </button>
+                  </>
+                );
+              })()}
+          </div>
         </div>
-      </div>
       )}
 
       <div className="space-y-8">
@@ -2027,7 +2086,9 @@ function PropertyFormContainer() {
                             : "bg-neutral-100 text-neutral-600 border border-neutral-200"
                     }`}
                   >
-                    {(inspectionAnalysis.conditionRating || "").toLowerCase() === "unknown"
+                    {(
+                      inspectionAnalysis.conditionRating || ""
+                    ).toLowerCase() === "unknown"
                       ? "Not specified"
                       : inspectionAnalysis.conditionRating}
                   </span>
@@ -2270,150 +2331,205 @@ function PropertyFormContainer() {
         {/* HomeOps Team */}
         <HomeOpsTeam
           teamMembers={homeopsTeam}
-          onOpenShareModal={isInvitationView ? undefined : () => setShareModalOpen(true)}
+          onOpenShareModal={
+            isInvitationView
+              ? undefined
+              : () => {
+                  setShareModalInitialTab("owner");
+                  setShareModalOpen(true);
+                }
+          }
+          onMemberClick={
+            isInvitationView
+              ? undefined
+              : (tab) => {
+                  setShareModalInitialTab(tab);
+                  setShareModalOpen(true);
+                }
+          }
           hideAddButton={isInvitationView}
         />
 
         {!isInvitationView && (
-        <>
-        {/* Property Health & Completeness */}
-        <section
-          data-section-id="health-status"
-          className="rounded-2xl overflow-hidden border border-neutral-200/80 dark:border-neutral-700/50 bg-white dark:bg-neutral-900 p-5 md:p-6"
-          style={{
-            boxShadow:
-              "0 4px 24px rgba(0,0,0,0.06), 0 1px 2px rgba(0,0,0,0.04)",
-          }}
-        >
-          <ScoreCard
-            propertyData={mergedFormData}
-            onCompleteOutstandingTasks={handleCompleteOutstandingTasks}
-          />
-        </section>
+          <>
+            {/* Property Health & Completeness */}
+            <section
+              data-section-id="health-status"
+              className="rounded-2xl overflow-hidden border border-neutral-200/80 dark:border-neutral-700/50 bg-white dark:bg-neutral-900 p-5 md:p-6"
+              style={{
+                boxShadow:
+                  "0 4px 24px rgba(0,0,0,0.06), 0 1px 2px rgba(0,0,0,0.04)",
+              }}
+            >
+              <ScoreCard
+                propertyData={mergedFormData}
+                onCompleteOutstandingTasks={handleCompleteOutstandingTasks}
+              />
+            </section>
 
-        {/* Navigation Tabs */}
-        <section
-          className={`rounded-2xl border border-neutral-200/80 dark:border-neutral-700/50 bg-white dark:bg-neutral-900 ${
-            state.formDataChanged || state.isNew
-              ? "rounded-b-none border-b-0"
-              : ""
-          }`}
-          style={{
-            boxShadow:
-              state.formDataChanged || state.isNew
-                ? "0 -1px 12px rgba(0,0,0,0.04)"
-                : "0 4px 24px rgba(0,0,0,0.06), 0 1px 2px rgba(0,0,0,0.04)",
-          }}
-        >
-          <div className="border-b border-neutral-100 dark:border-neutral-800 px-6">
-            <nav className="flex flex-wrap gap-1">
-              {tabs.map((tab) => {
-                const icons = {
-                  identity: FileText,
-                  systems: Settings,
-                  maintenance: Wrench,
-                  documents: FileText,
-                  media: ImageIcon,
-                };
-                const Icon = icons[tab.id] || FileText;
-                return (
-                  <button
-                    key={tab.id}
-                    onClick={() =>
-                      dispatch({type: "SET_ACTIVE_TAB", payload: tab.id})
+            {/* Navigation Tabs */}
+            <section
+              className={`rounded-2xl border border-neutral-200/80 dark:border-neutral-700/50 bg-white dark:bg-neutral-900 ${
+                state.formDataChanged || state.isNew
+                  ? "rounded-b-none border-b-0"
+                  : ""
+              }`}
+              style={{
+                boxShadow:
+                  state.formDataChanged || state.isNew
+                    ? "0 -1px 12px rgba(0,0,0,0.04)"
+                    : "0 4px 24px rgba(0,0,0,0.06), 0 1px 2px rgba(0,0,0,0.04)",
+              }}
+            >
+              <div className="border-b border-neutral-100 dark:border-neutral-800 px-6">
+                <nav className="flex flex-wrap gap-1">
+                  {tabs.map((tab) => {
+                    const icons = {
+                      identity: FileText,
+                      systems: Settings,
+                      maintenance: Wrench,
+                      documents: FileText,
+                      media: ImageIcon,
+                    };
+                    const Icon = icons[tab.id] || FileText;
+                    return (
+                      <button
+                        key={tab.id}
+                        onClick={() =>
+                          dispatch({type: "SET_ACTIVE_TAB", payload: tab.id})
+                        }
+                        className={`py-4 px-4 text-sm font-medium transition border-b-2 flex items-center gap-2 ${
+                          state.activeTab === tab.id
+                            ? "border-[#456564] text-[#456564] dark:text-[#5a7a78] dark:border-[#5a7a78]"
+                            : "border-transparent text-neutral-500 hover:text-neutral-700 dark:text-neutral-400 dark:hover:text-neutral-300"
+                        }`}
+                      >
+                        <Icon className="w-4 h-4" />
+                        {tab.label}
+                        {tab.id === "systems" && state.aiSummaryUpdatedAt && (
+                          <span
+                            className="ml-1 px-1.5 py-0.5 text-[10px] font-medium rounded-full bg-emerald-100 text-emerald-700 dark:bg-emerald-900/40 dark:text-emerald-300"
+                            title={`AI analysis updated ${new Date(state.aiSummaryUpdatedAt).toLocaleDateString()}`}
+                          >
+                            AI Updated
+                          </span>
+                        )}
+                      </button>
+                    );
+                  })}
+                </nav>
+              </div>
+              <div
+                className={`px-6 pt-6 ${state.formDataChanged || state.isNew ? "pb-6" : "pb-2"}`}
+              >
+                {state.activeTab === "identity" && (
+                  <IdentityTab
+                    propertyData={mergedFormData}
+                    handleInputChange={handleChange}
+                    errors={state.errors}
+                    addressInputRef={identityAddressRef}
+                    placesLoaded={identityPlacesLoaded}
+                    placesError={identityPlacesError}
+                    AutocompleteWrapper={IdentityAutocompleteWrapper}
+                  />
+                )}
+
+                {state.activeTab === "systems" && (
+                  <SystemsTab
+                    propertyData={mergedFormData}
+                    propertyIdFallback={uid !== "new" ? uid : undefined}
+                    handleInputChange={handleChange}
+                    expandSectionId={expandSectionId}
+                    onSilentSystemsUpdate={handleSilentSystemsUpdate}
+                    visibleSystemIds={visibleSystemIds}
+                    customSystemsData={
+                      state.formData.systems?.customSystemsData ?? {}
                     }
-                    className={`py-4 px-4 text-sm font-medium transition border-b-2 flex items-center gap-2 ${
-                      state.activeTab === tab.id
-                        ? "border-[#456564] text-[#456564] dark:text-[#5a7a78] dark:border-[#5a7a78]"
-                        : "border-transparent text-neutral-500 hover:text-neutral-700 dark:text-neutral-400 dark:hover:text-neutral-300"
-                    }`}
-                  >
-                    <Icon className="w-4 h-4" />
-                    {tab.label}
-                  </button>
-                );
-              })}
-            </nav>
-          </div>
-          <div className={`px-6 pt-6 ${state.formDataChanged || state.isNew ? "pb-6" : "pb-2"}`}>
-            {state.activeTab === "identity" && (
-              <IdentityTab
-                propertyData={mergedFormData}
-                handleInputChange={handleChange}
-                errors={state.errors}
-                addressInputRef={identityAddressRef}
-                placesLoaded={identityPlacesLoaded}
-                placesError={identityPlacesError}
-                AutocompleteWrapper={IdentityAutocompleteWrapper}
-              />
-            )}
+                    systems={state.systems}
+                    inspectionAnalysis={inspectionAnalysis}
+                    maintenanceEvents={maintenanceEvents}
+                    aiSummaryUpdatedAt={state.aiSummaryUpdatedAt}
+                    propertyId={state.property?.id ?? (uid && uid !== "new" ? uid : null)}
+                    onOpenInspectionReport={() =>
+                      setInspectionReportModalOpen(true)
+                    }
+                    aiSidebarOpen={aiSidebarOpen}
+                    onAiSidebarOpenChange={setAiSidebarOpen}
+                    onOpenAIAssistant={(ctx) => {
+                      const obj =
+                        typeof ctx === "object" && ctx !== null
+                          ? ctx
+                          : {systemName: ctx};
+                      setAiSidebarSystemLabel(obj.systemName ?? ctx ?? null);
+                      setAiSidebarSystemContext(
+                        typeof ctx === "object" && ctx !== null ? ctx : null,
+                      );
+                      setAiSidebarOpen(true);
+                    }}
+                    aiSidebarSystemLabel={aiSidebarSystemLabel}
+                    aiSidebarSystemContext={aiSidebarSystemContext}
+                    onSystemsCompletionChange={handleSystemsCompletionChange}
+                  />
+                )}
 
-            {state.activeTab === "systems" && (
-              <SystemsTab
-                propertyData={mergedFormData}
-                propertyIdFallback={uid !== "new" ? uid : undefined}
-                handleInputChange={handleChange}
-                expandSectionId={expandSectionId}
-                onSilentSystemsUpdate={handleSilentSystemsUpdate}
-                visibleSystemIds={visibleSystemIds}
-                customSystemsData={
-                  state.formData.systems?.customSystemsData ?? {}
-                }
-                systems={state.systems}
-                inspectionAnalysis={inspectionAnalysis}
-                maintenanceEvents={maintenanceEvents}
-                onOpenInspectionReport={() =>
-                  setInspectionReportModalOpen(true)
-                }
-                aiSidebarOpen={aiSidebarOpen}
-                onAiSidebarOpenChange={setAiSidebarOpen}
-                onOpenAIAssistant={(ctx) => {
-                  const obj = typeof ctx === "object" && ctx !== null ? ctx : { systemName: ctx };
-                  setAiSidebarSystemLabel(obj.systemName ?? ctx ?? null);
-                  setAiSidebarSystemContext(typeof ctx === "object" && ctx !== null ? ctx : null);
-                  setAiSidebarOpen(true);
-                }}
-                aiSidebarSystemLabel={aiSidebarSystemLabel}
-                aiSidebarSystemContext={aiSidebarSystemContext}
-                onSystemsCompletionChange={handleSystemsCompletionChange}
-              />
-            )}
+                {state.activeTab === "maintenance" && (
+                  <MaintenanceTab
+                    propertyData={mergedFormData}
+                    maintenanceRecords={state.formData.maintenanceRecords ?? []}
+                    savedMaintenanceRecords={
+                      state.savedMaintenanceRecords ?? []
+                    }
+                    onMaintenanceRecordsChange={(records) =>
+                      dispatch({
+                        type: "SET_MAINTENANCE_FORM_DATA",
+                        payload: records,
+                      })
+                    }
+                    onMaintenanceRecordAdded={() => {
+                      setTimeout(() => {
+                        saveBarRef.current?.scrollIntoView?.({
+                          behavior: "smooth",
+                          block: "nearest",
+                        });
+                      }, 100);
+                    }}
+                    contacts={contacts ?? []}
+                  />
+                )}
 
-            {state.activeTab === "maintenance" && (
-              <MaintenanceTab
-                propertyData={mergedFormData}
-                maintenanceRecords={state.formData.maintenanceRecords ?? []}
-                savedMaintenanceRecords={state.savedMaintenanceRecords ?? []}
-                onMaintenanceRecordsChange={(records) =>
-                  dispatch({
-                    type: "SET_MAINTENANCE_FORM_DATA",
-                    payload: records,
-                  })
-                }
-                onMaintenanceRecordAdded={() => {
-                  setTimeout(() => {
-                    saveBarRef.current?.scrollIntoView?.({
-                      behavior: "smooth",
-                      block: "nearest",
-                    });
-                  }, 100);
-                }}
-                contacts={contacts ?? []}
-              />
-            )}
+                {state.activeTab === "media" && (
+                  <div className="space-y-8">
+                    <div>
+                      <h3 className="text-lg font-semibold text-neutral-900 dark:text-white mb-4">
+                        Media Content
+                      </h3>
+                      <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                        {(state.formData.identity?.photos ?? []).map(
+                          (photo, index) => (
+                            <div
+                              key={photo}
+                              className="relative overflow-hidden rounded-xl h-48 bg-neutral-50 dark:bg-neutral-800/50 border border-neutral-200/60 dark:border-neutral-700/50"
+                            >
+                              <img
+                                src={photo}
+                                alt={`Property photo ${index + 1}`}
+                                className="w-full h-full object-cover"
+                              />
+                            </div>
+                          ),
+                        )}
+                      </div>
+                    </div>
+                  </div>
+                )}
 
-            {state.activeTab === "media" && (
-              <div className="space-y-8">
-                <div>
-                  <h3 className="text-lg font-semibold text-neutral-900 dark:text-white mb-4">
-                    Media Content
-                  </h3>
+                {state.activeTab === "photos" && (
                   <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
                     {(state.formData.identity?.photos ?? []).map(
                       (photo, index) => (
                         <div
                           key={photo}
-                          className="relative overflow-hidden rounded-xl h-48 bg-neutral-50 dark:bg-neutral-800/50 border border-neutral-200/60 dark:border-neutral-700/50"
+                          className="relative overflow-hidden rounded-xl h-48 bg-neutral-50 dark:bg-neutral-800/50 border border-neutral-200/60 dark:border-neutral-700/50 border-dashed"
                         >
                           <img
                             src={photo}
@@ -2424,99 +2540,81 @@ function PropertyFormContainer() {
                       ),
                     )}
                   </div>
-                </div>
-              </div>
-            )}
+                )}
 
-            {state.activeTab === "photos" && (
-              <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-                {(state.formData.identity?.photos ?? []).map((photo, index) => (
-                  <div
-                    key={photo}
-                    className="relative overflow-hidden rounded-xl h-48 bg-neutral-50 dark:bg-neutral-800/50 border border-neutral-200/60 dark:border-neutral-700/50 border-dashed"
-                  >
-                    <img
-                      src={photo}
-                      alt={`Property photo ${index + 1}`}
-                      className="w-full h-full object-cover"
-                    />
+                {state.activeTab === "documents" && (
+                  <div data-documents-tab className="min-h-0">
+                    <React.Suspense
+                      fallback={
+                        <div className="flex items-center justify-center py-16 text-gray-500 dark:text-gray-400">
+                          <Loader2 className="w-8 h-8 animate-spin mr-2" />
+                          Loading documents…
+                        </div>
+                      }
+                    >
+                      <DocumentsTab
+                        propertyData={mergedFormData}
+                        onOpenAIAssistant={
+                          uid !== "new"
+                            ? () => setAiSidebarOpen(true)
+                            : undefined
+                        }
+                        onOpenAIReport={
+                          uid !== "new"
+                            ? () => setInspectionReportModalOpen(true)
+                            : undefined
+                        }
+                      />
+                    </React.Suspense>
                   </div>
-                ))}
+                )}
               </div>
-            )}
+            </section>
 
-            {state.activeTab === "documents" && (
-              <div data-documents-tab className="min-h-0">
-                <React.Suspense
-                  fallback={
-                    <div className="flex items-center justify-center py-16 text-gray-500 dark:text-gray-400">
-                      <Loader2 className="w-8 h-8 animate-spin mr-2" />
-                      Loading documents…
-                    </div>
-                  }
-                >
-                  <DocumentsTab
-                    propertyData={mergedFormData}
-                    onOpenAIAssistant={
-                      uid !== "new" ? () => setAiSidebarOpen(true) : undefined
-                    }
-                    onOpenAIReport={
-                      uid !== "new"
-                        ? () => setInspectionReportModalOpen(true)
-                        : undefined
-                    }
-                  />
-                </React.Suspense>
-              </div>
-            )}
-          </div>
-
-        </section>
-
-        {/* Save/Cancel bar — direct child of space-y-8 so its sticky parent
+            {/* Save/Cancel bar — direct child of space-y-8 so its sticky parent
              always has content in the viewport regardless of scroll position.
              -mt-8 collapses the space-y gap to visually attach to the section above.
              z-0 keeps it below tooltips (z-10) and popovers (z-50) on Systems tab. */}
-        <div
-          ref={saveBarRef}
-          className={`${
-            state.formDataChanged || state.isNew ? "sticky -mt-8" : "hidden"
-          } bottom-0 z-0 bg-white dark:bg-neutral-900 border border-neutral-200/80 dark:border-neutral-700/50 border-t border-t-neutral-100 dark:border-t-neutral-800 px-6 py-4 rounded-b-2xl transition-all duration-200`}
-          style={{
-            boxShadow:
-              "0 4px 24px rgba(0,0,0,0.06), 0 1px 2px rgba(0,0,0,0.04)",
-          }}
-        >
-          <div className="flex justify-end gap-3">
-            <button
-              type="button"
-              className="btn bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 hover:border-gray-300 dark:hover:border-gray-600 text-gray-800 dark:text-gray-300 transition-colors duration-200 shadow-sm"
-              onClick={handleCancelChanges}
+            <div
+              ref={saveBarRef}
+              className={`${
+                state.formDataChanged || state.isNew ? "sticky -mt-8" : "hidden"
+              } bottom-0 z-0 bg-white dark:bg-neutral-900 border border-neutral-200/80 dark:border-neutral-700/50 border-t border-t-neutral-100 dark:border-t-neutral-800 px-6 py-4 rounded-b-2xl transition-all duration-200`}
+              style={{
+                boxShadow:
+                  "0 4px 24px rgba(0,0,0,0.06), 0 1px 2px rgba(0,0,0,0.04)",
+              }}
             >
-              Cancel
-            </button>
-            <button
-              type="button"
-              className="btn text-white transition-colors duration-200 shadow-sm min-w-[100px] bg-[#456564] hover:bg-[#34514f] flex items-center justify-center gap-2"
-              onClick={state.isNew ? handleSubmit : handleUpdate}
-            >
-              {state.isSubmitting && (
-                <Loader2
-                  className="w-4 h-4 animate-spin shrink-0"
-                  aria-hidden
-                />
-              )}
-              {state.isSubmitting
-                ? state.isNew
-                  ? "Saving..."
-                  : "Updating..."
-                : state.isNew
-                  ? "Save"
-                  : "Update"}
-            </button>
-          </div>
-        </div>
-        </>
+              <div className="flex justify-end gap-3">
+                <button
+                  type="button"
+                  className="btn bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 hover:border-gray-300 dark:hover:border-gray-600 text-gray-800 dark:text-gray-300 transition-colors duration-200 shadow-sm"
+                  onClick={handleCancelChanges}
+                >
+                  Cancel
+                </button>
+                <button
+                  type="button"
+                  className="btn text-white transition-colors duration-200 shadow-sm min-w-[100px] bg-[#456564] hover:bg-[#34514f] flex items-center justify-center gap-2"
+                  onClick={state.isNew ? handleSubmit : handleUpdate}
+                >
+                  {state.isSubmitting && (
+                    <Loader2
+                      className="w-4 h-4 animate-spin shrink-0"
+                      aria-hidden
+                    />
+                  )}
+                  {state.isSubmitting
+                    ? state.isNew
+                      ? "Saving..."
+                      : "Updating..."
+                    : state.isNew
+                      ? "Save"
+                      : "Update"}
+                </button>
+              </div>
+            </div>
+          </>
         )}
       </div>
 
@@ -2538,15 +2636,20 @@ function PropertyFormContainer() {
                   Property invitation
                 </h3>
                 <p className="text-sm text-neutral-500 dark:text-neutral-400">
-                  You&apos;ve been invited to join this property&apos;s Opsy team.
+                  You&apos;ve been invited to join this property&apos;s Opsy
+                  team.
                 </p>
               </div>
             </div>
             <p className="text-sm text-neutral-600 dark:text-neutral-300 mb-6">
-              Would you like to accept this invitation and get access to this property?
+              Would you like to accept this invitation and get access to this
+              property?
             </p>
             {invitationError && (
-              <p className="text-sm text-red-600 dark:text-red-400 mb-4" role="alert">
+              <p
+                className="text-sm text-red-600 dark:text-red-400 mb-4"
+                role="alert"
+              >
                 {invitationError}
               </p>
             )}
@@ -2563,21 +2666,32 @@ function PropertyFormContainer() {
                     const raw = team?.property_users ?? [];
                     const enriched = raw.map((m) => {
                       const u = users?.find(
-                        (us) => us && m?.id != null && Number(us.id) === Number(m.id),
+                        (us) =>
+                          us && m?.id != null && Number(us.id) === Number(m.id),
                       );
                       return {
                         ...m,
-                        role: m.property_role ?? m.role,
+                        role: m.role,
+                        property_role: m.property_role ?? "editor",
                         image_url: m.image_url ?? u?.image_url,
                         image: m.image ?? u?.image,
                       };
                     });
                     setHomeopsTeam(enriched);
-                    navigate(`/${accountUrl}/properties/${uid}`, { replace: true });
+                    navigate(`/${accountUrl}/properties/${uid}`, {
+                      replace: true,
+                    });
                   } catch (err) {
                     console.error("Failed to accept invitation:", err);
-                    const msg = err?.messages?.[0] ?? err?.message ?? "Failed to accept invitation.";
-                    setInvitationError(typeof msg === "string" ? msg : "Failed to accept invitation.");
+                    const msg =
+                      err?.messages?.[0] ??
+                      err?.message ??
+                      "Failed to accept invitation.";
+                    setInvitationError(
+                      typeof msg === "string"
+                        ? msg
+                        : "Failed to accept invitation.",
+                    );
                   } finally {
                     setInvitationAcceptingId(null);
                   }
@@ -2603,8 +2717,15 @@ function PropertyFormContainer() {
                     navigate(`/${accountUrl}/properties`);
                   } catch (err) {
                     console.error("Failed to decline invitation:", err);
-                    const msg = err?.messages?.[0] ?? err?.message ?? "Failed to decline invitation.";
-                    setInvitationError(typeof msg === "string" ? msg : "Failed to decline invitation.");
+                    const msg =
+                      err?.messages?.[0] ??
+                      err?.message ??
+                      "Failed to decline invitation.";
+                    setInvitationError(
+                      typeof msg === "string"
+                        ? msg
+                        : "Failed to decline invitation.",
+                    );
                   } finally {
                     setInvitationDecliningId(null);
                   }
@@ -2691,15 +2812,23 @@ function PropertyFormContainer() {
           contacts={contacts ?? []}
           initialPrompt={aiSidebarInitialPrompt}
           onScheduleSuccess={fetchMaintenanceEvents}
-          onOpenScheduleModal={uid !== "new" ? (prefill) => {
-            setScheduleFromAiPrefill(prefill);
-            setScheduleFromAiModalOpen(true);
-          } : undefined}
-          onMarkAsMaintained={uid !== "new" ? ({ systemId, systemName }) => {
-            setAiSidebarOpen(false);
-            dispatch({ type: "SET_ACTIVE_TAB", payload: "maintenance" });
-            // Could open add-maintenance-record flow in future
-          } : undefined}
+          onOpenScheduleModal={
+            uid !== "new"
+              ? (prefill) => {
+                  setScheduleFromAiPrefill(prefill);
+                  setScheduleFromAiModalOpen(true);
+                }
+              : undefined
+          }
+          onMarkAsMaintained={
+            uid !== "new"
+              ? ({systemId, systemName}) => {
+                  setAiSidebarOpen(false);
+                  dispatch({type: "SET_ACTIVE_TAB", payload: "maintenance"});
+                  // Could open add-maintenance-record flow in future
+                }
+              : undefined
+          }
         />
       )}
     </div>

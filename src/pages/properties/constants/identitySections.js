@@ -20,7 +20,6 @@ export const IDENTITY_SECTIONS = [
       "occupantName",
       "occupantType",
       "ownerPhone",
-      "phoneToShow",
     ],
   },
   {
@@ -85,14 +84,7 @@ export const IDENTITY_SECTIONS = [
       "elementarySchool",
       "juniorHighSchool",
       "seniorHighSchool",
-      "schoolDistrictWebsites",
     ],
-  },
-  {
-    id: "listing_dates",
-    label: "Listing & Dates",
-    description: "Property listing timeline",
-    fields: ["listDate", "expireDate"],
   },
 ];
 

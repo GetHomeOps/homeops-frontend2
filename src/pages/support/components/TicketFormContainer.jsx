@@ -18,11 +18,12 @@ import StatusBadge, {
 } from "./StatusBadge";
 import PriorityBadge from "./PriorityBadge";
 
-/** Section styling (matches ContactFormContainer, ResourceFormContainer, PropertyFormContainer) */
-const SECTION_BG =
-  "bg-gray-50 dark:bg-gray-700/50 rounded-lg p-6";
+/** Card styling – each section is its own elevated card (matches ContactFormContainer / ResourceFormContainer). */
+const CARD =
+  "bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-200 dark:border-gray-700 overflow-hidden";
+const CARD_BODY = "p-5 sm:p-6";
 const SECTION_HEADER =
-  "text-lg font-semibold text-gray-800 dark:text-gray-100 mb-6 flex items-center gap-2";
+  "text-base font-semibold text-gray-800 dark:text-gray-100 mb-5 flex items-center gap-2";
 const SECTION_ICON = "h-5 w-5 text-[#6E8276] dark:text-[#5a7a78]";
 
 /** Button classes (matches ProfessionalFormContainer, ResourceFormContainer) */
@@ -204,60 +205,61 @@ function TicketFormContainer({
   );
 
   const cardContent = (
-    <div className="bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-200 dark:border-gray-700 overflow-hidden">
-      {/* Header (no back button inside) */}
-      <div className="px-6 py-5 border-b border-gray-200 dark:border-gray-700 flex items-start justify-between gap-4">
-        <div className="min-w-0 flex-1">
-          <div className="flex flex-wrap items-center gap-2">
-            <h2 className="text-lg font-bold text-gray-900 dark:text-white">
-              #{ticket?.id}
-            </h2>
-            <span className="text-gray-500 dark:text-gray-400">·</span>
-            <h2 className="text-lg font-bold text-gray-900 dark:text-white truncate">
-              {ticket?.subject}
-            </h2>
+    <div className="space-y-5">
+      {/* Header card */}
+      <div className={CARD}>
+        <div className="px-5 sm:px-6 py-5 flex items-start justify-between gap-4">
+          <div className="min-w-0 flex-1">
+            <div className="flex flex-wrap items-center gap-2">
+              <h2 className="text-lg font-bold text-gray-900 dark:text-white">
+                #{ticket?.id}
+              </h2>
+              <span className="text-gray-300 dark:text-gray-600">|</span>
+              <h2 className="text-lg font-bold text-gray-900 dark:text-white truncate">
+                {ticket?.subject}
+              </h2>
+            </div>
+            <div className="flex flex-wrap items-center gap-2 mt-2.5">
+              <StatusBadge status={statusDisplay} labels={labels} />
+              {variant === "support" && (
+                <PriorityBadge priority={priority} />
+              )}
+              <span className="text-xs text-gray-500 dark:text-gray-400">
+                Created{" "}
+                {ticket?.createdAt &&
+                  format(new Date(ticket.createdAt), "MMM d, yyyy HH:mm")}
+              </span>
+              <span className="text-xs text-gray-500 dark:text-gray-400">
+                Updated{" "}
+                {ticket?.updatedAt &&
+                  format(new Date(ticket.updatedAt), "MMM d, yyyy HH:mm")}
+              </span>
+            </div>
           </div>
-          <div className="flex flex-wrap gap-2 mt-2">
-            <StatusBadge status={statusDisplay} labels={labels} />
-            {variant === "support" && (
-              <PriorityBadge priority={priority} />
-            )}
-            <span className="text-xs text-gray-500 dark:text-gray-400">
-              Created{" "}
-              {ticket?.createdAt &&
-                format(new Date(ticket.createdAt), "MMM d, yyyy HH:mm")}
-            </span>
-            <span className="text-xs text-gray-500 dark:text-gray-400">
-              Updated{" "}
-              {ticket?.updatedAt &&
-                format(new Date(ticket.updatedAt), "MMM d, yyyy HH:mm")}
-            </span>
-          </div>
+          {!asPage && (
+            <button
+              type="button"
+              onClick={onClose}
+              className="p-1.5 rounded-lg text-gray-400 hover:text-gray-600 hover:bg-gray-100 dark:hover:text-gray-300 dark:hover:bg-gray-700/50 transition-colors shrink-0"
+              aria-label="Close"
+            >
+              <X className="w-5 h-5" />
+            </button>
+          )}
         </div>
-        {!asPage && (
-          <button
-            type="button"
-            onClick={onClose}
-            className="p-1.5 rounded-lg text-gray-400 hover:text-gray-600 hover:bg-gray-100 dark:hover:text-gray-300 dark:hover:bg-gray-700/50 transition-colors shrink-0"
-            aria-label="Close"
-          >
-            <X className="w-5 h-5" />
-          </button>
-        )}
       </div>
 
-      {/* Content sections */}
-      <div className="p-6 space-y-6 min-h-[200px]">
-        {/* User Info Panel (admin only) */}
-        {!readOnly && (
-          <div className={SECTION_BG}>
+      {/* User Info card (admin only) */}
+      {!readOnly && (
+        <div className={CARD}>
+          <div className={CARD_BODY}>
             <h3 className={SECTION_HEADER}>
               <User className={SECTION_ICON} />
               User Info
             </h3>
-            <div className="grid grid-cols-2 sm:grid-cols-3 gap-4 text-sm">
+            <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-x-6 gap-y-4 text-sm">
               <div>
-                <span className="block text-sm text-gray-500 dark:text-gray-400 mb-0.5">
+                <span className="block text-xs text-gray-500 dark:text-gray-400 mb-0.5">
                   Name
                 </span>
                 <p className="font-medium text-gray-900 dark:text-white">
@@ -265,7 +267,7 @@ function TicketFormContainer({
                 </p>
               </div>
               <div>
-                <span className="block text-sm text-gray-500 dark:text-gray-400 mb-0.5">
+                <span className="block text-xs text-gray-500 dark:text-gray-400 mb-0.5">
                   Email
                 </span>
                 <p className="font-medium text-gray-900 dark:text-white">
@@ -273,7 +275,7 @@ function TicketFormContainer({
                 </p>
               </div>
               <div>
-                <span className="block text-sm text-gray-500 dark:text-gray-400 mb-0.5">
+                <span className="block text-xs text-gray-500 dark:text-gray-400 mb-0.5">
                   Role
                 </span>
                 <p className="font-medium text-gray-900 dark:text-white capitalize">
@@ -281,7 +283,7 @@ function TicketFormContainer({
                 </p>
               </div>
               <div>
-                <span className="block text-sm text-gray-500 dark:text-gray-400 mb-0.5">
+                <span className="block text-xs text-gray-500 dark:text-gray-400 mb-0.5">
                   Payment Plan
                 </span>
                 <p className="font-medium text-gray-900 dark:text-white">
@@ -289,7 +291,7 @@ function TicketFormContainer({
                 </p>
               </div>
               <div>
-                <span className="block text-sm text-gray-500 dark:text-gray-400 mb-0.5">
+                <span className="block text-xs text-gray-500 dark:text-gray-400 mb-0.5">
                   Account ID
                 </span>
                 <p className="font-medium text-gray-900 dark:text-white">
@@ -297,7 +299,7 @@ function TicketFormContainer({
                 </p>
               </div>
               <div>
-                <span className="block text-sm text-gray-500 dark:text-gray-400 mb-0.5">
+                <span className="block text-xs text-gray-500 dark:text-gray-400 mb-0.5">
                   Properties
                 </span>
                 <p className="font-medium text-gray-900 dark:text-white">
@@ -305,27 +307,29 @@ function TicketFormContainer({
                 </p>
               </div>
               <div>
-                <span className="block text-sm text-gray-500 dark:text-gray-400 mb-0.5">
+                <span className="block text-xs text-gray-500 dark:text-gray-400 mb-0.5">
                   Est. MRR
                 </span>
                 <p className="font-medium text-gray-900 dark:text-white">
                   {ticket?.estimatedMrr ?? "—"}
                 </p>
               </div>
-            </div>
-            <div className="mt-4 pt-4 border-t border-gray-200 dark:border-gray-600">
-              <span className="text-sm text-gray-500 dark:text-gray-400">
-                SLA target:{" "}
-              </span>
-              <span className="text-sm font-medium text-gray-700 dark:text-gray-300">
-                {slaHours}h response
-              </span>
+              <div>
+                <span className="block text-xs text-gray-500 dark:text-gray-400 mb-0.5">
+                  SLA Target
+                </span>
+                <p className="font-medium text-gray-900 dark:text-white">
+                  {slaHours}h response
+                </p>
+              </div>
             </div>
           </div>
-        )}
+        </div>
+      )}
 
-        {/* Ticket Details */}
-        <div className={SECTION_BG}>
+      {/* Ticket Details card */}
+      <div className={CARD}>
+        <div className={CARD_BODY}>
           <h3 className={SECTION_HEADER}>
             <FileText className={SECTION_ICON} />
             Ticket Details
@@ -395,10 +399,12 @@ function TicketFormContainer({
             </div>
           </div>
         </div>
+      </div>
 
-        {/* Admin controls: Status, Assign (admin only) */}
-        {!readOnly && (
-          <div className={SECTION_BG}>
+      {/* Quick Actions card (admin only) */}
+      {!readOnly && (
+        <div className={CARD}>
+          <div className={CARD_BODY}>
             <h3 className={SECTION_HEADER}>
               <Zap className={SECTION_ICON} />
               Quick Actions
@@ -456,17 +462,19 @@ function TicketFormContainer({
               )}
             </div>
           </div>
-        )}
+        </div>
+      )}
 
-        {/* Odoo-style Chatter: unified thread + composer */}
-        <div className={SECTION_BG}>
+      {/* Discussion card */}
+      <div className={CARD}>
+        <div className={CARD_BODY}>
           <h3 className={SECTION_HEADER}>
             <MessageSquare className={SECTION_ICON} />
             Discussion
           </h3>
 
           {/* Chatter thread */}
-          <div className="space-y-4 mb-6 max-h-[320px] overflow-y-auto pr-2">
+          <div className="space-y-4 mb-6 max-h-[400px] overflow-y-auto pr-2">
             {chatterItems.map((item) => (
               <div
                 key={item.id}
@@ -572,7 +580,7 @@ function TicketFormContainer({
             </div>
           )}
 
-          {/* Composer: Send message / Log note (Odoo-style) */}
+          {/* Composer */}
           {!readOnly ? (
             <div className="space-y-3">
               <div className="flex gap-2">
@@ -657,7 +665,6 @@ function TicketFormContainer({
               </div>
             </div>
           ) : (
-            /* User reply (readOnly) */
             onUserReply && (
               <div className="space-y-3">
                 <textarea
@@ -685,7 +692,7 @@ function TicketFormContainer({
 
           {/* Internal notes editor when no notes yet (admin) */}
           {!readOnly && !internalNotes?.trim() && (
-            <div className="mt-4 pt-4 border-t border-gray-200 dark:border-gray-600">
+            <div className="mt-5 pt-5 border-t border-gray-200 dark:border-gray-700">
               <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
                 Internal notes
               </label>
@@ -717,11 +724,11 @@ function TicketFormContainer({
 
   if (asPage) {
     return (
-      <div className="max-w-3xl mx-auto">
-        <div className="flex justify-between items-center mb-4">
+      <div className="max-w-5xl mx-auto">
+        <div className="flex justify-between items-center mb-5">
           {backButton}
         </div>
-        <div className="overflow-y-auto">{cardContent}</div>
+        {cardContent}
       </div>
     );
   }
@@ -731,9 +738,9 @@ function TicketFormContainer({
       id="ticket-form-modal"
       modalOpen={!!ticket}
       setModalOpen={onClose}
-      contentClassName="max-w-3xl"
+      contentClassName="max-w-4xl"
     >
-      <div className="max-h-[90vh] overflow-y-auto">{cardContent}</div>
+      <div className="max-h-[90vh] overflow-y-auto p-1">{cardContent}</div>
     </ModalBlank>
   );
 }

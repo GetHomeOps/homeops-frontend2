@@ -51,7 +51,8 @@ function CalendarScheduleModal({isOpen, onClose, onScheduled, initialDate = "", 
         const propId = prop?.id ?? prop?.property_uid ?? selectedPropertyId;
         if (getSystemsByPropertyId) {
           try {
-            const systemsArr = await getSystemsByPropertyId(propId);
+            const systemsRes = await getSystemsByPropertyId(propId);
+            const systemsArr = systemsRes?.systems ?? systemsRes ?? [];
             if (!cancelled) {
               const systems = (systemsArr ?? []).filter((s) => s.included !== false);
               setPropertySystems(systems);

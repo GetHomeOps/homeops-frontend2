@@ -1,5 +1,5 @@
-import React, { useState, useEffect, useRef } from "react";
-import { Search, Filter, ChevronRight, ChevronLeft, X } from "lucide-react";
+import React, {useState, useEffect, useRef} from "react";
+import {Search, Filter, ChevronRight, ChevronLeft, X} from "lucide-react";
 
 /**
  * PropertiesList-style filter: single dropdown with multiple categories,
@@ -44,9 +44,9 @@ function FilterDropdownWithPills({
 
   const toggleFilter = (type, value, label) => {
     if (isFilterActive(type, value)) {
-      onRemoveFilter({ type, value });
+      onRemoveFilter({type, value});
     } else {
-      onAddFilter({ type, value, label });
+      onAddFilter({type, value, label});
     }
   };
 
@@ -91,7 +91,9 @@ function FilterDropdownWithPills({
               {!activeCategory ? (
                 <ul className="py-1.5">
                   {filterCategories.map((cat) => {
-                    const count = activeFilters.filter((f) => f.type === cat.type).length;
+                    const count = activeFilters.filter(
+                      (f) => f.type === cat.type,
+                    ).length;
                     return (
                       <li key={cat.type}>
                         <button
@@ -131,16 +133,30 @@ function FilterDropdownWithPills({
                           <button
                             type="button"
                             className="w-full flex items-center gap-3 px-3 py-2 text-sm text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700/50 transition-colors"
-                            onClick={() => toggleFilter(activeCategory, opt.value, opt.label)}
+                            onClick={() =>
+                              toggleFilter(activeCategory, opt.value, opt.label)
+                            }
                           >
                             <span
                               className={`flex-shrink-0 w-4 h-4 rounded border-2 flex items-center justify-center transition-colors ${
-                                active ? "bg-violet-500 border-violet-500" : "border-gray-300 dark:border-gray-600"
+                                active
+                                  ? "bg-violet-500 border-violet-500"
+                                  : "border-gray-300 dark:border-gray-600"
                               }`}
                             >
                               {active && (
-                                <svg className="w-3 h-3 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M5 13l4 4L19 7" />
+                                <svg
+                                  className="w-3 h-3 text-white"
+                                  fill="none"
+                                  stroke="currentColor"
+                                  viewBox="0 0 24 24"
+                                >
+                                  <path
+                                    strokeLinecap="round"
+                                    strokeLinejoin="round"
+                                    strokeWidth={3}
+                                    d="M5 13l4 4L19 7"
+                                  />
                                 </svg>
                               )}
                             </span>
@@ -168,7 +184,9 @@ function FilterDropdownWithPills({
             className="form-select text-sm py-2 pl-3 pr-8 rounded-lg border-gray-200 dark:border-gray-600 bg-white dark:bg-gray-800 min-w-[130px]"
           >
             {sortOptions.map((o) => (
-              <option key={o.value} value={o.value}>{o.label}</option>
+              <option key={o.value} value={o.value}>
+                {o.label}
+              </option>
             ))}
           </select>
         )}
@@ -190,7 +208,7 @@ function FilterDropdownWithPills({
               {f.label}
               <button
                 type="button"
-                onClick={() => onRemoveFilter({ type: f.type, value: f.value })}
+                onClick={() => onRemoveFilter({type: f.type, value: f.value})}
                 className="ml-0.5 p-0.5 rounded-full hover:bg-violet-200 dark:hover:bg-violet-500/20 transition-colors"
                 aria-label="Remove filter"
               >

@@ -71,6 +71,9 @@ import ResourcesManagement from "../resources/ResourcesManagement";
 import Resource from "../resources/Resource";
 import ResourceViewerPage from "../resources/ResourceViewerPage";
 import ResourcePreviewPage from "../resources/ResourcePreviewPage";
+import CommunicationsList from "../communications/CommunicationsList";
+import CommunicationComposer from "../communications/CommunicationComposer";
+import CommunicationViewerPage from "../communications/CommunicationViewerPage";
 import Calendar from "../calendar/Calendar";
 
 
@@ -543,6 +546,38 @@ function RoutesList() {
         element={
           <AdminRoute allowedRoles={["super_admin", "admin", "agent"]}>
             <ResourcesManagement />
+          </AdminRoute>
+        }
+      />
+      <Route
+        path="/:accountUrl/communications/new"
+        element={
+          <AdminRoute allowedRoles={["super_admin", "admin", "agent"]}>
+            <CommunicationComposer />
+          </AdminRoute>
+        }
+      />
+      <Route
+        path="/:accountUrl/communications/:id/view"
+        element={
+          <ProtectedRoute>
+            <CommunicationViewerPage />
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/:accountUrl/communications/:id"
+        element={
+          <AdminRoute allowedRoles={["super_admin", "admin", "agent"]}>
+            <CommunicationComposer />
+          </AdminRoute>
+        }
+      />
+      <Route
+        path="/:accountUrl/communications"
+        element={
+          <AdminRoute allowedRoles={["super_admin", "admin", "agent"]}>
+            <CommunicationsList />
           </AdminRoute>
         }
       />

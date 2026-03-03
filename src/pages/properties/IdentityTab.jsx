@@ -3,20 +3,20 @@ import {
   Home,
   User,
   Building2,
-  Calendar,
   Ruler,
   Bed,
   Flame,
   School,
   Check,
   AlertCircle,
+  Info,
 } from "lucide-react";
 import {usStates} from "../../data/states";
-import DatePickerInput from "../../components/DatePickerInput";
 import {
   IDENTITY_SECTIONS,
   getSectionProgress,
 } from "./constants/identitySections";
+import Tooltip from "../../utils/Tooltip";
 
 // Stable subcomponents; defined at module level so inputs don't remount on every keystroke.
 function Field({
@@ -31,6 +31,7 @@ function Field({
   error,
   inputRef,
   hint,
+  infoTooltip,
   uncontrolled = false,
   readOnly = false,
 }) {
@@ -49,6 +50,11 @@ function Field({
       <label className="block text-sm font-medium text-gray-500 dark:text-gray-400 mb-1">
         {label}
         {required && <span className="text-red-500 ml-0.5">*</span>}
+        {infoTooltip && (
+          <Tooltip content={infoTooltip} position="top">
+            <Info className="w-4 h-4 ml-0.5 inline-block align-middle text-gray-400 dark:text-gray-500 cursor-help" />
+          </Tooltip>
+        )}
         {hint && (
           <span className="ml-2 text-emerald-500 text-[10px] font-normal">
             {hint}
@@ -83,6 +89,7 @@ function SelectField({
   onChange,
   required = false,
   error,
+  infoTooltip,
   readOnly = false,
 }) {
   const errorClasses = error
@@ -98,6 +105,11 @@ function SelectField({
         <label className="block text-sm font-medium text-gray-500 dark:text-gray-400 mb-1">
           {label}
           {required && <span className="text-red-500 ml-0.5">*</span>}
+          {infoTooltip && (
+            <Tooltip content={infoTooltip} position="top">
+              <Info className="w-4 h-4 ml-0.5 inline-block align-middle text-gray-400 dark:text-gray-500 cursor-help" />
+            </Tooltip>
+          )}
         </label>
         <div
           className={`form-input w-full ${errorClasses} ${readOnlyClasses} py-2.5`}
@@ -114,6 +126,11 @@ function SelectField({
       <label className="block text-sm font-medium text-gray-500 dark:text-gray-400 mb-1">
         {label}
         {required && <span className="text-red-500 ml-0.5">*</span>}
+        {infoTooltip && (
+          <Tooltip content={infoTooltip} position="top">
+            <Info className="w-4 h-4 ml-0.5 inline-block align-middle text-gray-400 dark:text-gray-500 cursor-help" />
+          </Tooltip>
+        )}
       </label>
       <select
         name={name}
@@ -297,79 +314,78 @@ function IdentityTab({
             )}
           </div>
 
-          <div className="md:col-span-3 pt-4 mt-4 border-t border-neutral-200 dark:border-neutral-600 w-full">
-            <p className="text-xs text-neutral-500 dark:text-neutral-400 mb-4 text-center">
-              Filled automatically when you select an address above
-            </p>
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-          <div className="md:col-span-2">
+          <div className="md:col-span-3 grid grid-cols-1 md:grid-cols-3 gap-6">
+            <div className="md:col-span-2">
+              <Field
+                onChange={handleInputChange}
+                label="Address Line 1"
+                name="addressLine1"
+                value={propertyData.addressLine1}
+                placeholder="e.g. 123 Main St"
+                readOnly
+                infoTooltip="Auto-populated when you select an address"
+              />
+            </div>
             <Field
               onChange={handleInputChange}
-              label="Address Line 1"
-              name="addressLine1"
-              value={propertyData.addressLine1}
-              placeholder="e.g. 123 Main St"
-              readOnly
+              label="Address Line 2"
+              name="addressLine2"
+              value={propertyData.addressLine2}
+              placeholder="e.g. Apt 4, Suite 200"
             />
-          </div>
-          <Field
-            onChange={handleInputChange}
-            label="Address Line 2"
-            name="addressLine2"
-            value={propertyData.addressLine2}
-            placeholder="e.g. Apt 4, Suite 200"
-          />
 
-          <Field
-            onChange={handleInputChange}
-            label="City"
-            name="city"
-            value={propertyData.city}
-            required
-            error={errors.city}
-            readOnly
-          />
-          <SelectField
-            onChange={handleInputChange}
-            label="State"
-            name="state"
-            value={propertyData.state}
-            options={usStates.map((s) => s.code)}
-            required
-            error={errors.state}
-            readOnly
-          />
-          <Field
-            onChange={handleInputChange}
-            label="ZIP"
-            name="zip"
-            value={propertyData.zip}
-            required
-            error={errors.zip}
-            readOnly
-          />
-            </div>
-            <div className="pt-4 mt-4 border-t border-neutral-200 dark:border-neutral-600">
-              <p className="text-xs text-neutral-500 dark:text-neutral-400 text-center">
-                Editable fields below
-              </p>
-            </div>
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mt-4">
-          <Field
-            onChange={handleInputChange}
-            label="County"
-            name="county"
-            value={propertyData.county}
-            placeholder="e.g. King"
-          />
-          <Field
-            onChange={handleInputChange}
-            label="Tax / Parcel ID"
-            name="taxId"
-            value={propertyData.taxId || propertyData.parcelTaxId}
-            placeholder="e.g. 9278300025"
-          />
-            </div>
+            <Field
+              onChange={handleInputChange}
+              label="City"
+              name="city"
+              value={propertyData.city}
+              required
+              error={errors.city}
+              readOnly
+              infoTooltip="Auto-populated when you select an address"
+            />
+            <SelectField
+              onChange={handleInputChange}
+              label="State"
+              name="state"
+              value={propertyData.state}
+              options={usStates.map((s) => s.code)}
+              required
+              error={errors.state}
+              readOnly
+              infoTooltip="Auto-populated when you select an address"
+            />
+            <Field
+              onChange={handleInputChange}
+              label="ZIP"
+              name="zip"
+              value={propertyData.zip}
+              required
+              error={errors.zip}
+              readOnly
+              infoTooltip="Auto-populated when you select an address"
+            />
+
+            <Field
+              onChange={handleInputChange}
+              label="County"
+              name="county"
+              value={propertyData.county}
+              placeholder="e.g. King"
+              readOnly={!!propertyData.addressLine1}
+              infoTooltip={
+                propertyData.addressLine1
+                  ? "Auto-populated when you select an address"
+                  : undefined
+              }
+            />
+            <Field
+              onChange={handleInputChange}
+              label="Tax / Parcel ID"
+              name="taxId"
+              value={propertyData.taxId || propertyData.parcelTaxId}
+              placeholder="e.g. 9278300025"
+            />
           </div>
         </div>
       </SectionWithProgress>
@@ -422,13 +438,6 @@ function IdentityTab({
             label="Owner Phone"
             name="ownerPhone"
             value={propertyData.ownerPhone}
-            placeholder="(000) 000-0000"
-          />
-          <Field
-            onChange={handleInputChange}
-            label="Phone to Show"
-            name="phoneToShow"
-            value={propertyData.phoneToShow}
             placeholder="(000) 000-0000"
           />
         </div>
@@ -702,44 +711,6 @@ function IdentityTab({
             name="seniorHighSchool"
             value={propertyData.seniorHighSchool}
           />
-          <Field
-            onChange={handleInputChange}
-            label="School District Websites"
-            name="schoolDistrictWebsites"
-            value={propertyData.schoolDistrictWebsites}
-            placeholder="URL(s)"
-          />
-        </div>
-      </SectionWithProgress>
-
-      {/* Listing & Dates */}
-      <SectionWithProgress
-        sectionId="listing_dates"
-        label="Listing & Dates"
-        icon={Calendar}
-        propertyData={propertyData}
-      >
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-          <div>
-            <label className="block text-sm font-medium text-gray-500 dark:text-gray-400 mb-1">
-              List Date
-            </label>
-            <DatePickerInput
-              name="listDate"
-              value={propertyData.listDate ?? ""}
-              onChange={handleInputChange}
-            />
-          </div>
-          <div>
-            <label className="block text-sm font-medium text-gray-500 dark:text-gray-400 mb-1">
-              Expire Date
-            </label>
-            <DatePickerInput
-              name="expireDate"
-              value={propertyData.expireDate ?? ""}
-              onChange={handleInputChange}
-            />
-          </div>
         </div>
       </SectionWithProgress>
     </div>
