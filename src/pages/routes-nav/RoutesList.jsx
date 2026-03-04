@@ -54,6 +54,7 @@ import CategoriesList from "../professionals/categories/CategoriesList";
 import CategoryFormContainer from "../professionals/categories/CategoryFormContainer";
 import DashboardOverview from "../dashboard/DashboardOverview";
 import AccountAnalytics from "../dashboard/AccountAnalytics";
+import AgentAnalytics from "../dashboard/AgentAnalytics";
 import CostAnalytics from "../dashboard/CostAnalytics";
 import EngagementDashboard from "../dashboard/EngagementDashboard";
 import GrowthDashboard from "../dashboard/GrowthDashboard";
@@ -170,6 +171,14 @@ function RoutesList() {
           <ProtectedRoute>
             <AccountAnalytics />
           </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/:accountUrl/dashboard/agent-analytics"
+        element={
+          <AdminRoute>
+            <AgentAnalytics />
+          </AdminRoute>
         }
       />
       <Route

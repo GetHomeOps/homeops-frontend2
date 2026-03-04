@@ -858,6 +858,11 @@ class AppApi {
     return res.accounts;
   }
 
+  static async getAgentAnalytics() {
+    let res = await this.request("analytics/agents");
+    return res.agents ?? [];
+  }
+
   /* --------- Platform Engagement --------- */
 
   static async getEngagementCounts(params = {}) {

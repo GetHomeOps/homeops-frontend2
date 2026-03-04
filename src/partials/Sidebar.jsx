@@ -269,6 +269,7 @@ function Sidebar({sidebarOpen, setSidebarOpen, variant = "default"}) {
     if (/\/professionals(\/|$)/.test(path) || /\/my-professionals(\/|$)/.test(path)) return "directory";
     if (/\/support-management(\/|$)/.test(path) || /\/feedback-management(\/|$)/.test(path)) return "operations";
     if (/\/subscriptions(\/|$)/.test(path) || /\/subscription-products(\/|$)/.test(path)) return "subscriptions";
+    if (/\/dashboard(\/|$)/.test(path)) return "dashboard";
     if (path.includes("settings/") || path.includes("users")) return "settings";
     return null;
   };

@@ -29,6 +29,7 @@ import {
   HelpCircle,
   UsersRound,
   BookOpen,
+  BarChart3,
 } from "lucide-react";
 
 const ICON_SIZE = 18;
@@ -55,6 +56,17 @@ export const SIDEBAR_CONFIG = [
     type: "section",
     label: "PROPERTY",
     items: [
+      {
+        id: "dashboard",
+        type: "collapsible",
+        label: "Dashboard",
+        icon: icon(BarChart3),
+        defaultExpanded: false,
+        roles: "adminOnly",
+        children: [
+          { id: "agent-analytics", label: "Agent Analytics", path: "dashboard/agent-analytics", icon: icon(Users), roles: "adminOnly" },
+        ],
+      },
       { id: "properties", label: "Properties", path: "properties", icon: icon(Building2), roles: "all" },
       { id: "calendar", label: "Calendar", path: "calendar", icon: icon(Calendar), roles: "all" },
     ],
