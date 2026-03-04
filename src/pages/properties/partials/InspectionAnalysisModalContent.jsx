@@ -5,11 +5,12 @@
  * Includes per-system scheduling like AIFindingsPanel in the setup modal.
  */
 
-import React, { useEffect } from "react";
+import React, { useEffect, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
-import { Loader2, AlertCircle, Calendar, ExternalLink } from "lucide-react";
+import { Loader2, AlertCircle, Calendar, ExternalLink, ArrowUpCircle } from "lucide-react";
 import { useInspectionAnalysis } from "../../../hooks/useInspectionAnalysis";
 import { PROPERTY_SYSTEMS } from "../constants/propertySystems";
+import UpgradePrompt from "../../../components/UpgradePrompt";
 
 const CONDITION_BADGES = {
   excellent: "bg-emerald-100 text-emerald-800 dark:bg-emerald-900/40 dark:text-emerald-300",
@@ -85,6 +86,27 @@ export default function InspectionAnalysisModalContent({
           <Loader2 className="w-4 h-4 animate-spin" />
           Analyzing report…
         </p>
+      </div>
+    );
+  }
+
+  if (status === "quota_exceeded") {
+    return (
+      <div className="flex flex-col items-center justify-center py-12 px-6 text-center">
+        <ArrowUpCircle className="w-12 h-12 text-amber-500 dark:text-amber-400 mb-3" />
+        <p className="text-sm font-medium text-neutral-700 dark:text-neutral-300">
+          AI usage limit reached
+        </p>
+        <p className="text-xs text-neutral-500 dark:text-neutral-400 mt-1 max-w-sm">
+          {error || "You've used all your AI tokens for this month. Upgrade your plan for more."}
+        </p>
+        <button
+          type="button"
+          onClick={() => navigate(`/${accountUrl}/settings/billing`)}
+          className="mt-4 inline-flex items-center gap-2 px-4 py-2 rounded-lg bg-violet-600 hover:bg-violet-700 text-white text-sm font-medium"
+        >
+          Upgrade plan
+        </button>
       </div>
     );
   }

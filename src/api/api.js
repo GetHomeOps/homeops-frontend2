@@ -367,6 +367,24 @@ class AppApi {
     return res;
   }
 
+  /** Super Admin: update plan features */
+  static async updateBillingPlanFeatures(id, features) {
+    const res = await this.request(`billing/plans/${id}/features`, { features }, "PATCH");
+    return res;
+  }
+
+  /** Super Admin: toggle "most popular" on a plan (clears siblings of same role) */
+  static async setBillingPlanPopular(id, popular) {
+    const res = await this.request(`billing/plans/${id}/popular`, { popular }, "PATCH");
+    return res;
+  }
+
+  /** Super Admin: fetch active Stripe prices for dropdown */
+  static async getStripePrices() {
+    const res = await this.request(`billing/stripe/prices`);
+    return res;
+  }
+
   /* --------- MFA --------- */
 
   static async getMfaStatus() {
@@ -707,6 +725,12 @@ class AppApi {
   static async deleteSubscriptionProduct(id) {
     let res = await this.request(`subscription-products/${id}`, {}, "DELETE");
     return res;
+  }
+
+  /** Archive a subscription product (sets isActive: false). No deletion. */
+  static async archiveSubscriptionProduct(id) {
+    const res = await this.request(`subscription-products/${id}`, { isActive: false }, "PATCH");
+    return res.product;
   }
 
   /* --------- Inspection Report Analysis --------- */

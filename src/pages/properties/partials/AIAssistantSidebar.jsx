@@ -1,5 +1,6 @@
 import React, {useState, useRef, useEffect, useCallback} from "react";
 import {useNavigate, useParams} from "react-router-dom";
+import UpgradePrompt from "../../../components/UpgradePrompt";
 import {
   X,
   Sparkles,
@@ -38,6 +39,7 @@ function AIAssistantSidebar({
   const {accountUrl} = useParams();
   const professionalsPath = accountUrl ? `/${accountUrl}/professionals` : "/professionals";
   const [messages, setMessages] = useState([]);
+  const [upgradePromptOpen, setUpgradePromptOpen] = useState(false);
   const [input, setInput] = useState("");
   const [loading, setLoading] = useState(false);
   const [conversationId, setConversationId] = useState(null);
@@ -278,13 +280,24 @@ function AIAssistantSidebar({
         setScheduleNotes("");
       }
     } catch (err) {
-      setMessages((prev) => [
-        ...prev,
-        {
-          role: "assistant",
-          content: `Sorry, something went wrong: ${err?.message || "Please try again."}`,
-        },
-      ]);
+      if (err?.status === 403 && err?.message?.toLowerCase().includes("quota")) {
+        setUpgradePromptOpen(true);
+        setMessages((prev) => [
+          ...prev,
+          {
+            role: "assistant",
+            content: "You've reached your AI usage limit for this month. Upgrade your plan for more.",
+          },
+        ]);
+      } else {
+        setMessages((prev) => [
+          ...prev,
+          {
+            role: "assistant",
+            content: `Sorry, something went wrong: ${err?.message || "Please try again."}`,
+          },
+        ]);
+      }
     } finally {
       setLoading(false);
     }
@@ -743,6 +756,12 @@ function AIAssistantSidebar({
           aria-hidden="true"
         />
       )}
+      <UpgradePrompt
+        open={upgradePromptOpen}
+        onClose={() => setUpgradePromptOpen(false)}
+        title="AI usage limit reached"
+        message="You've used all your AI tokens for this month. Upgrade your plan for more AI assistant usage."
+      />
     </Transition>
   );
 }

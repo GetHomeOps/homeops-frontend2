@@ -1,6 +1,6 @@
-import React, {useReducer, useEffect} from "react";
-import {useNavigate, useParams} from "react-router-dom";
-import {AlertCircle, Package, DollarSign} from "lucide-react";
+import React, {useReducer, useEffect, useState} from "react";
+import {useNavigate, useParams, useLocation} from "react-router-dom";
+import {AlertCircle, Package} from "lucide-react";
 import Banner from "../../partials/containers/Banner";
 import ModalBlank from "../../components/ModalBlank";
 import {useTranslation} from "react-i18next";
@@ -8,11 +8,40 @@ import useCurrentAccount from "../../hooks/useCurrentAccount";
 import {useAutoCloseBanner} from "../../hooks/useAutoCloseBanner";
 import AppApi from "../../api/api";
 
+function formatStripePrice(unitAmount, currency = "usd") {
+  if (unitAmount == null) return "N/A";
+  return new Intl.NumberFormat("en-US", {style: "currency", currency}).format(unitAmount / 100);
+}
+
+function StripePriceSelect({label, prices, value, onChange, disabled}) {
+  const options = (prices || [])
+    .filter((p) => p.interval === (label.toLowerCase().includes("annual") || label.toLowerCase().includes("year") ? "year" : "month"))
+    .sort((a, b) => (a.unitAmount || 0) - (b.unitAmount || 0));
+
+  return (
+    <div>
+      <label className="block text-sm font-medium mb-1 text-gray-500 dark:text-gray-400">{label}</label>
+      <select
+        value={value || ""}
+        onChange={(e) => onChange(e.target.value)}
+        disabled={disabled}
+        className="form-select w-full"
+      >
+        <option value="">— Select from Stripe —</option>
+        {options.map((p) => (
+          <option key={p.id} value={p.id}>
+            {p.productName || "Product"} — {p.nickname || formatStripePrice(p.unitAmount, p.currency)}/{p.interval}
+          </option>
+        ))}
+      </select>
+    </div>
+  );
+}
+
 const initialFormData = {
   name: "",
   description: "",
   targetRole: "homeowner",
-  price: "",
   code: "",
   sortOrder: 0,
   trialDays: "",
@@ -85,7 +114,7 @@ function reducer(state, action) {
   }
 }
 
-/** Maps backend product object to form fields */
+/** Maps backend product object to form fields. Price comes from Stripe selection, not product. */
 function mapProductToForm(product) {
   const lim = product.limits || {};
   const priceMonth = product.prices?.find((p) => p.billingInterval === "month" || p.billing_interval === "month");
@@ -94,7 +123,6 @@ function mapProductToForm(product) {
     name: product.name || "",
     description: product.description || "",
     targetRole: product.targetRole || "homeowner",
-    price: product.price !== undefined && product.price !== null ? String(product.price) : "",
     code: product.code || "",
     sortOrder: product.sortOrder ?? 0,
     trialDays: product.trialDays != null ? String(product.trialDays) : "",
@@ -110,26 +138,34 @@ function mapProductToForm(product) {
 
 function SubscriptionProductFormContainer() {
   const [state, dispatch] = useReducer(reducer, initialState);
+  const [stripePrices, setStripePrices] = useState([]);
+  const [products, setProducts] = useState([]);
   const {id} = useParams();
   const {t} = useTranslation();
   const navigate = useNavigate();
+  const location = useLocation();
   const {currentAccount} = useCurrentAccount();
   const accountUrl = currentAccount?.url || currentAccount?.name || "";
 
   const isNew = !id || id === "new";
 
-  // Fetch product
+  // Fetch product + products list (for nav) + Stripe prices
   useEffect(() => {
     async function fetchData() {
       try {
         dispatch({type: "SET_LOADING", payload: true});
-
-        if (!isNew) {
-          const product = await AppApi.getSubscriptionProduct(Number(id));
-          dispatch({type: "SET_PRODUCT", payload: product});
-        } else {
+        const [productRes, productsRes, stripeRes] = await Promise.allSettled([
+          !isNew ? AppApi.getSubscriptionProduct(Number(id)) : null,
+          AppApi.getAllSubscriptionProducts(),
+          AppApi.getStripePrices().catch(() => ({prices: []})),
+        ]);
+        if (!isNew && productRes.status === "fulfilled") {
+          dispatch({type: "SET_PRODUCT", payload: productRes.value});
+        } else if (isNew) {
           dispatch({type: "SET_PRODUCT", payload: null});
         }
+        if (productsRes.status === "fulfilled") setProducts(productsRes.value || []);
+        if (stripeRes.status === "fulfilled") setStripePrices(stripeRes.value?.prices || []);
       } catch (err) {
         console.error("Error fetching subscription product:", err);
         dispatch({
@@ -163,37 +199,28 @@ function SubscriptionProductFormContainer() {
   function handleChange(e) {
     const {id: fieldId, value} = e.target;
     dispatch({type: "SET_FORM_DATA", payload: {[fieldId]: value}});
-
-    // Clear error when field is being edited
     if (state.errors[fieldId]) {
-      dispatch({
-        type: "SET_ERRORS",
-        payload: {...state.errors, [fieldId]: null},
-      });
+      dispatch({type: "SET_ERRORS", payload: {...state.errors, [fieldId]: null}});
     }
-
     if (state.isInitialLoad) {
       dispatch({type: "SET_FORM_CHANGED", payload: true});
     }
   }
 
-  /** Form validation */
+  function handleStripePriceChange(interval, value) {
+    const key = interval === "month" ? "stripePriceIdMonth" : "stripePriceIdYear";
+    dispatch({type: "SET_FORM_DATA", payload: {[key]: value || ""}});
+    if (state.isInitialLoad) {
+      dispatch({type: "SET_FORM_CHANGED", payload: true});
+    }
+  }
+
+  /** Form validation. Price comes from Stripe selection, not required. */
   function validateForm() {
     const newErrors = {};
-
     if (!state.formData.name || !state.formData.name.trim()) {
       newErrors.name = t("subscriptionProducts.nameRequired");
     }
-    if (
-      state.formData.price === "" ||
-      state.formData.price === undefined ||
-      state.formData.price === null
-    ) {
-      newErrors.price = t("subscriptionProducts.priceRequired");
-    } else if (isNaN(Number(state.formData.price)) || Number(state.formData.price) < 0) {
-      newErrors.price = t("subscriptionProducts.priceInvalid");
-    }
-
     dispatch({type: "SET_ERRORS", payload: newErrors});
     return Object.keys(newErrors).length === 0;
   }
@@ -218,7 +245,7 @@ function SubscriptionProductFormContainer() {
         name: state.formData.name.trim(),
         description: state.formData.description.trim() || null,
         targetRole: state.formData.targetRole || "homeowner",
-        price: Number(state.formData.price) || 0,
+        price: 0,
         code: state.formData.code?.trim() || null,
         sortOrder: Number(state.formData.sortOrder) || 0,
         trialDays: state.formData.trialDays ? Number(state.formData.trialDays) : null,
@@ -273,7 +300,6 @@ function SubscriptionProductFormContainer() {
         name: state.formData.name.trim(),
         description: state.formData.description.trim() || null,
         targetRole: state.formData.targetRole || "homeowner",
-        price: Number(state.formData.price) || 0,
         code: state.formData.code?.trim() || null,
         sortOrder: Number(state.formData.sortOrder) || 0,
         trialDays: state.formData.trialDays ? Number(state.formData.trialDays) : null,
@@ -318,19 +344,27 @@ function SubscriptionProductFormContainer() {
     }
   }
 
-  /** Delete product */
-  async function confirmDelete() {
+  /** Archive product (no deletion) */
+  async function confirmArchive() {
     try {
       dispatch({type: "SET_DANGER_MODAL", payload: false});
-      await AppApi.deleteSubscriptionProduct(Number(id));
+      await AppApi.archiveSubscriptionProduct(Number(id));
       navigate(`/${accountUrl}/subscription-products`);
+      dispatch({
+        type: "SET_BANNER",
+        payload: {
+          open: true,
+          type: "success",
+          message: t("subscriptionProducts.archivedSuccessfully") || "Product archived successfully.",
+        },
+      });
     } catch (error) {
       dispatch({
         type: "SET_BANNER",
         payload: {
           open: true,
           type: "error",
-          message: `${t("subscriptionProducts.deleteError")}: ${error.message || error}`,
+          message: `${t("subscriptionProducts.archiveError") || "Archive failed"}: ${error.message || error}`,
         },
       });
     }
@@ -359,6 +393,36 @@ function SubscriptionProductFormContainer() {
       return state.product.name || "";
     }
     return t("subscriptionProducts.newProduct");
+  }
+
+  /** Build nav state for prev/next. Sorted by sortOrder then name. */
+  function buildNavState(productId) {
+    const sorted = [...products].sort((a, b) => {
+      const aOrder = a.sortOrder ?? 999;
+      const bOrder = b.sortOrder ?? 999;
+      if (aOrder !== bOrder) return aOrder - bOrder;
+      return (a.name || "").localeCompare(b.name || "");
+    });
+    const idx = sorted.findIndex((p) => Number(p.id) === Number(productId));
+    if (idx === -1) return null;
+    return {
+      currentIndex: idx + 1,
+      totalItems: sorted.length,
+      visibleProductIds: sorted.map((p) => p.id),
+    };
+  }
+
+  /** Display price from Stripe-linked plan_prices (match stripePrices) or placeholder */
+  function getDisplayPrice() {
+    const priceMonth = state.product?.prices?.find((p) => p.billingInterval === "month" || p.billing_interval === "month");
+    const priceYear = state.product?.prices?.find((p) => p.billingInterval === "year" || p.billing_interval === "year");
+    const stripeId = priceMonth?.stripePriceId ?? priceYear?.stripePriceId;
+    if (stripeId && stripePrices.length > 0) {
+      const sp = stripePrices.find((p) => p.id === stripeId);
+      if (sp?.unitAmount != null) return formatStripePrice(sp.unitAmount, sp.currency);
+      return "Linked to Stripe";
+    }
+    return "Select from Stripe";
   }
 
   const getLabelClasses = () =>
@@ -450,13 +514,12 @@ function SubscriptionProductFormContainer() {
             <div>
               <div className="mb-2">
                 <div className="text-lg font-semibold text-gray-800 dark:text-gray-100">
-                  {t("subscriptionProducts.deleteTitle", {count: 1})}
+                  {t("subscriptionProducts.archiveTitle") || "Archive product?"}
                 </div>
               </div>
               <div className="text-sm mb-10">
                 <p>
-                  {t("subscriptionProducts.deleteConfirmation")}{" "}
-                  {t("actionCantBeUndone")}
+                  {t("subscriptionProducts.archiveConfirmation") || "This will hide the product from active plans. You can restore it later."}
                 </p>
               </div>
               <div className="flex flex-wrap justify-end space-x-2">
@@ -469,10 +532,10 @@ function SubscriptionProductFormContainer() {
                   {t("cancel")}
                 </button>
                 <button
-                  className="btn-sm bg-red-500 hover:bg-red-600 text-white"
-                  onClick={confirmDelete}
+                  className="btn-sm bg-amber-500 hover:bg-amber-600 text-white"
+                  onClick={confirmArchive}
                 >
-                  {t("accept")}
+                  {t("subscriptionProducts.archive") || "Archive"}
                 </button>
               </div>
             </div>
@@ -503,12 +566,12 @@ function SubscriptionProductFormContainer() {
           <div className="flex items-center gap-3">
             {state.product && (
               <button
-                className="btn border-gray-200 dark:border-gray-700/60 hover:border-red-300 dark:hover:border-red-600 text-red-500"
+                className="btn border-gray-200 dark:border-gray-700/60 hover:border-amber-400 dark:hover:border-amber-500 text-amber-600 dark:text-amber-400"
                 onClick={() =>
                   dispatch({type: "SET_DANGER_MODAL", payload: true})
                 }
               >
-                {t("delete")}
+                {t("subscriptionProducts.archive") || "Archive"}
               </button>
             )}
             <button
@@ -517,6 +580,61 @@ function SubscriptionProductFormContainer() {
             >
               {t("new")}
             </button>
+          </div>
+        </div>
+
+        {/* Prev/Next navigation */}
+        <div className="flex justify-end mb-2">
+          <div className="flex items-center">
+            {state.product && (() => {
+              const navState = location.state || buildNavState(state.product.id);
+              if (!navState || !navState.visibleProductIds?.length) return null;
+              const prevId = navState.currentIndex > 1 ? navState.visibleProductIds[navState.currentIndex - 2] : null;
+              const nextId = navState.currentIndex < navState.totalItems ? navState.visibleProductIds[navState.currentIndex] : null;
+              return (
+                <>
+                  <span className="text-sm text-gray-500 dark:text-gray-400 mr-2">
+                    {navState.currentIndex} / {navState.totalItems}
+                  </span>
+                  <button
+                    className="btn shadow-none p-1"
+                    title="Previous"
+                    onClick={() => {
+                      if (prevId) {
+                        const nextNavState = buildNavState(prevId);
+                        navigate(`/${accountUrl}/subscription-products/${prevId}`, {state: nextNavState});
+                      }
+                    }}
+                    disabled={!prevId}
+                  >
+                    <svg
+                      className={`fill-current shrink-0 w-6 h-6 ${!prevId ? "text-gray-200 dark:text-gray-700" : "text-gray-400 dark:text-gray-500 hover:text-gray-500 dark:hover:text-gray-600"}`}
+                      viewBox="0 0 18 18"
+                    >
+                      <path d="M9.4 13.4l1.4-1.4-4-4 4-4-1.4-1.4L4 8z" />
+                    </svg>
+                  </button>
+                  <button
+                    className="btn shadow-none p-1"
+                    title="Next"
+                    onClick={() => {
+                      if (nextId) {
+                        const nextNavState = buildNavState(nextId);
+                        navigate(`/${accountUrl}/subscription-products/${nextId}`, {state: nextNavState});
+                      }
+                    }}
+                    disabled={!nextId}
+                  >
+                    <svg
+                      className={`fill-current shrink-0 w-6 h-6 ${!nextId ? "text-gray-200 dark:text-gray-700" : "text-gray-400 dark:text-gray-500 hover:text-gray-500 dark:hover:text-gray-600"}`}
+                      viewBox="0 0 18 18"
+                    >
+                      <path d="M6.6 13.4L5.2 12l4-4-4-4 1.4-1.4L12 8z" />
+                    </svg>
+                  </button>
+                </>
+              );
+            })()}
           </div>
         </div>
 
@@ -531,11 +649,10 @@ function SubscriptionProductFormContainer() {
                 <h1 className="text-2xl font-bold text-gray-800 dark:text-gray-100 capitalize">
                   {getPageTitle()}
                 </h1>
-                {state.product && state.product.price !== undefined && (
+                {state.product && (
                   <div className="mt-2 space-y-1">
                     <div className="flex items-center text-sm text-gray-600 dark:text-gray-300">
-                      <DollarSign className="w-4 h-4 mr-2 text-[#6E8276] shrink-0" />
-                      <span>{Number(state.product.price).toFixed(2)}</span>
+                      <span className="font-medium">{getDisplayPrice()}</span>
                     </div>
                   </div>
                 )}
@@ -574,35 +691,6 @@ function SubscriptionProductFormContainer() {
                         <div className="mt-1 flex items-center text-sm text-red-500">
                           <AlertCircle className="h-4 w-4 mr-1" />
                           <span>{state.errors.name}</span>
-                        </div>
-                      )}
-                    </div>
-
-                    {/* Price */}
-                    <div>
-                      <label className={getLabelClasses()} htmlFor="price">
-                        {t("subscriptionProducts.price")}{" "}
-                        <span className="text-red-500">*</span>
-                      </label>
-                      <div className="relative">
-                        <span className="absolute inset-y-0 left-0 flex items-center pl-3 text-gray-400">
-                          $
-                        </span>
-                        <input
-                          id="price"
-                          className={`${getInputClasses("price")} pl-7`}
-                          type="number"
-                          step="0.01"
-                          min="0"
-                          value={state.formData.price}
-                          onChange={handleChange}
-                          placeholder="0.00"
-                        />
-                      </div>
-                      {state.errors.price && (
-                        <div className="mt-1 flex items-center text-sm text-red-500">
-                          <AlertCircle className="h-4 w-4 mr-1" />
-                          <span>{state.errors.price}</span>
                         </div>
                       )}
                     </div>
@@ -713,42 +801,35 @@ function SubscriptionProductFormContainer() {
                   </div>
                 </div>
 
-                {/* Stripe Price IDs Section */}
+                {/* Stripe Prices (select from Stripe) */}
                 <div className="bg-gray-50 dark:bg-gray-700/50 rounded-lg p-6">
                   <h3 className="text-lg font-semibold text-gray-800 dark:text-gray-100 mb-4">
-                    Stripe Price IDs
+                    Stripe Prices
                   </h3>
                   <p className="text-sm text-gray-500 dark:text-gray-400 mb-4">
-                    Create prices in Stripe Dashboard, then paste the Price IDs (e.g. price_xxx).
+                    Select prices from your Stripe account. Ensure STRIPE_SECRET_KEY is set.
                   </p>
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    <div>
-                      <label className={getLabelClasses()} htmlFor="stripePriceIdMonth">
-                        Monthly Price ID
-                      </label>
-                      <input
-                        id="stripePriceIdMonth"
-                        className={`${getInputClasses("stripePriceIdMonth")} font-mono text-sm`}
-                        type="text"
-                        value={state.formData.stripePriceIdMonth}
-                        onChange={handleChange}
-                        placeholder="price_xxx"
-                      />
-                    </div>
-                    <div>
-                      <label className={getLabelClasses()} htmlFor="stripePriceIdYear">
-                        Annual Price ID
-                      </label>
-                      <input
-                        id="stripePriceIdYear"
-                        className={`${getInputClasses("stripePriceIdYear")} font-mono text-sm`}
-                        type="text"
-                        value={state.formData.stripePriceIdYear}
-                        onChange={handleChange}
-                        placeholder="price_xxx"
-                      />
-                    </div>
+                    <StripePriceSelect
+                      label="Monthly price"
+                      prices={stripePrices}
+                      value={state.formData.stripePriceIdMonth}
+                      onChange={(v) => handleStripePriceChange("month", v)}
+                      disabled={state.isSubmitting}
+                    />
+                    <StripePriceSelect
+                      label="Annual price"
+                      prices={stripePrices}
+                      value={state.formData.stripePriceIdYear}
+                      onChange={(v) => handleStripePriceChange("year", v)}
+                      disabled={state.isSubmitting}
+                    />
                   </div>
+                  {stripePrices.length === 0 && (
+                    <p className="mt-2 text-xs text-amber-600 dark:text-amber-400">
+                      No Stripe prices found. Ensure STRIPE_SECRET_KEY is set in your .env.
+                    </p>
+                  )}
                 </div>
               </div>
             </div>

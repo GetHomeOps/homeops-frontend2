@@ -116,26 +116,32 @@ function SystemActionButtons({
           <Calendar className="w-3.5 h-3.5" />
           <span className="hidden sm:inline">Schedule</span>
         </button>
-        <ScheduleSystemModal
-          isOpen={showScheduleModal}
-          onClose={setShowScheduleModal}
-          systemLabel={systemLabel}
-          systemType={systemType}
-          contacts={contacts}
-          onSchedule={onScheduleInspection}
-          propertyId={propertyId}
-          propertyData={propertyData}
-        />
+        {showScheduleModal && (
+          <ScheduleSystemModal
+            isOpen={true}
+            onClose={() => setShowScheduleModal(false)}
+            systemLabel={systemLabel}
+            systemType={systemType}
+            contacts={contacts}
+            onSchedule={onScheduleInspection}
+            propertyId={propertyId}
+            propertyData={propertyData}
+          />
+        )}
       </div>
 
-      <UploadDocumentModal
-        isOpen={showUploadModal}
-        onClose={setShowUploadModal}
-        systemType={systemType}
-        systemLabel={systemLabel}
-        propertyId={propertyId}
-        systemsToShow={systemsToShow}
-      />
+      {/* Only mount when open to avoid Radix Popover PopperAnchor infinite loop
+          when many modals are hidden (each has DatePickerInput with Popover). */}
+      {showUploadModal && (
+        <UploadDocumentModal
+          isOpen={true}
+          onClose={() => setShowUploadModal(false)}
+          systemType={systemType}
+          systemLabel={systemLabel}
+          propertyId={propertyId}
+          systemsToShow={systemsToShow}
+        />
+      )}
     </div>
   );
 }

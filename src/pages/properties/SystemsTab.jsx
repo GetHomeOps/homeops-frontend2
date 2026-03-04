@@ -58,21 +58,26 @@ function SystemsTab({
   const contactContext = useContext(ContactContext);
   const contacts = contactContext?.contacts || [];
 
-  // When visibleSystemIds is provided, only show those sections; otherwise show all
-  const systemIdsToShow = visibleSystemIds ?? [
-    "roof",
-    "gutters",
-    "foundation",
-    "exterior",
-    "windows",
-    "heating",
-    "ac",
-    "waterHeating",
-    "electrical",
-    "plumbing",
-    "safety",
-    "inspections",
-  ];
+  // When visibleSystemIds is provided, only show those sections; otherwise show all.
+  // Memoize so we don't create a new array every render when visibleSystemIds is undefined.
+  const systemIdsToShow = useMemo(
+    () =>
+      visibleSystemIds ?? [
+        "roof",
+        "gutters",
+        "foundation",
+        "exterior",
+        "windows",
+        "heating",
+        "ac",
+        "waterHeating",
+        "electrical",
+        "plumbing",
+        "safety",
+        "inspections",
+      ],
+    [visibleSystemIds],
+  );
   const isVisible = (id) => systemIdsToShow.includes(id);
 
   const [expandedSections, setExpandedSections] = useState({
@@ -219,33 +224,45 @@ function SystemsTab({
     return map;
   }, [systems]);
 
+  // Refs for callbacks and propertyData so effects don't need them as deps.
+  // handleInputChange is not memoized in the parent; propertyData is always a new object
+  // reference (mergeFormDataFromTabs returns a new object every render). Putting either
+  // in effect deps would cause the auto-populate effect to run on every render and dispatch
+  // on every render where a condition field is empty, producing an infinite loop.
+  const onSilentRef = React.useRef(onSilentSystemsUpdate);
+  const handleInputRef = React.useRef(handleInputChange);
+  const propertyDataRef = React.useRef(propertyData);
+  onSilentRef.current = onSilentSystemsUpdate;
+  handleInputRef.current = handleInputChange;
+  propertyDataRef.current = propertyData;
+
   // Auto-populate condition fields from inspection analysis when empty.
-  // Uses onSilentSystemsUpdate so switching to Systems tab doesn't show the save bar.
+  // Only runs when aiConditionBySystem changes (i.e. AI data arrives from backend).
+  // Reads propertyData via ref so we always have the latest values without the effect
+  // re-running on every render due to propertyData's new object reference.
   useEffect(() => {
-    if (!onSilentSystemsUpdate && !handleInputChange) return;
+    const onSilent = onSilentRef.current;
+    const handleInput = handleInputRef.current;
+    if (!onSilent && !handleInput) return;
+    const currentPropertyData = propertyDataRef.current;
     const validStatuses = ["excellent", "good", "fair", "poor"];
     for (const [systemKey, aiCondition] of Object.entries(aiConditionBySystem)) {
       if (!aiCondition?.status || !validStatuses.includes(aiCondition.status)) continue;
       const conditionField = getConditionFieldName(systemKey);
       if (!conditionField) continue;
-      const currentVal = getCurrentConditionValue(propertyData, systemKey);
+      const currentVal = getCurrentConditionValue(currentPropertyData, systemKey);
       if (currentVal !== "") continue;
       const capitalized =
         aiCondition.status.charAt(0).toUpperCase() + aiCondition.status.slice(1);
-      if (onSilentSystemsUpdate) {
-        onSilentSystemsUpdate({[conditionField]: capitalized});
+      if (onSilent) {
+        onSilent({[conditionField]: capitalized});
       } else {
-        handleInputChange({
+        handleInput({
           target: {name: conditionField, value: capitalized},
         });
       }
     }
-  }, [
-    aiConditionBySystem,
-    propertyData,
-    handleInputChange,
-    onSilentSystemsUpdate,
-  ]);
+  }, [aiConditionBySystem]);
 
   // Build systems list for upload modal (matches DocumentsTab: selected + custom, general first)
   const visibleSystemIdsForUpload =

@@ -17,6 +17,7 @@ import UserContext from "../../context/UserContext";
 import ContactContext from "../../context/ContactContext";
 import {useAuth} from "../../context/AuthContext";
 import AppApi from "../../api/api";
+import UpgradePrompt from "../../components/UpgradePrompt";
 import SystemsTab from "./SystemsTab";
 import MaintenanceTab from "./MaintenanceTab";
 import IdentityTab from "./IdentityTab";
@@ -382,6 +383,8 @@ function PropertyFormContainer() {
     accountUrlParam || currentAccount?.url || currentAccount?.name || "";
   const [homeopsTeam, setHomeopsTeam] = useState([]);
   const [systemsSetupModalOpen, setSystemsSetupModalOpen] = useState(false);
+  const [upgradePromptOpen, setUpgradePromptOpen] = useState(false);
+  const [upgradePromptMsg, setUpgradePromptMsg] = useState("");
   const [aiSidebarOpen, setAiSidebarOpen] = useState(false);
   const [aiSidebarSystemLabel, setAiSidebarSystemLabel] = useState(null);
   const [aiSidebarSystemContext, setAiSidebarSystemContext] = useState(null);
@@ -585,7 +588,10 @@ function PropertyFormContainer() {
           const systemsArr = systemsRes?.systems ?? systemsRes ?? [];
           dispatch({type: "SET_SYSTEMS", payload: systemsArr});
           if (systemsRes?.aiSummaryUpdatedAt) {
-            dispatch({type: "SET_AI_SUMMARY_UPDATED_AT", payload: systemsRes.aiSummaryUpdatedAt});
+            dispatch({
+              type: "SET_AI_SUMMARY_UPDATED_AT",
+              payload: systemsRes.aiSummaryUpdatedAt,
+            });
           }
         }
         return;
@@ -595,7 +601,10 @@ function PropertyFormContainer() {
         const systemsRes = await getSystemsByPropertyId(property.id);
         const systemsArr = systemsRes?.systems ?? systemsRes ?? [];
         if (systemsRes?.aiSummaryUpdatedAt) {
-          dispatch({type: "SET_AI_SUMMARY_UPDATED_AT", payload: systemsRes.aiSummaryUpdatedAt});
+          dispatch({
+            type: "SET_AI_SUMMARY_UPDATED_AT",
+            payload: systemsRes.aiSummaryUpdatedAt,
+          });
         }
         const rawRecords = await getMaintenanceRecordsByPropertyId(property.id);
         const maintenanceRecords = mapMaintenanceRecordsFromBackend(
@@ -1024,16 +1033,24 @@ function PropertyFormContainer() {
       }
     } catch (err) {
       console.error("Error creating property:", err);
-      dispatch({
-        type: "SET_BANNER",
-        payload: {
-          open: true,
-          type: "error",
-          message:
-            t("propertyCreateErrorMessage") +
-            (err?.message ? ` ${err.message}` : ""),
-        },
-      });
+      if (
+        err?.status === 403 &&
+        err?.message?.toLowerCase().includes("limit")
+      ) {
+        setUpgradePromptMsg(err.message);
+        setUpgradePromptOpen(true);
+      } else {
+        dispatch({
+          type: "SET_BANNER",
+          payload: {
+            open: true,
+            type: "error",
+            message:
+              t("propertyCreateErrorMessage") +
+              (err?.message ? ` ${err.message}` : ""),
+          },
+        });
+      }
     } finally {
       dispatch({type: "SET_SUBMITTING", payload: false});
     }
@@ -1306,9 +1323,13 @@ function PropertyFormContainer() {
             .map((r) => r.id),
         );
         const systemsResAfter = await getSystemsByPropertyId(res.id);
-        const systemsFromBackend = systemsResAfter?.systems ?? systemsResAfter ?? [];
+        const systemsFromBackend =
+          systemsResAfter?.systems ?? systemsResAfter ?? [];
         if (systemsResAfter?.aiSummaryUpdatedAt) {
-          dispatch({type: "SET_AI_SUMMARY_UPDATED_AT", payload: systemsResAfter.aiSummaryUpdatedAt});
+          dispatch({
+            type: "SET_AI_SUMMARY_UPDATED_AT",
+            payload: systemsResAfter.aiSummaryUpdatedAt,
+          });
         }
 
         const scrollEl = document.querySelector(".flex-1.overflow-y-auto");
@@ -1519,7 +1540,10 @@ function PropertyFormContainer() {
             if (String(m.id) === String(newOwnerId)) {
               return {...m, property_role: "owner"};
             }
-            if (currentUserId != null && String(m.id) === String(currentUserId)) {
+            if (
+              currentUserId != null &&
+              String(m.id) === String(currentUserId)
+            ) {
               return {...m, property_role: "editor"};
             }
             return m;
@@ -1730,10 +1754,14 @@ function PropertyFormContainer() {
               );
               await updateSystemsForProperty(numericId, systemsArray);
               const systemsResAfter = await getSystemsByPropertyId(numericId);
-              const systemsFromBackend = systemsResAfter?.systems ?? systemsResAfter ?? [];
+              const systemsFromBackend =
+                systemsResAfter?.systems ?? systemsResAfter ?? [];
               dispatch({type: "SET_SYSTEMS", payload: systemsFromBackend});
               if (systemsResAfter?.aiSummaryUpdatedAt) {
-                dispatch({type: "SET_AI_SUMMARY_UPDATED_AT", payload: systemsResAfter.aiSummaryUpdatedAt});
+                dispatch({
+                  type: "SET_AI_SUMMARY_UPDATED_AT",
+                  payload: systemsResAfter.aiSummaryUpdatedAt,
+                });
               }
               dispatch({
                 type: "SET_BANNER",
@@ -2449,7 +2477,9 @@ function PropertyFormContainer() {
                     inspectionAnalysis={inspectionAnalysis}
                     maintenanceEvents={maintenanceEvents}
                     aiSummaryUpdatedAt={state.aiSummaryUpdatedAt}
-                    propertyId={state.property?.id ?? (uid && uid !== "new" ? uid : null)}
+                    propertyId={
+                      state.property?.id ?? (uid && uid !== "new" ? uid : null)
+                    }
                     onOpenInspectionReport={() =>
                       setInspectionReportModalOpen(true)
                     }
@@ -2831,6 +2861,15 @@ function PropertyFormContainer() {
           }
         />
       )}
+      <UpgradePrompt
+        open={upgradePromptOpen}
+        onClose={() => setUpgradePromptOpen(false)}
+        title="Property limit reached"
+        message={
+          upgradePromptMsg ||
+          "You've reached the maximum number of properties for your current plan. Upgrade to add more."
+        }
+      />
     </div>
   );
 }

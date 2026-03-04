@@ -18,6 +18,7 @@ const initialState = {
   currentPage: 1,
   itemsPerPage: 10,
   searchTerm: "",
+  showArchived: false,
   isLoading: true,
   isSubmitting: false,
   dangerModalOpen: false,
@@ -37,6 +38,8 @@ function reducer(state, action) {
       return {...state, itemsPerPage: action.payload};
     case "SET_SEARCH_TERM":
       return {...state, searchTerm: action.payload};
+    case "SET_SHOW_ARCHIVED":
+      return {...state, showArchived: action.payload};
     case "SET_LOADING":
       return {...state, isLoading: action.payload};
     case "SET_SUBMITTING":
@@ -138,6 +141,11 @@ function SubscriptionProductsList() {
   const filteredProducts = useMemo(() => {
     let items = [...state.products];
 
+    // Archived filter
+    if (!state.showArchived) {
+      items = items.filter((p) => p.isActive !== false);
+    }
+
     // Search
     if (state.searchTerm) {
       const searchLower = state.searchTerm.toLowerCase();
@@ -228,20 +236,32 @@ function SubscriptionProductsList() {
     );
   }, [currentProducts, state.selectedItems]);
 
-  // Navigate to product detail
+  // Navigate to product detail with nav state for < > arrows
   function handleProductClick(product) {
-    navigate(`/${accountUrl}/subscription-products/${product.id}`);
+    const sorted = [...filteredProducts].sort((a, b) => {
+      const aOrder = a.sortOrder ?? 999;
+      const bOrder = b.sortOrder ?? 999;
+      if (aOrder !== bOrder) return aOrder - bOrder;
+      return (a.name || "").localeCompare(b.name || "");
+    });
+    const idx = sorted.findIndex((p) => Number(p.id) === Number(product.id));
+    const navState = idx >= 0 ? {
+      currentIndex: idx + 1,
+      totalItems: sorted.length,
+      visibleProductIds: sorted.map((p) => p.id),
+    } : null;
+    navigate(`/${accountUrl}/subscription-products/${product.id}`, {state: navState});
   }
 
-  // Delete handlers
-  function handleDeleteClick() {
+  // Archive handlers (no deletion)
+  function handleArchiveClick() {
     if (state.selectedItems.length === 0) {
       dispatch({
         type: "SET_BANNER",
         payload: {
           open: true,
           type: "error",
-          message: t("subscriptionProducts.selectToDelete"),
+          message: t("subscriptionProducts.selectToArchive") || "Select products to archive.",
         },
       });
       return;
@@ -249,42 +269,38 @@ function SubscriptionProductsList() {
     dispatch({type: "SET_DANGER_MODAL", payload: true});
   }
 
-  async function handleDelete() {
+  async function handleArchive() {
     if (state.selectedItems.length === 0) return;
 
     dispatch({type: "SET_DANGER_MODAL", payload: false});
     dispatch({type: "SET_SUBMITTING", payload: true});
 
     try {
-      const deletedIds = [];
+      const archivedIds = [];
       for (const productId of state.selectedItems) {
         try {
-          await AppApi.deleteSubscriptionProduct(productId);
-          deletedIds.push(productId);
+          await AppApi.archiveSubscriptionProduct(productId);
+          archivedIds.push(productId);
         } catch (error) {
-          console.error(`Error deleting product ${productId}:`, error);
+          console.error(`Error archiving product ${productId}:`, error);
         }
       }
 
-      if (deletedIds.length > 0) {
-        dispatch({
-          type: "SET_PRODUCTS",
-          payload: state.products.filter(
-            (p) => !deletedIds.includes(p.id),
-          ),
-        });
+      if (archivedIds.length > 0) {
+        const updated = state.products.map((p) =>
+          archivedIds.includes(p.id) ? {...p, isActive: false} : p
+        );
+        dispatch({type: "SET_PRODUCTS", payload: updated});
         dispatch({
           type: "SET_SELECTED_ITEMS",
-          payload: state.selectedItems.filter(
-            (id) => !deletedIds.includes(id),
-          ),
+          payload: state.selectedItems.filter((id) => !archivedIds.includes(id)),
         });
         dispatch({
           type: "SET_BANNER",
           payload: {
             open: true,
             type: "success",
-            message: `${deletedIds.length} ${t("subscriptionProducts.deletedSuccessfully")}`,
+            message: `${archivedIds.length} ${t("subscriptionProducts.archivedSuccessfully") || "product(s) archived"}`,
           },
         });
       }
@@ -294,7 +310,7 @@ function SubscriptionProductsList() {
         payload: {
           open: true,
           type: "error",
-          message: `${t("subscriptionProducts.deleteError")}: ${error}`,
+          message: `${t("subscriptionProducts.archiveError") || "Archive failed"}: ${error}`,
         },
       });
     } finally {
@@ -308,9 +324,16 @@ function SubscriptionProductsList() {
       key: "name",
       label: t("name"),
       sortable: true,
-      render: (value) => (
-        <div className="font-medium text-gray-800 dark:text-gray-100 capitalize">
-          {value || "—"}
+      render: (value, item) => (
+        <div className="flex items-center gap-2">
+          <span className="font-medium text-gray-800 dark:text-gray-100 capitalize">
+            {value || "—"}
+          </span>
+          {item?.isActive === false && (
+            <span className="text-xs px-2 py-0.5 rounded bg-amber-100 dark:bg-amber-900/30 text-amber-700 dark:text-amber-300">
+              Archived
+            </span>
+          )}
         </div>
       ),
     },
@@ -416,18 +439,15 @@ function SubscriptionProductsList() {
               <div>
                 <div className="mb-2">
                   <div className="text-lg font-semibold text-gray-800 dark:text-gray-100">
-                    {t("subscriptionProducts.deleteTitle", {
+                    {t("subscriptionProducts.archiveTitle", {
                       count: state.selectedItems.length,
-                    })}
+                    }) || `Archive ${state.selectedItems.length} product(s)?`}
                   </div>
                 </div>
                 <div className="text-sm mb-10">
-                  <div className="space-y-2">
-                    <p>
-                      {t("subscriptionProducts.deleteConfirmation")}{" "}
-                      {t("actionCantBeUndone")}
-                    </p>
-                  </div>
+                  <p>
+                    {t("subscriptionProducts.archiveConfirmation") || "Products will be hidden from active plans. Enable 'Show archived' to see them."}
+                  </p>
                 </div>
                 <div className="flex flex-wrap justify-end space-x-2">
                   <button
@@ -440,13 +460,13 @@ function SubscriptionProductsList() {
                     {t("cancel")}
                   </button>
                   <button
-                    className="btn-sm bg-red-500 hover:bg-red-600 text-white"
-                    onClick={handleDelete}
+                    className="btn-sm bg-amber-500 hover:bg-amber-600 text-white"
+                    onClick={handleArchive}
                     disabled={state.isSubmitting}
                   >
                     {state.isSubmitting
-                      ? t("subscriptionProducts.deleting")
-                      : t("accept")}
+                      ? (t("subscriptionProducts.archiving") || "Archiving...")
+                      : (t("subscriptionProducts.archive") || "Archive")}
                   </button>
                 </div>
               </div>
@@ -465,22 +485,14 @@ function SubscriptionProductsList() {
               </div>
 
               <div className="grid grid-flow-col sm:auto-cols-max justify-start sm:justify-end gap-2">
-                {/* Delete button (when items selected) */}
+                {/* Archive button (when items selected) */}
                 {state.selectedItems.length > 0 && (
                   <button
-                    className="btn border-gray-200 dark:border-gray-700/60 hover:border-gray-300 dark:hover:border-gray-600 text-red-500"
-                    onClick={handleDeleteClick}
+                    className="btn border-gray-200 dark:border-gray-700/60 hover:border-amber-400 dark:hover:border-amber-500 text-amber-600 dark:text-amber-400"
+                    onClick={handleArchiveClick}
                   >
-                    <svg
-                      className="fill-current shrink-0 mr-2"
-                      width="16"
-                      height="16"
-                      viewBox="0 0 16 16"
-                    >
-                      <path d="M5 7h2v6H5V7zm4 0h2v6H9V7zm3-6v2h4v2h-1v10c0 .6-.4 1-1 1H2c-.6 0-1-.4-1-1V5H0V3h4V1c0-.6.4-1 1-1h6c.6 0 1 .4 1 1zM6 2v1h4V2H6zm7 3H3v9h10V5z" />
-                    </svg>
                     <span>
-                      {t("delete")} ({state.selectedItems.length})
+                      {t("subscriptionProducts.archive") || "Archive"} ({state.selectedItems.length})
                     </span>
                   </button>
                 )}
@@ -507,10 +519,10 @@ function SubscriptionProductsList() {
               </div>
             </div>
 
-            {/* Search bar */}
+            {/* Search bar + Show archived */}
             <div className="mb-6">
-              <div className="flex items-center space-x-4">
-                <div className="relative flex-1">
+              <div className="flex items-center gap-4 flex-wrap">
+                <div className="relative flex-1 min-w-[200px]">
                   <input
                     type="text"
                     className="form-input w-full pl-10 pr-4 py-2 bg-white dark:bg-gray-800 border-gray-200 dark:border-gray-700/60 hover:border-gray-300 dark:hover:border-gray-600 focus:border-gray-300 dark:focus:border-gray-600 rounded-lg shadow-sm"
@@ -538,6 +550,17 @@ function SubscriptionProductsList() {
                     </svg>
                   </div>
                 </div>
+                <label className="flex items-center gap-2 cursor-pointer">
+                  <input
+                    type="checkbox"
+                    checked={state.showArchived}
+                    onChange={(e) => dispatch({type: "SET_SHOW_ARCHIVED", payload: e.target.checked})}
+                    className="form-checkbox text-amber-500"
+                  />
+                  <span className="text-sm text-gray-600 dark:text-gray-400">
+                    {t("subscriptionProducts.showArchived") || "Show archived"}
+                  </span>
+                </label>
               </div>
             </div>
 

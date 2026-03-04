@@ -4,6 +4,7 @@ import ModalBlank from "../../../components/ModalBlank";
 import DatePickerInput from "../../../components/DatePickerInput";
 import AppApi from "../../../api/api";
 import useDocumentUpload from "../../../hooks/useDocumentUpload";
+import UpgradePrompt from "../../../components/UpgradePrompt";
 
 const documentTypes = [
   {id: "contract", label: "Contract"},
@@ -25,6 +26,8 @@ function UploadDocumentModal({
   propertyId,
   systemsToShow = [],
 }) {
+  const [upgradePromptOpen, setUpgradePromptOpen] = useState(false);
+  const [upgradePromptMsg, setUpgradePromptMsg] = useState("");
   const [documentName, setDocumentName] = useState("");
   const [documentDate, setDocumentDate] = useState(
     new Date().toISOString().slice(0, 10),
@@ -102,6 +105,11 @@ function UploadDocumentModal({
         successCount++;
         setUploadSuccessCount(successCount);
       } catch (err) {
+        if (err?.status === 403 && err?.message?.toLowerCase().includes("limit")) {
+          setUpgradePromptMsg(err.message);
+          setUpgradePromptOpen(true);
+          break;
+        }
         const msg = Array.isArray(err)
           ? err.join(", ")
           : err?.message || "Failed to save document";
@@ -112,7 +120,6 @@ function UploadDocumentModal({
     if (successCount === uploadFiles.length && successCount > 0) {
       setUploadFiles([]);
       setDocumentName("");
-      // Keep modal open briefly to show success message, then close
       setTimeout(() => handleClose(), 2000);
     }
   };
@@ -132,6 +139,7 @@ function UploadDocumentModal({
   }, [isOpen, systemType, systemsToShow]);
 
   return (
+    <>
     <ModalBlank
       id="upload-document-modal"
       modalOpen={isOpen}
@@ -344,6 +352,13 @@ function UploadDocumentModal({
         </button>
       </div>
     </ModalBlank>
+    <UpgradePrompt
+      open={upgradePromptOpen}
+      onClose={() => setUpgradePromptOpen(false)}
+      title="Document limit reached"
+      message={upgradePromptMsg || "You've reached the document limit for this system. Upgrade your plan for more."}
+    />
+    </>
   );
 }
 

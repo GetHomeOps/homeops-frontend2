@@ -29,6 +29,7 @@ import useDocumentUpload from "../../hooks/useDocumentUpload";
 import usePresignedPreview from "../../hooks/usePresignedPreview";
 import {DocumentsTreeView, DocumentsPreviewPanel} from "./partials/documents";
 import {PROPERTY_SYSTEMS} from "./constants/propertySystems";
+import UpgradePrompt from "../../components/UpgradePrompt";
 
 // System categories with icons – matches API system_key values
 const systemCategories = [
@@ -214,6 +215,8 @@ function DocumentsTab({propertyData, onOpenAIAssistant, onOpenAIReport}) {
   const [selectedYear, setSelectedYear] = useState("all");
   const [selectedMonth, setSelectedMonth] = useState("all");
   const [showUploadModal, setShowUploadModal] = useState(false);
+  const [upgradePromptOpen, setUpgradePromptOpen] = useState(false);
+  const [upgradePromptMsg, setUpgradePromptMsg] = useState("");
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [selectedDocument, setSelectedDocument] = useState(null);
@@ -483,6 +486,11 @@ function DocumentsTab({propertyData, onOpenAIAssistant, onOpenAIReport}) {
           await fetchDocuments();
         }
       } catch (err) {
+        if (err?.status === 403 && err?.message?.toLowerCase().includes("limit")) {
+          setUpgradePromptMsg(err.message);
+          setUpgradePromptOpen(true);
+          break;
+        }
         const msg = Array.isArray(err)
           ? err.join(", ")
           : err?.message || "Failed to save document";
@@ -1021,6 +1029,12 @@ function DocumentsTab({propertyData, onOpenAIAssistant, onOpenAIReport}) {
           </div>
         </div>
       )}
+      <UpgradePrompt
+        open={upgradePromptOpen}
+        onClose={() => setUpgradePromptOpen(false)}
+        title="Document limit reached"
+        message={upgradePromptMsg || "You've reached the document limit for this system. Upgrade your plan for more."}
+      />
     </div>
   );
 }

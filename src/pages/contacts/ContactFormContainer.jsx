@@ -39,6 +39,7 @@ import {
 import AppApi from "../../api/api";
 import useImageUpload from "../../hooks/useImageUpload";
 import ImageUploadField from "../../components/ImageUploadField";
+import UpgradePrompt from "../../components/UpgradePrompt";
 
 const initialState = {
   formData: initialFormData,
@@ -144,6 +145,8 @@ function ContactsFormContainer() {
   const fileInputRef = useRef(null);
   const {id} = useParams();
   const {t} = useTranslation();
+  const [upgradePromptOpen, setUpgradePromptOpen] = useState(false);
+  const [upgradePromptMsg, setUpgradePromptMsg] = useState("");
 
   const {
     uploadImage,
@@ -380,14 +383,19 @@ function ContactsFormContainer() {
       }
     } catch (err) {
       console.error("Error creating contact:", err);
-      dispatch({
-        type: "SET_BANNER",
-        payload: {
-          open: true,
-          type: "error",
-          message: `Error creating contact: ${err.message || err}`,
-        },
-      });
+      if (err?.status === 403 && err?.message?.toLowerCase().includes("limit")) {
+        setUpgradePromptMsg(err.message);
+        setUpgradePromptOpen(true);
+      } else {
+        dispatch({
+          type: "SET_BANNER",
+          payload: {
+            open: true,
+            type: "error",
+            message: `Error creating contact: ${err.message || err}`,
+          },
+        });
+      }
     } finally {
       dispatch({type: "SET_SUBMITTING", payload: false});
     }
@@ -1948,6 +1956,12 @@ function ContactsFormContainer() {
           </form>
         </div>
       </div>
+      <UpgradePrompt
+        open={upgradePromptOpen}
+        onClose={() => setUpgradePromptOpen(false)}
+        title="Contact limit reached"
+        message={upgradePromptMsg || "You've reached the maximum number of contacts for your current plan. Upgrade to add more."}
+      />
     </div>
   );
 }

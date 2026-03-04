@@ -5,9 +5,6 @@ import {Popover, PopoverContent, PopoverTrigger} from "./ui/popover";
 import {Calendar} from "./ui/calendar";
 import {cn} from "../lib/utils";
 
-/**
- * Parse a date string (YYYY-MM-DD or ISO 8601) into a Date, or undefined if invalid.
- */
 function parseDateValue(value) {
   if (!value || typeof value !== "string") return undefined;
   const trimmed = value.trim();
@@ -22,8 +19,11 @@ function parseDateValue(value) {
  * Date picker input that uses Popover + Calendar (react-day-picker).
  * Value format: YYYY-MM-DD (accepts ISO strings for display).
  * Select a date to set it; click the selected date again to clear.
+ *
+ * Wrapped in React.memo to prevent the Radix PopperAnchor useLayoutEffect
+ * from creating an infinite update loop when the parent re-renders frequently.
  */
-export default function DatePickerInput({
+const DatePickerInput = React.memo(function DatePickerInput({
   name,
   value,
   onChange,
@@ -31,39 +31,60 @@ export default function DatePickerInput({
   placeholder = "",
   disabled = false,
   popoverClassName,
-  ...props
+  required,
+  style,
 }) {
   const [open, setOpen] = React.useState(false);
 
+  // Keep onChange in a ref so the memoized component doesn't need it as a dep
+  const onChangeRef = React.useRef(onChange);
+  onChangeRef.current = onChange;
+
   const dateValue = React.useMemo(() => parseDateValue(value), [value]);
+
+  const defaultMonth = React.useMemo(
+    () => dateValue ?? new Date(),
+    [dateValue],
+  );
 
   const displayValue = React.useMemo(() => {
     if (!dateValue) return "";
     return format(dateValue, "dd/MM/yyyy");
   }, [dateValue]);
 
-  const handleSelect = (date) => {
-    if (!date) return;
-    // Click selected date again = clear
-    if (dateValue && isSameDay(date, dateValue)) {
-      onChange?.({target: {name, value: ""}});
-    } else {
-      onChange?.({target: {name, value: format(date, "yyyy-MM-dd")}});
-    }
-    setOpen(false);
-  };
+  const handleSelect = React.useCallback(
+    (date) => {
+      if (!date) return;
+      if (dateValue && isSameDay(date, dateValue)) {
+        onChangeRef.current?.({target: {name, value: ""}});
+      } else {
+        onChangeRef.current?.({
+          target: {name, value: format(date, "yyyy-MM-dd")},
+        });
+      }
+      setOpen(false);
+    },
+    [dateValue, name],
+  );
 
-  const handleClear = (e) => {
-    e.stopPropagation();
-    e.preventDefault();
-    onChange?.({target: {name, value: ""}});
-  };
+  const handleClear = React.useCallback(
+    (e) => {
+      e.stopPropagation();
+      e.preventDefault();
+      onChangeRef.current?.({target: {name, value: ""}});
+    },
+    [name],
+  );
+
+  const handleOpenChange = React.useCallback(
+    (o) => {
+      if (!disabled) setOpen(o);
+    },
+    [disabled],
+  );
 
   return (
-    <Popover
-      open={open && !disabled}
-      onOpenChange={(o) => !disabled && setOpen(o)}
-    >
+    <Popover open={open && !disabled} onOpenChange={handleOpenChange}>
       <PopoverTrigger asChild>
         <div
           className={cn(
@@ -80,13 +101,13 @@ export default function DatePickerInput({
             value={displayValue}
             placeholder={placeholder}
             disabled={disabled}
-            required={props.required}
+            required={required}
             className={cn(
               "form-input w-full pr-9",
               disabled && "cursor-not-allowed",
               className,
             )}
-            style={props.style}
+            style={style}
             aria-expanded={open}
           />
           {dateValue && !disabled ? (
@@ -122,11 +143,13 @@ export default function DatePickerInput({
           mode="single"
           selected={dateValue}
           onSelect={handleSelect}
-          defaultMonth={dateValue ?? new Date()}
+          defaultMonth={defaultMonth}
           initialFocus
           fixedWeeks
         />
       </PopoverContent>
     </Popover>
   );
-}
+});
+
+export default DatePickerInput;

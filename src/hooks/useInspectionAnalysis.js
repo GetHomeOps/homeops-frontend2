@@ -154,7 +154,8 @@ export function useInspectionAnalysis(propertyId) {
       await poll();
     } catch (err) {
       if (abortRef.current) return;
-      setStatus("error");
+      const isQuotaError = err?.status === 403 && err?.message?.toLowerCase().includes("quota");
+      setStatus(isQuotaError ? "quota_exceeded" : "error");
       setError(err?.message ?? "Failed to load analysis");
       setData(null);
     }

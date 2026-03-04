@@ -1,10 +1,8 @@
 /**
- * Onboarding plan definitions for role-based tier selection.
- * Plan codes map to backend subscription_products.code (data/plans.json).
- * Used by OnboardingWizard Step 2. Limits are editable in Super Admin > Billing Plans.
- *
- * Homeowner tiers from pricing spec: Free, Maintain, Win (excludes Free Pro, Maintain Pro).
- * Agent tiers: Maintain, Growth, Win, Enterprise.
+ * DEPRECATED: Fallback plan definitions.
+ * The OnboardingWizard now fetches plans dynamically from GET /billing/plans/:audience.
+ * These arrays are only used as a fallback if the API call fails.
+ * To edit tier features, limits, or Stripe pricing, use Super Admin > Billing Plans.
  */
 
 /** Homeowner plans: Free, Maintain, Win only. Features from pricing spec. */

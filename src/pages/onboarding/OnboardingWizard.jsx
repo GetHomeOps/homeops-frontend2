@@ -6,6 +6,7 @@ import {
   ChevronLeft,
   ChevronRight,
   Check,
+  X as XIcon,
   Loader2,
 } from "lucide-react";
 import {useAuth} from "../../context/AuthContext";
@@ -19,6 +20,7 @@ const PLAN_CODE_TO_TIER = {
   agent_basic: "basic",
   agent_pro: "pro",
   agent_premium: "premium",
+  agent_enterprise: "enterprise",
 };
 
 const ROLE_OPTIONS = [
@@ -109,7 +111,21 @@ function Step1Role({role, onSelect}) {
   );
 }
 
-const STORAGE_HINT = "Documents per system (roof, gutter, etc)";
+function buildFallbackPlans(role) {
+  const hardcoded = role === "homeowner" ? HOMEOWNER_PLANS : AGENT_PLANS;
+  return hardcoded.map((p) => ({
+    ...p,
+    code: p.code || p.id,
+    features: p.features
+      ? [...(p.features.core || []), ...(p.features.advanced || [])].map((f, i) => ({
+          id: `${p.code}_f${i}`,
+          label: `${f.label}: ${f.value}`,
+          included: f.value !== "None",
+        }))
+      : [],
+    limits: PLAN_LIMITS[role]?.[p.code] || {},
+  }));
+}
 
 function Step2Plan({
   role,
@@ -117,9 +133,12 @@ function Step2Plan({
   onSelect,
   billingInterval,
   onBillingIntervalChange,
+  apiPlans,
+  apiLoading,
 }) {
-  const plans = role === "homeowner" ? HOMEOWNER_PLANS : AGENT_PLANS;
+  const plans = apiPlans && apiPlans.length > 0 ? apiPlans : buildFallbackPlans(role);
   const hasPaidPlans = plans.some((p) => p.price != null && p.price > 0);
+  const gridCols = plans.length === 4 ? "md:grid-cols-4" : "md:grid-cols-3";
 
   return (
     <div className="relative">
@@ -160,7 +179,7 @@ function Step2Plan({
                     : "text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-200"
                 }`}
               >
-                Yearly <span className="text-emerald-400">-20%</span>
+                Yearly <span className="text-emerald-400">Save</span>
               </button>
               <div
                 className={`absolute top-1 z-0 h-[calc(100%-8px)] rounded-full bg-emerald-600 dark:bg-emerald-500 transition-all duration-200 ${
@@ -173,128 +192,146 @@ function Step2Plan({
           </div>
         )}
 
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-5 mt-10">
-          {plans.map((p) => {
-            const isSelected = plan === p.id;
-            const isPopular = p.popular;
-            const allFeatures = [
-              ...(p.features?.core || []),
-              ...(p.features?.advanced || []),
-            ];
+        {apiLoading ? (
+          <div className="flex items-center justify-center py-16">
+            <Loader2 className="w-8 h-8 animate-spin text-emerald-600" />
+          </div>
+        ) : (
+          <div className={`grid grid-cols-1 ${gridCols} gap-5 mt-10`}>
+            {plans.map((p) => {
+              const planId = p.code || p.id;
+              const isSelected = plan === planId;
+              const isPopular = p.popular;
 
-            const isYearly =
-              hasPaidPlans &&
-              billingInterval === "year" &&
-              p.price != null &&
-              p.price > 0;
-            const displayPrice = isYearly
-              ? `$${(p.price * 0.8).toFixed(2)}`
-              : p.priceLabel;
-            const yearlyTotal = isYearly
-              ? (p.price * 12 * 0.8).toFixed(2)
-              : null;
+              const features = p.features || [];
 
-            return (
-              <div
-                key={p.id}
-                className={`relative rounded-2xl flex flex-col transition-all duration-200 backdrop-blur-sm border bg-white/80 dark:bg-gray-800/80 ${
-                  isPopular
-                    ? "border-emerald-400/60 dark:border-emerald-600/40 shadow-md z-10"
-                    : isSelected
-                      ? "border-emerald-500 shadow-lg shadow-emerald-500/10"
-                      : "border-gray-200 dark:border-gray-700 hover:border-emerald-300 dark:hover:border-emerald-700 hover:shadow-md"
-                } ${isSelected ? "ring-2 ring-emerald-500 dark:ring-emerald-400 ring-inset" : ""}`}
-              >
-                {isPopular && (
-                  <div className="absolute -top-3 left-1/2 -translate-x-1/2">
-                    <span className="inline-block bg-emerald-100 dark:bg-emerald-900/60 text-emerald-700 dark:text-emerald-300 text-xs font-semibold px-3 py-0.5 rounded-full tracking-wide">
-                      Most Popular
-                    </span>
-                  </div>
-                )}
+              const isYearly =
+                hasPaidPlans &&
+                billingInterval === "year" &&
+                p.price != null &&
+                p.price > 0;
 
-                <div className="p-6 pb-0 flex flex-col flex-1">
-                  <h3 className="text-lg font-bold text-gray-900 dark:text-gray-100">
-                    {p.name}
-                  </h3>
-                  <div className="mt-3">
-                    <div className="flex items-baseline gap-1">
-                      <span className="text-4xl font-extrabold tracking-tight text-gray-900 dark:text-gray-100">
-                        {displayPrice}
+              let displayPrice;
+              let yearlyTotal = null;
+              if (p.price === 0 || p.price == null) {
+                displayPrice = "Free";
+              } else if (isYearly && p.stripePrices?.year?.unitAmount) {
+                const monthlyEquiv = p.stripePrices.year.unitAmount / 100 / 12;
+                displayPrice = `$${monthlyEquiv.toFixed(2)}`;
+                yearlyTotal = (p.stripePrices.year.unitAmount / 100).toFixed(2);
+              } else if (isYearly) {
+                displayPrice = `$${(p.price * 0.8).toFixed(2)}`;
+                yearlyTotal = (p.price * 12 * 0.8).toFixed(2);
+              } else if (p.stripePrices?.month?.unitAmount) {
+                displayPrice = `$${(p.stripePrices.month.unitAmount / 100).toFixed(2)}`;
+              } else {
+                displayPrice = `$${Number(p.price).toFixed(2)}`;
+              }
+
+              return (
+                <div
+                  key={planId}
+                  className={`relative rounded-2xl flex flex-col transition-all duration-200 backdrop-blur-sm border bg-white/80 dark:bg-gray-800/80 ${
+                    isPopular
+                      ? "border-emerald-400/60 dark:border-emerald-600/40 shadow-md z-10"
+                      : isSelected
+                        ? "border-emerald-500 shadow-lg shadow-emerald-500/10"
+                        : "border-gray-200 dark:border-gray-700 hover:border-emerald-300 dark:hover:border-emerald-700 hover:shadow-md"
+                  } ${isSelected ? "ring-2 ring-emerald-500 dark:ring-emerald-400 ring-inset" : ""}`}
+                >
+                  {isPopular && (
+                    <div className="absolute -top-3 left-1/2 -translate-x-1/2">
+                      <span className="inline-block bg-emerald-100 dark:bg-emerald-900/60 text-emerald-700 dark:text-emerald-300 text-xs font-semibold px-3 py-0.5 rounded-full tracking-wide">
+                        Most Popular
                       </span>
-                      {p.price != null && p.price > 0 && (
-                        <span className="text-sm font-medium text-gray-400 dark:text-gray-500">
-                          /mo
-                        </span>
-                      )}
                     </div>
-                    {yearlyTotal != null && (
-                      <p className="mt-1 text-sm text-gray-500 dark:text-gray-400">
-                        ${yearlyTotal}/year billed annually
-                      </p>
-                    )}
-                  </div>
-                  <p className="mt-2 text-sm leading-relaxed text-gray-500 dark:text-gray-400">
-                    {p.description}
-                  </p>
-                  <div className="mt-auto pt-5">
-                    <button
-                      type="button"
-                      onClick={() => onSelect(p.id)}
-                      className={`w-full py-3 rounded-xl text-sm font-semibold transition-all ${
-                        isSelected
-                          ? `bg-emerald-600 text-white shadow-sm ${
-                              isPopular ? "border border-transparent" : ""
-                            }`
-                          : isPopular
-                            ? "bg-white dark:bg-gray-800 text-emerald-700 dark:text-emerald-300 border border-emerald-500/50 dark:border-emerald-500/40 hover:bg-emerald-50 dark:hover:bg-emerald-900/30"
-                            : "bg-emerald-50 dark:bg-emerald-900/20 text-emerald-700 dark:text-emerald-300 hover:bg-emerald-100 dark:hover:bg-emerald-900/40"
-                      }`}
-                    >
-                      {isSelected ? "Selected" : "Select Plan"}
-                    </button>
-                  </div>
-                </div>
+                  )}
 
-                <div className="mx-6 my-5 border-t border-gray-100 dark:border-gray-700/60" />
-
-                <div className="px-6 pb-6 space-y-3">
-                  {allFeatures.map((f, i) => (
-                    <div key={i}>
-                      <div className="flex items-center justify-between gap-3">
-                        <span className="text-sm text-gray-500 dark:text-gray-400">
-                          {f.label}
+                  <div className="p-6 pb-0 flex flex-col flex-1">
+                    <h3 className="text-lg font-bold text-gray-900 dark:text-gray-100">
+                      {p.name}
+                    </h3>
+                    <div className="mt-3">
+                      <div className="flex items-baseline gap-1">
+                        <span className="text-4xl font-extrabold tracking-tight text-gray-900 dark:text-gray-100">
+                          {displayPrice}
                         </span>
-                        <span className="text-sm font-medium text-right shrink-0 text-gray-900 dark:text-gray-100">
-                          {f.value}
-                        </span>
+                        {p.price != null && p.price > 0 && (
+                          <span className="text-sm font-medium text-gray-400 dark:text-gray-500">
+                            /mo
+                          </span>
+                        )}
                       </div>
-                      {f.storageHint && (
-                        <p className="text-xs mt-0.5 text-gray-400 dark:text-gray-500">
-                          {STORAGE_HINT}
+                      {yearlyTotal != null && (
+                        <p className="mt-1 text-sm text-gray-500 dark:text-gray-400">
+                          ${yearlyTotal}/year billed annually
                         </p>
                       )}
                     </div>
-                  ))}
+                    <p className="mt-2 text-sm leading-relaxed text-gray-500 dark:text-gray-400">
+                      {p.description}
+                    </p>
+                    <div className="mt-auto pt-5">
+                      <button
+                        type="button"
+                        onClick={() => onSelect(planId)}
+                        className={`w-full py-3 rounded-xl text-sm font-semibold transition-all ${
+                          isSelected
+                            ? `bg-emerald-600 text-white shadow-sm ${
+                                isPopular ? "border border-transparent" : ""
+                              }`
+                            : isPopular
+                              ? "bg-white dark:bg-gray-800 text-emerald-700 dark:text-emerald-300 border border-emerald-500/50 dark:border-emerald-500/40 hover:bg-emerald-50 dark:hover:bg-emerald-900/30"
+                              : "bg-emerald-50 dark:bg-emerald-900/20 text-emerald-700 dark:text-emerald-300 hover:bg-emerald-100 dark:hover:bg-emerald-900/40"
+                        }`}
+                      >
+                        {isSelected ? "Selected" : "Select Plan"}
+                      </button>
+                    </div>
+                  </div>
+
+                  <div className="mx-6 my-5 border-t border-gray-100 dark:border-gray-700/60" />
+
+                  <div className="px-6 pb-6 space-y-2">
+                    {features.map((f) => (
+                      <div key={f.id} className="flex items-center gap-2">
+                        {f.included ? (
+                          <Check className="w-4 h-4 text-emerald-500 flex-shrink-0" />
+                        ) : (
+                          <XIcon className="w-4 h-4 text-gray-300 dark:text-gray-600 flex-shrink-0" />
+                        )}
+                        <span
+                          className={`text-sm ${
+                            f.included
+                              ? "text-gray-700 dark:text-gray-300"
+                              : "text-gray-400 dark:text-gray-500 line-through"
+                          }`}
+                        >
+                          {f.label}
+                        </span>
+                      </div>
+                    ))}
+                  </div>
                 </div>
-              </div>
-            );
-          })}
-        </div>
+              );
+            })}
+          </div>
+        )}
       </div>
     </div>
   );
 }
 
-function Step3Confirmation({role, plan, limits}) {
+function Step3Confirmation({role, plan, apiPlans}) {
   const roleLabel = role === "homeowner" ? "Homeowner" : "Agent";
-  const planData =
-    role === "homeowner"
-      ? HOMEOWNER_PLANS.find((p) => p.id === plan)
-      : AGENT_PLANS.find((p) => p.id === plan);
-  const planLabel = planData?.name ?? plan;
 
-  const lim = limits || {};
+  const allPlans = apiPlans && apiPlans.length > 0
+    ? apiPlans
+    : (role === "homeowner" ? HOMEOWNER_PLANS : AGENT_PLANS);
+  const planData = allPlans.find((p) => (p.code || p.id) === plan);
+  const planLabel = planData?.name ?? plan;
+  const lim = planData?.limits || PLAN_LIMITS[role]?.[plan] || {};
+
   return (
     <div className="space-y-6">
       <h2 className="text-xl font-semibold text-gray-900 dark:text-gray-100 text-center">
@@ -319,8 +356,14 @@ function Step3Confirmation({role, plan, limits}) {
             Summary of limits
           </p>
           <ul className="space-y-1">
-            <li>• Properties: {lim.properties ?? "—"}</li>
-            <li>• Personal contacts: {lim.contacts ?? "—"}</li>
+            <li>• Properties: {lim.maxProperties ?? lim.properties ?? "—"}</li>
+            <li>• Contacts: {lim.maxContacts ?? lim.contacts ?? "—"}</li>
+            {lim.maxDocumentsPerSystem != null && (
+              <li>• Documents per system: {lim.maxDocumentsPerSystem}</li>
+            )}
+            {lim.aiTokenMonthlyQuota != null && lim.aiTokenMonthlyQuota > 0 && (
+              <li>• AI tokens/month: {lim.aiTokenMonthlyQuota.toLocaleString()}</li>
+            )}
           </ul>
         </div>
       </div>
@@ -328,7 +371,7 @@ function Step3Confirmation({role, plan, limits}) {
   );
 }
 
-const FREE_PLANS = ["homeowner_free", "agent_basic"];
+const FREE_PLANS = ["homeowner_free"];
 
 export default function OnboardingWizard() {
   const navigate = useNavigate();
@@ -337,27 +380,26 @@ export default function OnboardingWizard() {
   const [role, setRole] = useState(null);
   const [plan, setPlan] = useState(null);
   const [billingInterval, setBillingInterval] = useState("month");
-  const [plansFromApi, setPlansFromApi] = useState([]);
+  const [apiPlans, setApiPlans] = useState([]);
+  const [apiLoading, setApiLoading] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState(null);
 
   useEffect(() => {
     if (role) {
+      setApiLoading(true);
       AppApi.getBillingPlans(role)
-        .then((r) => setPlansFromApi(r.plans || []))
-        .catch(() => {});
+        .then((r) => setApiPlans(r.plans || []))
+        .catch(() => setApiPlans([]))
+        .finally(() => setApiLoading(false));
     }
   }, [role]);
 
-  const limits =
-    role && plan
-      ? (PLAN_LIMITS[role]?.[plan] ?? {properties: "—", contacts: "—"})
-      : null;
+  const selectedPlan = apiPlans.find((p) => p.code === plan);
+  const isFreePlan = plan && (selectedPlan?.price === 0 || selectedPlan?.price === "0" || FREE_PLANS.includes(plan));
 
   const canContinue =
     (step === 1 && role) || (step === 2 && plan) || step === 3;
-
-  const isFreePlan = plan && FREE_PLANS.includes(plan);
 
   async function handleComplete() {
     setError(null);
@@ -410,7 +452,7 @@ export default function OnboardingWizard() {
       <div className="flex-1 flex flex-col items-center justify-center px-4 py-12">
         <StepIndicator currentStep={step} totalSteps={3} />
 
-        <div className={`w-full ${step === 2 ? "max-w-5xl" : "max-w-2xl"}`}>
+        <div className={`w-full ${step === 2 ? "max-w-6xl" : "max-w-2xl"}`}>
           {step === 1 && <Step1Role role={role} onSelect={setRole} />}
           {step === 2 && (
             <Step2Plan
@@ -419,10 +461,12 @@ export default function OnboardingWizard() {
               onSelect={setPlan}
               billingInterval={billingInterval}
               onBillingIntervalChange={setBillingInterval}
+              apiPlans={apiPlans}
+              apiLoading={apiLoading}
             />
           )}
           {step === 3 && (
-            <Step3Confirmation role={role} plan={plan} limits={limits} />
+            <Step3Confirmation role={role} plan={plan} apiPlans={apiPlans} />
           )}
         </div>
 
@@ -433,7 +477,7 @@ export default function OnboardingWizard() {
         )}
 
         <div
-          className={`flex items-center justify-between w-full mt-10 gap-4 ${step === 2 ? "max-w-5xl" : "max-w-2xl"}`}
+          className={`flex items-center justify-between w-full mt-10 gap-4 ${step === 2 ? "max-w-6xl" : "max-w-2xl"}`}
         >
           <button
             type="button"
