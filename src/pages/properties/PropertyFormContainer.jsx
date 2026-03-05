@@ -2158,7 +2158,7 @@ function PropertyFormContainer() {
             </div>
 
             {/* Body content */}
-            <div className="flex flex-col lg:flex-row gap-6 lg:gap-8 px-6 pb-6">
+            <div className="flex flex-col lg:flex-row gap-6 lg:gap-8 px-6 pt-6 pb-6">
               {/* Property Image */}
               <div className="w-full lg:w-2/5 flex-shrink-0">
                 <div
@@ -2839,6 +2839,18 @@ function PropertyFormContainer() {
           systemLabel={aiSidebarSystemLabel}
           systemContext={aiSidebarSystemContext}
           propertyId={state.property?.identity?.id ?? state.property?.id ?? uid}
+          propertySystems={[
+            ...PROPERTY_SYSTEMS.filter((s) =>
+              (state.formData.systems?.selectedSystemIds?.length
+                ? state.formData.systems.selectedSystemIds
+                : DEFAULT_SYSTEM_IDS
+              ).includes(s.id)
+            ),
+            ...(state.formData.systems?.customSystemNames ?? []).map((name, i) => ({
+              id: `custom-${name}-${i}`,
+              name,
+            })),
+          ]}
           contacts={contacts ?? []}
           initialPrompt={aiSidebarInitialPrompt}
           onScheduleSuccess={fetchMaintenanceEvents}
@@ -2870,6 +2882,19 @@ function PropertyFormContainer() {
           "You've reached the maximum number of properties for your current plan. Upgrade to add more."
         }
       />
+
+      {/* Floating AI Assistant button - bottom right */}
+      {uid && uid !== "new" && (
+        <button
+          type="button"
+          onClick={() => setAiSidebarOpen(true)}
+          className="fixed bottom-6 right-6 z-40 p-3 rounded-full bg-[#456564] hover:bg-[#34514f] text-white shadow-lg hover:shadow-xl transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-[#456564] focus:ring-offset-2"
+          title="AI Assistant"
+          aria-label="Open AI Assistant"
+        >
+          <Sparkles className="w-6 h-6" />
+        </button>
+      )}
     </div>
   );
 }

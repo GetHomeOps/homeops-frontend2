@@ -56,6 +56,8 @@ export const SIDEBAR_CONFIG = [
     type: "section",
     label: "PROPERTY",
     items: [
+      { id: "properties", label: "Properties", path: "properties", icon: icon(Building2), roles: "all" },
+      { id: "calendar", label: "Calendar", path: "calendar", icon: icon(Calendar), roles: "all" },
       {
         id: "dashboard",
         type: "collapsible",
@@ -67,8 +69,6 @@ export const SIDEBAR_CONFIG = [
           { id: "agent-analytics", label: "Agent Analytics", path: "dashboard/agent-analytics", icon: icon(Users), roles: "adminOnly" },
         ],
       },
-      { id: "properties", label: "Properties", path: "properties", icon: icon(Building2), roles: "all" },
-      { id: "calendar", label: "Calendar", path: "calendar", icon: icon(Calendar), roles: "all" },
     ],
   },
 

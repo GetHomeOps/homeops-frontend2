@@ -21,7 +21,7 @@ import {
 import Transition from "../../../utils/Transition";
 import AppApi from "../../../api/api";
 import DatePickerInput from "../../../components/DatePickerInput";
-import {PROPERTY_SYSTEMS} from "../constants/propertySystems";
+import {PROPERTY_SYSTEMS, DEFAULT_SYSTEM_IDS} from "../constants/propertySystems";
 
 function AIAssistantSidebar({
   isOpen,
@@ -29,6 +29,7 @@ function AIAssistantSidebar({
   systemLabel,
   systemContext,
   propertyId,
+  propertySystems,
   contacts = [],
   initialPrompt,
   onScheduleSuccess,
@@ -168,6 +169,11 @@ function AIAssistantSidebar({
   };
 
   const effectiveSystemContext = overrideSystemContext || systemContext;
+
+  // Systems in the Change dropdown: only those added to this property
+  const changeSystemOptions = propertySystems?.length
+    ? propertySystems
+    : PROPERTY_SYSTEMS.filter((s) => DEFAULT_SYSTEM_IDS.includes(s.id));
 
   // Auto-send initialPrompt (once per open)
   useEffect(() => {
@@ -448,7 +454,7 @@ function AIAssistantSidebar({
                 <>
                   <div className="fixed inset-0 z-10" onClick={() => setChangeSystemOpen(false)} aria-hidden="true" />
                   <div className="absolute right-0 top-full mt-1 py-1.5 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-600 rounded-lg shadow-lg z-20 max-h-48 overflow-y-auto min-w-[160px]">
-                    {PROPERTY_SYSTEMS.map((sys) => (
+                    {changeSystemOptions.map((sys) => (
                       <button
                         key={sys.id}
                         type="button"

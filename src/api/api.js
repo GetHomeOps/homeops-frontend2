@@ -597,6 +597,21 @@ class AppApi {
   }
 
   /**
+   * Get AI maintenance advice for a system.
+   * @param {string|number} propertyId - property ID or UID
+   * @param {Object} context - { systemType, systemName, systemContext? }
+   * @returns {Promise<{ recommendedFrequency, riskWarning, suggestedQuestions, suggestions }>}
+   */
+  static async getAIMaintenanceAdvice(propertyId, { systemType, systemName, systemContext = {} }) {
+    const res = await this.request(
+      `maintenance-events/${propertyId}/ai-advice`,
+      { systemType, systemName, systemContext },
+      "POST"
+    );
+    return res.advice;
+  }
+
+  /**
    * Create a maintenance event for a property.
    * @param {string} propertyId - property UID
    * @param {Object} payload - event payload (system_key, scheduled_date, etc.)

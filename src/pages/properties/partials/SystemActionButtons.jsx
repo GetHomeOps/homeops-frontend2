@@ -1,4 +1,5 @@
 import React, {useState, useMemo} from "react";
+import {createPortal} from "react-dom";
 import {User, Upload, Calendar, CheckSquare, Square} from "lucide-react";
 import InstallerPopover from "./InstallerPopover";
 import ScheduleSystemModal from "./ScheduleSystemModal";
@@ -116,7 +117,11 @@ function SystemActionButtons({
           <Calendar className="w-3.5 h-3.5" />
           <span className="hidden sm:inline">Schedule</span>
         </button>
-        {showScheduleModal && (
+      </div>
+
+      {/* Portal modals to document.body so they aren't clipped by overflow in the collapsible section header */}
+      {showScheduleModal &&
+        createPortal(
           <ScheduleSystemModal
             isOpen={true}
             onClose={() => setShowScheduleModal(false)}
@@ -126,22 +131,24 @@ function SystemActionButtons({
             onSchedule={onScheduleInspection}
             propertyId={propertyId}
             propertyData={propertyData}
-          />
+          />,
+          document.body,
         )}
-      </div>
 
       {/* Only mount when open to avoid Radix Popover PopperAnchor infinite loop
           when many modals are hidden (each has DatePickerInput with Popover). */}
-      {showUploadModal && (
-        <UploadDocumentModal
-          isOpen={true}
-          onClose={() => setShowUploadModal(false)}
-          systemType={systemType}
-          systemLabel={systemLabel}
-          propertyId={propertyId}
-          systemsToShow={systemsToShow}
-        />
-      )}
+      {showUploadModal &&
+        createPortal(
+          <UploadDocumentModal
+            isOpen={true}
+            onClose={() => setShowUploadModal(false)}
+            systemType={systemType}
+            systemLabel={systemLabel}
+            propertyId={propertyId}
+            systemsToShow={systemsToShow}
+          />,
+          document.body,
+        )}
     </div>
   );
 }

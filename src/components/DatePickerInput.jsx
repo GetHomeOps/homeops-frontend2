@@ -1,19 +1,14 @@
 import * as React from "react";
-import {format, parse, isValid, isSameDay} from "date-fns";
-import {X} from "lucide-react";
+import {format, isSameDay, startOfMonth} from "date-fns";
+import {ChevronDown, ChevronsUpDown, X} from "lucide-react";
 import {Popover, PopoverContent, PopoverTrigger} from "./ui/popover";
 import {Calendar} from "./ui/calendar";
 import {cn} from "../lib/utils";
-
-function parseDateValue(value) {
-  if (!value || typeof value !== "string") return undefined;
-  const trimmed = value.trim();
-  if (!trimmed) return undefined;
-  const parsed = parse(trimmed, "yyyy-MM-dd", new Date());
-  if (isValid(parsed)) return parsed;
-  const iso = new Date(trimmed);
-  return isValid(iso) ? iso : undefined;
-}
+import DateOffsetControl from "./DateOffsetControl";
+import {
+  isDateOutsideRange,
+  parseDateInput,
+} from "../lib/dateOffset";
 
 /**
  * Date picker input that uses Popover + Calendar (react-day-picker).
@@ -33,28 +28,57 @@ const DatePickerInput = React.memo(function DatePickerInput({
   popoverClassName,
   required,
   style,
+  showOffsetControl = false,
+  minDate,
+  maxDate,
+  disabledDays,
 }) {
   const [open, setOpen] = React.useState(false);
+  const [offsetExpanded, setOffsetExpanded] = React.useState(false);
 
   // Keep onChange in a ref so the memoized component doesn't need it as a dep
   const onChangeRef = React.useRef(onChange);
   onChangeRef.current = onChange;
 
-  const dateValue = React.useMemo(() => parseDateValue(value), [value]);
+  const dateValue = React.useMemo(() => parseDateInput(value), [value]);
+  const minDateValue = React.useMemo(() => parseDateInput(minDate), [minDate]);
+  const maxDateValue = React.useMemo(() => parseDateInput(maxDate), [maxDate]);
 
-  const defaultMonth = React.useMemo(
-    () => dateValue ?? new Date(),
+  const initialMonth = React.useMemo(
+    () => startOfMonth(dateValue ?? new Date()),
     [dateValue],
   );
+  const [visibleMonth, setVisibleMonth] = React.useState(initialMonth);
+
+  React.useEffect(() => {
+    if (open) setVisibleMonth(startOfMonth(dateValue ?? new Date()));
+  }, [open, dateValue]);
 
   const displayValue = React.useMemo(() => {
     if (!dateValue) return "";
     return format(dateValue, "dd/MM/yyyy");
   }, [dateValue]);
 
+  const calendarDisabled = React.useMemo(() => {
+    const rangeMatcher =
+      minDateValue || maxDateValue
+        ? {
+            ...(minDateValue ? {before: minDateValue} : {}),
+            ...(maxDateValue ? {after: maxDateValue} : {}),
+          }
+        : undefined;
+
+    if (!rangeMatcher) return disabledDays;
+    if (!disabledDays) return rangeMatcher;
+    return [disabledDays, rangeMatcher];
+  }, [disabledDays, minDateValue, maxDateValue]);
+
   const handleSelect = React.useCallback(
     (date) => {
       if (!date) return;
+      if (isDateOutsideRange(date, {minDate: minDateValue, maxDate: maxDateValue})) {
+        return;
+      }
       if (dateValue && isSameDay(date, dateValue)) {
         onChangeRef.current?.({target: {name, value: ""}});
       } else {
@@ -64,7 +88,7 @@ const DatePickerInput = React.memo(function DatePickerInput({
       }
       setOpen(false);
     },
-    [dateValue, name],
+    [dateValue, name, minDateValue, maxDateValue],
   );
 
   const handleClear = React.useCallback(
@@ -78,7 +102,10 @@ const DatePickerInput = React.memo(function DatePickerInput({
 
   const handleOpenChange = React.useCallback(
     (o) => {
-      if (!disabled) setOpen(o);
+      if (!disabled) {
+        setOpen(o);
+        if (!o) setOffsetExpanded(false);
+      }
     },
     [disabled],
   );
@@ -137,16 +164,54 @@ const DatePickerInput = React.memo(function DatePickerInput({
         align="start"
         side="bottom"
         sideOffset={4}
-        collisionPadding={8}
+        collisionPadding={16}
       >
         <Calendar
           mode="single"
           selected={dateValue}
           onSelect={handleSelect}
-          defaultMonth={defaultMonth}
+          month={visibleMonth}
+          onMonthChange={(month) => setVisibleMonth(startOfMonth(month))}
           initialFocus
           fixedWeeks
+          disabled={calendarDisabled}
         />
+        {showOffsetControl && (
+          <div className="border-t border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800">
+            <button
+              type="button"
+              onClick={() => setOffsetExpanded((v) => !v)}
+              className="group flex items-center justify-center gap-1.5 w-full py-2 text-xs font-medium text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200 hover:bg-gray-50 dark:hover:bg-gray-700/40 transition-colors"
+            >
+              Jump to
+              <ChevronDown
+                className={cn(
+                  "w-3 h-3 transition-transform duration-150",
+                  offsetExpanded && "rotate-180",
+                )}
+              />
+            </button>
+            <div
+              className={cn(
+                "grid transition-[grid-template-rows] duration-150 ease-out",
+                offsetExpanded ? "grid-rows-[1fr]" : "grid-rows-[0fr]",
+              )}
+            >
+              <div className="overflow-hidden">
+                <div className="px-3 pb-3 pt-2 bg-gray-50 dark:bg-gray-900/40 border-t border-gray-200 dark:border-gray-700">
+                  <DateOffsetControl
+                    selectedDate={dateValue}
+                    minDate={minDateValue}
+                    maxDate={maxDateValue}
+                    onNavigate={(nextDate) =>
+                      setVisibleMonth(startOfMonth(nextDate))
+                    }
+                  />
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
       </PopoverContent>
     </Popover>
   );

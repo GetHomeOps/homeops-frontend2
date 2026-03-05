@@ -7,8 +7,7 @@ import {
   AlertCircle,
   Calendar,
   Sparkles,
-  ShieldCheck,
-  CheckCircle,
+  FileSearch,
   Gauge,
   Wrench,
   AlertOctagon,
@@ -78,14 +77,6 @@ function CollapsibleSection({
   const aiInspectionTooltip = useMemo(() => {
     if (!aiCondition) return null;
     const status = (aiCondition.status || "").toLowerCase();
-    const ConditionIcon =
-      status === "excellent"
-        ? CheckCircle
-        : status === "good"
-          ? ShieldCheck
-          : status === "fair"
-            ? AlertCircle
-            : AlertTriangle;
     const conditionColor =
       status === "excellent"
         ? "text-emerald-600 dark:text-emerald-500"
@@ -119,7 +110,7 @@ function CollapsibleSection({
     return (
       <div className="flex flex-col gap-2 min-w-[180px]">
         <div className="flex items-center gap-2">
-          <ConditionIcon className={`w-4 h-4 flex-shrink-0 ${conditionColor}`} strokeWidth={2} />
+          <FileSearch className={`w-4 h-4 flex-shrink-0 ${conditionColor}`} strokeWidth={2} />
           <span className="text-xs font-medium">AI Inspection</span>
         </div>
         {PriorityIcon && (
@@ -307,15 +298,7 @@ function CollapsibleSection({
                     }`}
                     aria-label={`AI Inspection: ${aiCondition.status || "unknown"} condition`}
                   >
-                    {aiCondition.status === "excellent" ? (
-                      <CheckCircle className="w-[18px] h-[18px]" strokeWidth={2} />
-                    ) : aiCondition.status === "good" ? (
-                      <ShieldCheck className="w-[18px] h-[18px]" strokeWidth={2} />
-                    ) : aiCondition.status === "fair" ? (
-                      <AlertCircle className="w-[18px] h-[18px]" strokeWidth={2} />
-                    ) : (
-                      <AlertTriangle className="w-[18px] h-[18px]" strokeWidth={2} />
-                    )}
+                    <FileSearch className="w-[18px] h-[18px]" strokeWidth={2} />
                   </button>
                 </Tooltip>
               )}

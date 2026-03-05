@@ -113,6 +113,7 @@ function SchedulePopover({
               name="inspectionDate"
               value={inspectionDate}
               onChange={(e) => setInspectionDate(e.target.value)}
+              showOffsetControl
             />
           </div>
 

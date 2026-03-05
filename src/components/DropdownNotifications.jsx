@@ -1,6 +1,6 @@
 import React, {useState, useRef, useEffect} from "react";
 import {Link} from "react-router-dom";
-import {Bell, Clock, Calendar, AlertCircle, ChevronRight, BookOpen, UserPlus} from "lucide-react";
+import {Bell, Calendar, AlertCircle, ChevronRight, BookOpen, UserPlus} from "lucide-react";
 import Transition from "../utils/Transition";
 import AppApi from "../api/api";
 import useCurrentAccount from "../hooks/useCurrentAccount";
@@ -132,9 +132,7 @@ function DropdownNotifications({align = "right"}) {
         <span className="sr-only">Notifications</span>
         <Bell className="w-5 h-5 text-gray-500 dark:text-gray-400" strokeWidth={1.75} />
         {badgeCount > 0 && (
-          <span className="absolute top-0.5 right-0.5 min-w-[18px] h-[18px] px-1 flex items-center justify-center text-[10px] font-semibold text-white bg-amber-500 dark:bg-amber-500 rounded-full">
-            {badgeCount > 9 ? "9+" : badgeCount}
-          </span>
+          <span className="absolute top-1.5 right-1.5 w-2 h-2 bg-amber-500 dark:bg-amber-400 rounded-full ring-2 ring-white dark:ring-gray-900" />
         )}
       </button>
 

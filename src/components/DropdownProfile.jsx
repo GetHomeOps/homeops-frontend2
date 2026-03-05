@@ -1,25 +1,35 @@
 import React, {useState, useRef, useEffect, useContext} from "react";
 import {Link} from "react-router-dom";
 import Transition from "../utils/Transition";
-// import UserContext from "../context/AppContext";
 import AuthContext from "../context/AuthContext";
-import UserAvatar from "../images/user-avatar-32.png";
-
-import {useLocation} from "react-router-dom";
+import useCurrentAccount from "../hooks/useCurrentAccount";
 
 import {useTranslation} from "react-i18next";
 import "../i18n/index";
 
+function getInitials(name) {
+  if (!name || typeof name !== "string") return "?";
+  const parts = name.trim().split(/\s+/);
+  if (parts.length >= 2) {
+    return (parts[0][0] + parts[parts.length - 1][0]).toUpperCase();
+  }
+  return name.slice(0, 2).toUpperCase();
+}
+
 function DropdownProfile({align}) {
   const [dropdownOpen, setDropdownOpen] = useState(false);
   const {currentUser, logout} = useContext(AuthContext);
-
-  const {t, i18n} = useTranslation();
+  const {currentAccount} = useCurrentAccount();
+  const {t} = useTranslation();
 
   const trigger = useRef(null);
   const dropdown = useRef(null);
 
-  const location = useLocation();
+  const photoUrl = currentUser?.avatarUrl || currentUser?.image_url;
+  const initials = getInitials(currentUser?.name);
+
+  const accountUrl = currentAccount?.url || "";
+  const settingsBase = accountUrl ? `/${accountUrl}/settings` : "/settings";
 
   // close on click outside
   useEffect(() => {
@@ -47,6 +57,8 @@ function DropdownProfile({align}) {
     return () => document.removeEventListener("keydown", keyHandler);
   });
 
+  const hasMultipleAccounts = (currentUser?.accounts?.length || 0) > 1;
+
   return (
     <div className="relative inline-flex">
       <button
@@ -56,13 +68,22 @@ function DropdownProfile({align}) {
         onClick={() => setDropdownOpen(!dropdownOpen)}
         aria-expanded={dropdownOpen}
       >
-        <img
-          className="w-8 h-8 rounded-full"
-          src={UserAvatar}
-          width="32"
-          height="32"
-          alt="User"
-        />
+        {photoUrl ? (
+          <img
+            className="w-8 h-8 rounded-full object-cover"
+            src={photoUrl}
+            width="32"
+            height="32"
+            alt={currentUser?.name || "User"}
+          />
+        ) : (
+          <div
+            className="w-8 h-8 rounded-full flex items-center justify-center text-sm font-medium text-gray-600 dark:text-gray-300 bg-gray-200 dark:bg-gray-600"
+            aria-hidden
+          >
+            {initials}
+          </div>
+        )}
         <div className="flex items-center truncate">
           <span className="truncate ml-2 text-sm font-medium text-gray-600 dark:text-gray-100 group-hover:text-gray-800 dark:group-hover:text-white">
             {currentUser?.name}
@@ -76,133 +97,97 @@ function DropdownProfile({align}) {
         </div>
       </button>
 
-      {location.pathname.startsWith("/settings") ? (
-        <Transition
-          className={`origin-top-right z-10 absolute top-full min-w-44 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700/60 py-1.5 rounded-lg shadow-lg overflow-hidden mt-1 ${
-            align === "right" ? "right-0" : "left-0"
-          }`}
-          show={dropdownOpen}
-          enter="transition ease-out duration-200 transform"
-          enterStart="opacity-0 -translate-y-2"
-          enterEnd="opacity-100 translate-y-0"
-          leave="transition ease-out duration-200"
-          leaveStart="opacity-100"
-          leaveEnd="opacity-0"
+      <Transition
+        className={`origin-top-right z-10 absolute top-full min-w-44 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700/60 py-1.5 rounded-lg shadow-lg overflow-hidden mt-1 ${
+          align === "right" ? "right-0" : "left-0"
+        }`}
+        show={dropdownOpen}
+        enter="transition ease-out duration-200 transform"
+        enterStart="opacity-0 -translate-y-2"
+        enterEnd="opacity-100 translate-y-0"
+        leave="transition ease-out duration-200"
+        leaveStart="opacity-100"
+        leaveEnd="opacity-0"
+      >
+        <div
+          ref={dropdown}
+          onFocus={() => setDropdownOpen(true)}
+          onBlur={() => setDropdownOpen(false)}
         >
-          <div
-            ref={dropdown}
-            onFocus={() => setDropdownOpen(true)}
-            onBlur={() => setDropdownOpen(false)}
-          >
-            <div className="pt-0.5 pb-2 px-3 mb-1 border-b border-gray-200 dark:border-gray-700/60">
-              <div className="font-medium text-gray-800 dark:text-gray-100">
-                {currentUser?.name}
-              </div>
-              <div className="text-xs text-gray-500 dark:text-gray-400 italic">
-                {currentUser?.role}
-              </div>
+          <div className="pt-0.5 pb-2 px-3 mb-1 border-b border-gray-200 dark:border-gray-700/60">
+            <div className="font-medium text-gray-800 dark:text-gray-100">
+              {currentUser?.name}
             </div>
-            {/* <div className="border-b border-gray-200 dark:border-gray-700/60">
+            {currentUser?.email && (
+              <div className="text-xs text-gray-500 dark:text-gray-400 truncate">
+                {currentUser.email}
+              </div>
+            )}
+            <div className="text-xs text-gray-500 dark:text-gray-400 italic capitalize">
+              {currentUser?.role}
+            </div>
+          </div>
+          <div>
+            <ul>
+              {accountUrl && (
+                <>
+                  <li>
+                    <Link
+                      className="font-medium text-sm text-gray-700 dark:text-gray-200 hover:text-gray-900 dark:hover:text-white flex items-center py-1 px-3 hover:bg-gray-50 dark:hover:bg-gray-700/50"
+                      to={`${settingsBase}/billing`}
+                      onClick={() => setDropdownOpen(false)}
+                    >
+                      {(t("billing") || "Billing").replace(/^\w/, (c) => c.toUpperCase())}
+                    </Link>
+                  </li>
+                  <li>
+                    <Link
+                      className="font-medium text-sm text-gray-700 dark:text-gray-200 hover:text-gray-900 dark:hover:text-white flex items-center py-1 px-3 hover:bg-gray-50 dark:hover:bg-gray-700/50"
+                      to={`${settingsBase}/configuration`}
+                      onClick={() => setDropdownOpen(false)}
+                    >
+                      {(t("configuration") || "Configuration").replace(/^\w/, (c) => c.toUpperCase())}
+                    </Link>
+                  </li>
+                  <li>
+                    <Link
+                      className="font-medium text-sm text-gray-700 dark:text-gray-200 hover:text-gray-900 dark:hover:text-white flex items-center py-1 px-3 hover:bg-gray-50 dark:hover:bg-gray-700/50"
+                      to={`${settingsBase}/support`}
+                      onClick={() => setDropdownOpen(false)}
+                    >
+                      {(t("support") || "Support").replace(/^\w/, (c) => c.toUpperCase())}
+                    </Link>
+                  </li>
+                </>
+              )}
+              {hasMultipleAccounts && (
+                <li>
+                  <Link
+                    className="font-medium text-sm text-gray-700 dark:text-gray-200 hover:text-gray-900 dark:hover:text-white flex items-center py-1 px-3 hover:bg-gray-50 dark:hover:bg-gray-700/50"
+                    to="/settings/accounts"
+                    onClick={() => setDropdownOpen(false)}
+                  >
+                    {(t("switchAccount") || "Switch Account").replace(/\b\w/g, (c) => c.toUpperCase())}
+                  </Link>
+                </li>
+              )}
+            </ul>
+            <div className="border-t border-gray-200 dark:border-gray-700/60 mt-1 pt-1">
               <ul>
                 <li>
                   <Link
-                    className="font-medium text-sm text-violet-500 hover:text-violet-600 dark:hover:text-violet-400 flex items-center py-1 px-3"
-                    to="/settings/account"
-                    onClick={() => setDropdownOpen(!dropdownOpen)}
-                  >
-                    {t("account")}
-                  </Link>
-                </li>
-                <li>
-                  <Link
-                    className="font-medium text-sm text-violet-500 hover:text-violet-600 dark:hover:text-violet-400 flex items-center py-1 px-3"
-                    to="/settings/databases"
-                    onClick={() => setDropdownOpen(!dropdownOpen)}
-                  >
-                    {t("myDatabases")}
-                  </Link>
-                </li>
-              </ul>
-            </div> */}
-            <div>
-              <ul>
-                <li>
-                  <Link
-                    className="font-medium text-sm text-violet-500 hover:text-violet-600 dark:hover:text-violet-400 flex items-center py-1 px-3"
+                    className="font-medium text-sm text-gray-700 dark:text-gray-200 hover:text-gray-900 dark:hover:text-white flex items-center py-1 px-3 hover:bg-gray-50 dark:hover:bg-gray-700/50"
                     to="/signin"
                     onClick={logout}
                   >
-                    {t("signOut")}
+                    {(t("signOut") || "Sign Out").replace(/\b\w/g, (c) => c.toUpperCase())}
                   </Link>
                 </li>
               </ul>
             </div>
           </div>
-        </Transition>
-      ) : (
-        <Transition
-          className={`origin-top-right z-10 absolute top-full min-w-44 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700/60 py-1.5 rounded-lg shadow-lg overflow-hidden mt-1 ${
-            align === "right" ? "right-0" : "left-0"
-          }`}
-          show={dropdownOpen}
-          enter="transition ease-out duration-200 transform"
-          enterStart="opacity-0 -translate-y-2"
-          enterEnd="opacity-100 translate-y-0"
-          leave="transition ease-out duration-200"
-          leaveStart="opacity-100"
-          leaveEnd="opacity-0"
-        >
-          <div
-            ref={dropdown}
-            onFocus={() => setDropdownOpen(true)}
-            onBlur={() => setDropdownOpen(false)}
-          >
-            <div className="pt-0.5 pb-2 px-3 mb-1 border-b border-gray-200 dark:border-gray-700/60">
-              <div className="font-medium text-gray-800 dark:text-gray-100">
-                {currentUser?.name}
-              </div>
-              <div className="text-xs text-gray-500 dark:text-gray-400 italic">
-                {currentUser?.role}
-              </div>
-            </div>
-            {/* <div className="border-b border-gray-200 dark:border-gray-700/60">
-              <ul>
-                <li>
-                  <Link
-                    className="font-medium text-sm text-violet-500 hover:text-violet-600 dark:hover:text-violet-400 flex items-center py-1 px-3"
-                    to="/settings/account"
-                    onClick={() => setDropdownOpen(!dropdownOpen)}
-                  >
-                    {t("profile")}
-                  </Link>
-                </li>
-                <li>
-                  <Link
-                    className="font-medium text-sm text-violet-500 hover:text-violet-600 dark:hover:text-violet-400 flex items-center py-1 px-3"
-                    // to="/settings/databases"
-                    onClick={() => setDropdownOpen(!dropdownOpen)}
-                  >
-                    {t("myDatabases")}
-                  </Link>
-                </li>
-              </ul>
-            </div> */}
-            <div>
-              <ul>
-                <li>
-                  <Link
-                    className="font-medium text-sm text-violet-500 hover:text-violet-600 dark:hover:text-violet-400 flex items-center py-1 px-3"
-                    to="/signin"
-                    onClick={logout}
-                  >
-                    {t("signOut")}
-                  </Link>
-                </li>
-              </ul>
-            </div>
-          </div>
-        </Transition>
-      )}
+        </div>
+      </Transition>
     </div>
   );
 }

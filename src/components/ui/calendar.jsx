@@ -1,32 +1,70 @@
 "use client";
 
 import * as React from "react";
+import {addYears, subYears} from "date-fns";
 import {DayPicker} from "react-day-picker";
 
 import {cn} from "../../lib/utils";
 
-function Calendar({className, classNames, showOutsideDays = true, ...props}) {
+const DEFAULT_START_MONTH = subYears(new Date(), 50);
+const DEFAULT_END_MONTH = addYears(new Date(), 10);
+
+function Calendar({
+  className,
+  classNames,
+  showOutsideDays = true,
+  captionLayout = "dropdown",
+  startMonth = DEFAULT_START_MONTH,
+  endMonth = DEFAULT_END_MONTH,
+  navLayout = "around",
+  footer,
+  labels,
+  reverseYears = true,
+  ...props
+}) {
+  const mergedLabels = {
+    labelMonthDropdown: () => "Choose the Month",
+    labelYearDropdown: () => "Choose the Year",
+    ...labels,
+  };
+
   return (
     <DayPicker
       showOutsideDays={showOutsideDays}
+      captionLayout={captionLayout}
+      startMonth={startMonth}
+      endMonth={endMonth}
+      navLayout={navLayout}
+      reverseYears={reverseYears}
+      labels={mergedLabels}
       className={cn("p-3 text-gray-600 dark:text-gray-100", className)}
       classNames={{
-        months: "flex flex-col sm:flex-row space-y-4 sm:space-y-0",
-        month_caption: "flex justify-center pt-1 pb-3 relative items-center",
-        caption_label: "text-sm font-medium",
-        nav: "absolute flex items-center justify-between gap-1 inset-x-3 top-3",
+        months: "relative flex flex-col sm:flex-row",
+        month_caption:
+          "flex justify-center items-center h-8 mb-3 mx-9",
+        caption_label:
+          "relative z-[1] inline-flex items-center gap-1 text-[13px] font-semibold text-gray-800 dark:text-gray-100 whitespace-nowrap rounded-md border border-gray-200 dark:border-gray-600 bg-white dark:bg-gray-800 px-2.5 h-8 shadow-sm hover:bg-gray-50 dark:hover:bg-gray-700/60 transition-colors cursor-pointer",
+        chevron: "fill-current",
+        nav: "absolute inset-x-0 top-0 flex items-center justify-between h-8 z-10 pointer-events-none",
         button_previous:
-          "inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-md text-sm font-medium transition-colors disabled:pointer-events-none disabled:opacity-50 [&_svg]:pointer-events-none size-7 bg-transparent p-0 opacity-50 hover:opacity-100 z-50",
+          "pointer-events-auto inline-flex items-center justify-center h-8 w-8 rounded-md text-gray-400 dark:text-gray-500 hover:text-gray-600 dark:hover:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors disabled:pointer-events-none disabled:opacity-30 [&_svg]:pointer-events-none",
         button_next:
-          "inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-md text-sm font-medium transition-colors disabled:pointer-events-none disabled:opacity-50 [&_svg]:pointer-events-none size-7 bg-transparent p-0 opacity-50 hover:opacity-100 z-50",
-        month_grid: "w-full border-collapse space-y-1",
+          "pointer-events-auto inline-flex items-center justify-center h-8 w-8 rounded-md text-gray-400 dark:text-gray-500 hover:text-gray-600 dark:hover:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors disabled:pointer-events-none disabled:opacity-30 [&_svg]:pointer-events-none",
+        dropdowns:
+          "inline-flex items-center gap-1.5",
+        dropdown_root: "relative inline-flex items-center",
+        dropdown:
+          "absolute z-[2] opacity-0 inset-0 w-full cursor-pointer appearance-none border-none",
+        months_dropdown: "",
+        years_dropdown: "",
+        month_grid: "w-full border-collapse",
         weekdays: "flex",
         weekday:
-          "text-gray-400 dark:text-gray-500 font-medium rounded-md w-9 text-[0.8rem]",
-        week: "flex w-full mt-2",
+          "text-gray-400 dark:text-gray-500 font-medium w-9 text-[0.75rem] text-center pb-2",
+        week: "flex w-full mt-1",
         day: "h-9 w-9 text-center text-sm p-0 relative rounded-md [&:has([aria-selected])]:bg-emerald-600 [&:has([aria-selected])]:rounded-md focus-within:relative focus-within:z-20",
         day_button:
-          "inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-md text-sm font-medium transition-colors disabled:pointer-events-none disabled:opacity-50 [&_svg]:pointer-events-none [&_svg]:size-4 [&_svg]:shrink-0 hover:bg-emerald-600 hover:text-white h-9 w-9 p-0 aria-selected:opacity-100",
+          "inline-flex items-center justify-center whitespace-nowrap rounded-md text-sm transition-colors disabled:pointer-events-none disabled:opacity-50 hover:bg-emerald-600 hover:text-white h-9 w-9 p-0 font-medium aria-selected:opacity-100",
         range_start: "rounded-l-lg",
         range_end: "day-range-end rounded-r-lg",
         selected:
@@ -38,14 +76,16 @@ function Calendar({className, classNames, showOutsideDays = true, ...props}) {
         range_middle:
           "aria-selected:bg-emerald-600/70 aria-selected:text-white",
         hidden: "invisible",
+        footer:
+          "flex justify-center pt-2.5 pb-0.5 border-t border-gray-200 dark:border-gray-600 mt-2",
         ...classNames,
       }}
       components={{
-        Chevron: (props) => {
-          if (props.orientation === "left") {
+        Chevron: ({orientation, ...chevronProps}) => {
+          if (orientation === "left") {
             return (
               <svg
-                className="fill-current"
+                {...chevronProps}
                 width="7"
                 height="11"
                 viewBox="0 0 7 11"
@@ -54,9 +94,21 @@ function Calendar({className, classNames, showOutsideDays = true, ...props}) {
               </svg>
             );
           }
+          if (orientation === "down") {
+            return (
+              <svg
+                {...chevronProps}
+                width="10"
+                height="6"
+                viewBox="0 0 10 6"
+              >
+                <path d="M1.4 0L0 1.4 5 6.4l5-5L8.6 0 5 3.6z" />
+              </svg>
+            );
+          }
           return (
             <svg
-              className="fill-current"
+              {...chevronProps}
               width="7"
               height="11"
               viewBox="0 0 7 11"
@@ -66,6 +118,7 @@ function Calendar({className, classNames, showOutsideDays = true, ...props}) {
           );
         },
       }}
+      footer={footer}
       {...props}
     />
   );

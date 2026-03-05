@@ -40,7 +40,8 @@ function ModalBlank({
   }, [modalOpen, setModalOpen]);
 
   const handleBackdropClick = (e) => {
-    if (e.target === e.currentTarget && closeOnBackdropClick) setModalOpen(false);
+    if (e.target === e.currentTarget && closeOnBackdropClick)
+      setModalOpen(false);
   };
 
   return (
@@ -49,6 +50,7 @@ function ModalBlank({
       <Transition
         className="fixed inset-0 bg-gray-900/30 z-[200] transition-opacity cursor-default"
         show={modalOpen}
+        appear={true}
         enter="transition ease-out duration-200"
         enterStart="opacity-0"
         enterEnd="opacity-100"
@@ -65,6 +67,7 @@ function ModalBlank({
         role="dialog"
         aria-modal="true"
         show={modalOpen}
+        appear={true}
         enter="transition ease-in-out duration-200"
         enterStart="opacity-0 translate-y-4"
         enterEnd="opacity-100 translate-y-0"

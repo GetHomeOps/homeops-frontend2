@@ -78,7 +78,7 @@ function StepIndicator({currentStep, steps}) {
                       ? "bg-[#456564]"
                       : "bg-gray-200 dark:bg-gray-600"
                   }`}
-                  style={{ marginTop: `${lineVerticalOffset}px` }}
+                  style={{marginTop: `${lineVerticalOffset}px`}}
                   aria-hidden
                 />
               )}
@@ -92,11 +92,7 @@ function StepIndicator({currentStep, steps}) {
                         : "border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 text-gray-400 dark:text-gray-500"
                   }`}
                 >
-                  {isCompleted ? (
-                    <CheckCircle2 className="w-4 h-4" />
-                  ) : (
-                    idx + 1
-                  )}
+                  {isCompleted ? <CheckCircle2 className="w-4 h-4" /> : idx + 1}
                 </div>
                 <span
                   className={`text-[10px] sm:text-xs font-medium mt-1.5 text-center leading-tight max-w-[72px] truncate ${
@@ -156,9 +152,7 @@ function TypeStep({scheduleType, setScheduleType}) {
           }`}
         >
           <span className="font-semibold">Maintenance</span>
-          <span className="text-xs opacity-90">
-            Routine service, repairs
-          </span>
+          <span className="text-xs opacity-90">Routine service, repairs</span>
         </button>
       </div>
     </div>
@@ -199,23 +193,32 @@ function ProfessionalStep({
       const q = professionalSearch.toLowerCase();
       list = list.filter(
         (p) =>
-          `${p.first_name || ""} ${p.last_name || ""}`.toLowerCase().includes(q) ||
-          p.company_name?.toLowerCase().includes(q),
+          `${p.first_name || ""} ${p.last_name || ""}`
+            .toLowerCase()
+            .includes(q) || p.company_name?.toLowerCase().includes(q),
       );
     }
     return list;
   }, [savedProfessionals, professionalSearch]);
 
   const proDisplayName = (p) =>
-    p.company_name || `${p.first_name || ""} ${p.last_name || ""}`.trim() || "Professional";
+    p.company_name ||
+    `${p.first_name || ""} ${p.last_name || ""}`.trim() ||
+    "Professional";
 
   const [searchFocused, setSearchFocused] = useState(false);
   const hasSearchQuery = professionalSearch.trim().length > 0;
-  const suggestedContacts = hasSearchQuery ? filteredContacts : filteredContacts.slice(0, 2);
-  const suggestedSaved = hasSearchQuery ? filteredSaved : filteredSaved.slice(0, 2);
+  const suggestedContacts = hasSearchQuery
+    ? filteredContacts
+    : filteredContacts.slice(0, 2);
+  const suggestedSaved = hasSearchQuery
+    ? filteredSaved
+    : filteredSaved.slice(0, 2);
   const showSearchDropdown =
     searchFocused &&
-    (suggestedContacts.length > 0 || suggestedSaved.length > 0 || hasSearchQuery);
+    (suggestedContacts.length > 0 ||
+      suggestedSaved.length > 0 ||
+      hasSearchQuery);
 
   useEffect(() => {
     if (showSearchDropdown && triggerRef.current) {
@@ -281,7 +284,9 @@ function ProfessionalStep({
         </div>
       )}
       {suggestedSaved.length > 0 && (
-        <div className={`px-3 py-1.5 ${suggestedContacts.length > 0 ? "border-t border-gray-100 dark:border-gray-700" : ""}`}>
+        <div
+          className={`px-3 py-1.5 ${suggestedContacts.length > 0 ? "border-t border-gray-100 dark:border-gray-700" : ""}`}
+        >
           <p className="text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide flex items-center gap-1.5">
             <Star className="w-3.5 h-3.5 text-amber-500" />
             Saved Professionals
@@ -320,11 +325,13 @@ function ProfessionalStep({
           </div>
         </div>
       )}
-      {hasSearchQuery && suggestedContacts.length === 0 && suggestedSaved.length === 0 && (
-        <p className="px-4 py-3 text-sm text-gray-500 dark:text-gray-400">
-          No matches found. Try a different search or browse the directory.
-        </p>
-      )}
+      {hasSearchQuery &&
+        suggestedContacts.length === 0 &&
+        suggestedSaved.length === 0 && (
+          <p className="px-4 py-3 text-sm text-gray-500 dark:text-gray-400">
+            No matches found. Try a different search or browse the directory.
+          </p>
+        )}
     </div>
   );
 
@@ -335,7 +342,8 @@ function ProfessionalStep({
           Do you already have a professional?
         </h3>
         <p className="text-sm text-gray-500 dark:text-gray-400">
-          Select from your contacts or saved professionals, or browse the directory.
+          Select from your contacts or saved professionals, or browse the
+          directory.
         </p>
       </div>
 
@@ -461,6 +469,7 @@ function DetailsStep({
             value={scheduledDate}
             onChange={(e) => setScheduledDate(e.target.value)}
             popoverClassName="z-[250]"
+            showOffsetControl
           />
         </div>
         <div>
@@ -582,6 +591,7 @@ function MessageStep({
                   value={alertDate}
                   onChange={(e) => setAlertDate(e.target.value)}
                   popoverClassName="z-[250]"
+                  showOffsetControl
                 />
               </div>
               <div>
@@ -647,7 +657,9 @@ function ScheduleSystemModal({
     propertyData?.name ||
     propertyData?.identity?.propertyName ||
     "";
-  const professionalsPath = accountUrl ? `/${accountUrl}/professionals` : "/professionals";
+  const professionalsPath = accountUrl
+    ? `/${accountUrl}/professionals`
+    : "/professionals";
 
   useEffect(() => {
     if (!isOpen) return;
@@ -680,7 +692,12 @@ function ScheduleSystemModal({
   useEffect(() => {
     if (currentStep === 3 && !messageTemplateSetRef.current) {
       setMessageBody(
-        generateMessageTemplate(propertyName, systemLabel, scheduledDate, scheduleType),
+        generateMessageTemplate(
+          propertyName,
+          systemLabel,
+          scheduledDate,
+          scheduleType,
+        ),
       );
       messageTemplateSetRef.current = true;
     }
@@ -725,7 +742,9 @@ function ScheduleSystemModal({
       propertyData?.identity?.property_uid;
 
     if (!propId) {
-      setSubmitError("Property could not be identified. Please save the property first and try again.");
+      setSubmitError(
+        "Property could not be identified. Please save the property first and try again.",
+      );
       return;
     }
 
@@ -741,7 +760,10 @@ function ScheduleSystemModal({
         const scheduled = new Date(scheduledDate);
         const alert = new Date(alertDate);
         const diffMs = scheduled - alert;
-        const diffDays = Math.max(1, Math.floor(diffMs / (24 * 60 * 60 * 1000)));
+        const diffDays = Math.max(
+          1,
+          Math.floor(diffMs / (24 * 60 * 60 * 1000)),
+        );
         alertTimingVal = "custom";
         alertCustomDaysVal = diffDays;
       } else {
@@ -776,8 +798,13 @@ function ScheduleSystemModal({
       }, 1200);
     } catch (err) {
       console.error("Failed to create maintenance event:", err);
-      const msg = err?.messages?.[0] ?? err?.message ?? "Failed to save. Please try again.";
-      setSubmitError(typeof msg === "string" ? msg : "Failed to save. Please try again.");
+      const msg =
+        err?.messages?.[0] ??
+        err?.message ??
+        "Failed to save. Please try again.";
+      setSubmitError(
+        typeof msg === "string" ? msg : "Failed to save. Please try again.",
+      );
     } finally {
       setSaving(false);
     }
@@ -801,7 +828,8 @@ function ScheduleSystemModal({
               Scheduled!
             </p>
             <p className="text-sm text-gray-500 dark:text-gray-400">
-              {scheduleType === "inspection" ? "Inspection" : "Maintenance"} for {systemLabel}
+              {scheduleType === "inspection" ? "Inspection" : "Maintenance"} for{" "}
+              {systemLabel}
             </p>
           </div>
         </div>
@@ -856,7 +884,10 @@ function ScheduleSystemModal({
             }
           `}</style>
           {currentStep === 0 && (
-            <TypeStep scheduleType={scheduleType} setScheduleType={setScheduleType} />
+            <TypeStep
+              scheduleType={scheduleType}
+              setScheduleType={setScheduleType}
+            />
           )}
           {currentStep === 1 && (
             <ProfessionalStep
@@ -913,39 +944,39 @@ function ScheduleSystemModal({
             </button>
           </div>
           <div className="flex justify-between">
-          <button
-            type="button"
-            onClick={currentStep === 0 ? () => onClose(false) : handleBack}
-            className="px-4 py-2 text-sm font-medium text-gray-600 dark:text-gray-400 hover:text-gray-800 dark:hover:text-gray-200 transition-colors"
-          >
-            {currentStep === 0 ? "Cancel" : "Back"}
-          </button>
-          {currentStep < STEPS.length - 1 ? (
             <button
               type="button"
-              onClick={handleNext}
-              disabled={!canAdvance()}
-              className="px-4 py-2 rounded-lg text-sm font-medium bg-[#456564] hover:bg-[#34514f] text-white disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+              onClick={currentStep === 0 ? () => onClose(false) : handleBack}
+              className="px-4 py-2 text-sm font-medium text-gray-600 dark:text-gray-400 hover:text-gray-800 dark:hover:text-gray-200 transition-colors"
             >
-              Next
+              {currentStep === 0 ? "Cancel" : "Back"}
             </button>
-          ) : (
-            <button
-              type="button"
-              onClick={handleSubmit}
-              disabled={!scheduledDate || saving}
-              className="px-4 py-2 rounded-lg text-sm font-medium bg-[#456564] hover:bg-[#34514f] text-white disabled:opacity-50 disabled:cursor-not-allowed transition-colors flex items-center gap-2"
-            >
-              {saving ? (
-                <>
-                  <Loader2 className="w-4 h-4 animate-spin" />
-                  Saving...
-                </>
-              ) : (
-                "Schedule"
-              )}
-            </button>
-          )}
+            {currentStep < STEPS.length - 1 ? (
+              <button
+                type="button"
+                onClick={handleNext}
+                disabled={!canAdvance()}
+                className="px-4 py-2 rounded-lg text-sm font-medium bg-[#456564] hover:bg-[#34514f] text-white disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+              >
+                Next
+              </button>
+            ) : (
+              <button
+                type="button"
+                onClick={handleSubmit}
+                disabled={!scheduledDate || saving}
+                className="px-4 py-2 rounded-lg text-sm font-medium bg-[#456564] hover:bg-[#34514f] text-white disabled:opacity-50 disabled:cursor-not-allowed transition-colors flex items-center gap-2"
+              >
+                {saving ? (
+                  <>
+                    <Loader2 className="w-4 h-4 animate-spin" />
+                    Saving...
+                  </>
+                ) : (
+                  "Schedule"
+                )}
+              </button>
+            )}
           </div>
         </div>
       </div>

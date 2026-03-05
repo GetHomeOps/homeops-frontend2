@@ -167,6 +167,7 @@ function SystemsSetupModal({
   const [savePropertyError, setSavePropertyError] = useState(null);
   const pollIntervalRef = useRef(null);
   const hasAppliedSuggestedRef = useRef(false);
+  const hasAutoSelectedSuggestedRef = useRef(false);
 
   const {uploadDocument, isUploading, progress: uploadProgress, error: uploadError} = useDocumentUpload();
 
@@ -237,6 +238,7 @@ function SystemsSetupModal({
     setSavingProperty(false);
     setSavePropertyError(null);
     hasAppliedSuggestedRef.current = false;
+    hasAutoSelectedSuggestedRef.current = false;
     if (pollIntervalRef.current) {
       clearInterval(pollIntervalRef.current);
       pollIntervalRef.current = null;
@@ -466,6 +468,19 @@ function SystemsSetupModal({
     };
   }, [analysisJobId]);
 
+  // Auto-select all suggested systems when analysis completes (tiles appear pre-checked)
+  useEffect(() => {
+    const suggested = analysisResult?.suggestedSystemsToAdd ?? [];
+    if (suggested.length === 0 || hasAutoSelectedSuggestedRef.current) return;
+    hasAutoSelectedSuggestedRef.current = true;
+    const sysKeys = suggested
+      .map((s) => String(s.systemType ?? s.system_key ?? "").trim())
+      .filter(Boolean);
+    if (sysKeys.length > 0) {
+      setSelectedSuggestedSystems(new Set(sysKeys));
+    }
+  }, [analysisResult?.suggestedSystemsToAdd]);
+
   const startAnalysisForDoc = useCallback(
     async (s3Key, fileName, mimeType) => {
       if (!propertyId) return;
@@ -572,45 +587,13 @@ function SystemsSetupModal({
     });
   };
 
-  const handleAddSelectedSystems = () => {
+  const handleToggleSelectAllSuggested = () => {
     const suggested = analysisResult?.suggestedSystemsToAdd ?? [];
-    const toAdd = suggested.length > 0 ? suggested : [...selectedSuggestedSystems];
-    const existingCustomNames = new Set(custom.map((s) => s.name.toLowerCase()));
-    const idsToAddToSelected = [];
-    const newCustomEntries = [];
-
-    toAdd.forEach((item) => {
-      const sysKey = (item.systemType ?? item.system_key ?? item).toString().trim();
-      const match = SETUP_SYSTEMS.find(
-        (s) => s.id === sysKey || s.id.toLowerCase() === sysKey.toLowerCase(),
-      );
-      if (match) {
-        idsToAddToSelected.push(match.id);
-      } else if (sysKey) {
-        const displayName =
-          sysKey.charAt(0).toUpperCase() +
-          sysKey.slice(1).replace(/([A-Z])/g, " $1").trim();
-        const nameKey = displayName.toLowerCase();
-        if (!existingCustomNames.has(nameKey)) {
-          existingCustomNames.add(nameKey);
-          const customId = `custom-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`;
-          newCustomEntries.push({id: customId, name: displayName});
-          idsToAddToSelected.push(customId);
-        }
-      }
-    });
-
-    if (idsToAddToSelected.length > 0) {
-      setSelected((prev) => {
-        const next = new Set(prev);
-        idsToAddToSelected.forEach((id) => next.add(id));
-        return next;
-      });
-      if (newCustomEntries.length > 0) {
-        setCustom((prev) => [...prev, ...newCustomEntries]);
-      }
-    }
-    setSelectedSuggestedSystems(new Set());
+    const sysKeys = suggested
+      .map((s) => String(s.systemType ?? s.system_key ?? "").trim())
+      .filter(Boolean);
+    const allSelected = sysKeys.length > 0 && sysKeys.every((k) => selectedSuggestedSystems.has(k));
+    setSelectedSuggestedSystems(allSelected ? new Set() : new Set(sysKeys));
   };
 
   const handleScheduleFromAi = (item) => {
@@ -1341,7 +1324,7 @@ function SystemsSetupModal({
                     suggestedSystemsToAdd={analysisResult?.suggestedSystemsToAdd ?? []}
                     selectedSuggestedSystems={[...selectedSuggestedSystems]}
                     onToggleSuggestedSystem={toggleSuggestedSystem}
-                    onAddSelectedSystems={handleAddSelectedSystems}
+                    onToggleSelectAllSuggested={handleToggleSelectAllSuggested}
                     onScheduleMaintenance={undefined}
                     onRetry={handleRetryAnalysis}
                   />

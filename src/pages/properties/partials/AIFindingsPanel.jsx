@@ -36,7 +36,7 @@ function AIFindingsPanel({
   suggestedSystemsToAdd = [],
   selectedSuggestedSystems = [],
   onToggleSuggestedSystem,
-  onAddSelectedSystems,
+  onToggleSelectAllSuggested,
   onScheduleMaintenance,
   onRetry,
 }) {
@@ -252,11 +252,15 @@ function AIFindingsPanel({
           </div>
           <button
             type="button"
-            onClick={onAddSelectedSystems}
+            onClick={onToggleSelectAllSuggested}
             className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium bg-[#456564] hover:bg-[#34514f] text-white transition-colors"
           >
             <CheckCircle2 className="w-3.5 h-3.5" />
-            Add selected systems
+            {suggestedSystemsToAdd.every((s) =>
+              selectedSuggestedSystems.includes(s.systemType || s.system_key)
+            )
+              ? "Deselect Suggested Systems"
+              : "Select Suggested Systems"}
           </button>
         </div>
       )}

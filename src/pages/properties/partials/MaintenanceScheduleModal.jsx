@@ -74,33 +74,64 @@ const MOCK_AI_RESPONSE = {
     "Do you offer a maintenance plan or service contract?",
     "Are there any signs of wear I should monitor between visits?",
   ],
+  suggestions: [],
 };
 
-/**
- * Stub for AI maintenance advice. Replace with real API call when backend is ready.
- * @see AppApi.getAIMaintenanceAdvice
- */
-async function getAIMaintenanceAdvice(context) {
-  // TODO: Replace with: return AppApi.getAIMaintenanceAdvice(context);
-  await new Promise((r) => setTimeout(r, 1200));
-  const isOverdue =
-    context.lastMaintenanceDate &&
-    new Date(context.lastMaintenanceDate) <
-      new Date(Date.now() - 365 * 24 * 60 * 60 * 1000);
-  return {
-    ...MOCK_AI_RESPONSE,
-    riskWarning: isOverdue
-      ? `Last maintenance was over a year ago. Consider scheduling soon to prevent potential issues.`
-      : null,
-  };
+/** Map systemType to propertyData field names for context extraction */
+const SYSTEM_FIELD_PREFIXES = {
+  roof: "roof",
+  gutters: "gutter",
+  foundation: "foundation",
+  exterior: "siding",
+  windows: "window",
+  heating: "heating",
+  ac: "ac",
+  waterHeating: "waterHeating",
+  electrical: "electrical",
+  plumbing: "plumbing",
+  safety: "safety",
+  inspections: "inspections",
+};
+
+/** Extract system-specific context from propertyData for AI analysis. */
+function buildSystemContext(propertyData, systemType) {
+  const prefix =
+    SYSTEM_FIELD_PREFIXES[systemType] || systemType;
+  const merged = { ...propertyData, ...(propertyData?.identity || {}) };
+  const context = {};
+  const fieldSuffixes = [
+    "LastInspection",
+    "LastMaintenance",
+    "NextInspection",
+    "Condition",
+    "Issues",
+    "InstallDate",
+    "Material",
+    "Warranty",
+    "SystemType",
+    "Location",
+  ];
+  for (const suffix of fieldSuffixes) {
+    const key = `${prefix}${suffix}`;
+    const val = merged[key];
+    if (val != null && String(val).trim() !== "") {
+      const contextKey =
+        suffix.charAt(0).toLowerCase() + suffix.slice(1);
+      context[contextKey] = val;
+    }
+  }
+  return context;
 }
 
 /* ──────────────────────────── Step Indicator ──────────────────────────── */
 
 function StepIndicator({currentStep, steps}) {
+  const circleSize = 32; // w-8 h-8 = 32px
+  const lineVerticalOffset = circleSize / 2; // align line with center of circles
+
   return (
-    <div className="mb-6">
-      <div className="flex items-center">
+    <div className="mb-6 flex justify-center">
+      <div className="flex items-start justify-center">
         {steps.map((step, idx) => {
           const isActive = idx === currentStep;
           const isCompleted = idx < currentStep;
@@ -108,11 +139,13 @@ function StepIndicator({currentStep, steps}) {
             <React.Fragment key={step.id}>
               {idx > 0 && (
                 <div
-                  className={`flex-shrink-0 h-0.5 w-4 sm:w-8 mx-0.5 self-center transition-colors duration-200 ${
+                  className={`flex-shrink-0 h-0.5 w-4 sm:w-8 mx-0.5 transition-colors duration-200 ${
                     idx <= currentStep
                       ? "bg-[#456564]"
                       : "bg-gray-200 dark:bg-gray-600"
                   }`}
+                  style={{marginTop: `${lineVerticalOffset - 1}px`}}
+                  aria-hidden
                 />
               )}
               <div className="flex flex-col items-center flex-shrink-0">
@@ -125,11 +158,7 @@ function StepIndicator({currentStep, steps}) {
                         : "border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 text-gray-400 dark:text-gray-500"
                   }`}
                 >
-                  {isCompleted ? (
-                    <CheckCircle2 className="w-4 h-4" />
-                  ) : (
-                    idx + 1
-                  )}
+                  {isCompleted ? <CheckCircle2 className="w-4 h-4" /> : idx + 1}
                 </div>
                 <span
                   className={`text-[10px] sm:text-xs font-medium mt-1.5 text-center leading-tight max-w-[72px] truncate ${
@@ -189,9 +218,7 @@ function RequestTypeStep({requestType, setRequestType}) {
           }`}
         >
           <span className="font-semibold">Maintenance</span>
-          <span className="text-xs opacity-90">
-            Routine service, repairs
-          </span>
+          <span className="text-xs opacity-90">Routine service, repairs</span>
         </button>
       </div>
     </div>
@@ -245,7 +272,8 @@ function ContractorStep({
   const [dropdownRect, setDropdownRect] = useState(null);
   const [searchFocused, setSearchFocused] = useState(false);
   const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-  const isCustomEmail = contractorSearch.trim() && emailRegex.test(contractorSearch.trim());
+  const isCustomEmail =
+    contractorSearch.trim() && emailRegex.test(contractorSearch.trim());
   const suggestedContacts = filteredContacts.slice(0, 2);
   const suggestedFavorites = filteredSaved.slice(0, 2);
   const showSearchDropdown =
@@ -253,7 +281,9 @@ function ContractorStep({
     (suggestedContacts.length > 0 ||
       suggestedFavorites.length > 0 ||
       isCustomEmail ||
-      (!!contractorSearch && suggestedContacts.length === 0 && suggestedFavorites.length === 0));
+      (!!contractorSearch &&
+        suggestedContacts.length === 0 &&
+        suggestedFavorites.length === 0));
 
   useEffect(() => {
     if (showSearchDropdown && triggerRef.current) {
@@ -266,7 +296,12 @@ function ContractorStep({
     } else {
       setDropdownRect(null);
     }
-  }, [showSearchDropdown, suggestedContacts.length, suggestedFavorites.length, isCustomEmail]);
+  }, [
+    showSearchDropdown,
+    suggestedContacts.length,
+    suggestedFavorites.length,
+    isCustomEmail,
+  ]);
 
   const dropdownContent = showSearchDropdown && dropdownRect && (
     <div
@@ -319,7 +354,9 @@ function ContractorStep({
         </div>
       )}
       {suggestedFavorites.length > 0 && (
-        <div className={`px-3 py-1.5 ${suggestedContacts.length > 0 ? "border-t border-gray-100 dark:border-gray-700" : ""}`}>
+        <div
+          className={`px-3 py-1.5 ${suggestedContacts.length > 0 ? "border-t border-gray-100 dark:border-gray-700" : ""}`}
+        >
           <p className="text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide flex items-center gap-1.5">
             <Star className="w-3.5 h-3.5 text-amber-500" />
             Favorite Professionals
@@ -489,7 +526,12 @@ function ContractorStep({
           {/* Browse Directory */}
           <button
             type="button"
-            onClick={() => window.open(toHashUrl(professionalsPath || "/professionals"), "_blank")}
+            onClick={() =>
+              window.open(
+                toHashUrl(professionalsPath || "/professionals"),
+                "_blank",
+              )
+            }
             className="inline-flex items-center gap-1.5 text-sm font-medium text-[#456564] dark:text-[#7aa3a2] hover:underline"
           >
             Browse Directory
@@ -506,7 +548,8 @@ function ContractorStep({
             Would you like to find one in our professional directory?
           </p>
           <p className="text-xs text-gray-500 dark:text-gray-400">
-            Browse verified contractors and save them to your favorites for next time.
+            Browse verified contractors and save them to your favorites for next
+            time.
           </p>
           <button
             type="button"
@@ -567,6 +610,7 @@ function ScheduleStep({
             value={scheduledDate}
             onChange={(e) => setScheduledDate(e.target.value)}
             popoverClassName="z-[250]"
+            showOffsetControl
           />
         </div>
         <div>
@@ -665,9 +709,7 @@ function ScheduleStep({
               max="90"
               value={alertCustomDays}
               onChange={(e) =>
-                setAlertCustomDays(
-                  Math.max(1, parseInt(e.target.value) || 1),
-                )
+                setAlertCustomDays(Math.max(1, parseInt(e.target.value) || 1))
               }
               className="form-input w-20 text-center"
             />
@@ -751,9 +793,7 @@ function MessageStep({
               type="button"
               onClick={() => setMessageEnabled(!messageEnabled)}
               className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors duration-200 ${
-                messageEnabled
-                  ? "bg-[#456564]"
-                  : "bg-gray-300 dark:bg-gray-600"
+                messageEnabled ? "bg-[#456564]" : "bg-gray-300 dark:bg-gray-600"
               }`}
             >
               <span
@@ -834,6 +874,28 @@ function MessageStep({
                         {aiAdvice.riskWarning}
                       </p>
                     </div>
+                  </div>
+                )}
+
+                {/* AI suggestions: Replace X, maintain Y */}
+                {aiAdvice.suggestions?.length > 0 && (
+                  <div>
+                    <p className="text-sm font-medium text-gray-800 dark:text-gray-200 mb-2">
+                      Based on Your System
+                    </p>
+                    <ul className="space-y-1.5">
+                      {aiAdvice.suggestions.map((s, i) => (
+                        <li
+                          key={i}
+                          className="flex items-start gap-2 text-sm text-gray-700 dark:text-gray-300"
+                        >
+                          <span className="text-[#456564] dark:text-[#7aa3a2] mt-0.5 flex-shrink-0">
+                            •
+                          </span>
+                          {s}
+                        </li>
+                      ))}
+                    </ul>
                   </div>
                 )}
 
@@ -935,7 +997,8 @@ function MaintenanceScheduleModal({
   const [selectedContractor, setSelectedContractor] = useState(null);
   const [contractorSearch, setContractorSearch] = useState("");
   const [savedProfessionals, setSavedProfessionals] = useState([]);
-  const [savedProfessionalsLoading, setSavedProfessionalsLoading] = useState(false);
+  const [savedProfessionalsLoading, setSavedProfessionalsLoading] =
+    useState(false);
 
   // Step 2 state
   const [scheduledDate, setScheduledDate] = useState("");
@@ -960,10 +1023,10 @@ function MaintenanceScheduleModal({
     propertyData.identity?.propertyName ||
     "";
   const propertyLocation =
-    propertyData.address ||
-    propertyData.identity?.address ||
-    "";
-  const professionalsPath = accountUrl ? `/${accountUrl}/professionals` : "/professionals";
+    propertyData.address || propertyData.identity?.address || "";
+  const professionalsPath = accountUrl
+    ? `/${accountUrl}/professionals`
+    : "/professionals";
 
   useEffect(() => {
     if (!isOpen) return;
@@ -1013,23 +1076,36 @@ function MaintenanceScheduleModal({
     }
   }, [selectedContractor, scheduledDate, currentStep, requestType]);
 
+  const propertyId =
+    propertyData?.id ??
+    propertyData?.property_uid ??
+    propertyData?.identity?.id ??
+    propertyIdFallback;
+
   const requestAIAdvice = useCallback(async () => {
+    if (!propertyId) {
+      setAiAdvice(MOCK_AI_RESPONSE);
+      return;
+    }
     setAiLoading(true);
     try {
-      const advice = await getAIMaintenanceAdvice({
+      const systemContext = buildSystemContext(propertyData, systemType);
+      const advice = await AppApi.getAIMaintenanceAdvice(propertyId, {
         systemType,
         systemName: systemLabel,
-        lastMaintenanceDate:
-          propertyData[`${systemType}LastInspection`] || null,
-        propertyLocation,
+        systemContext,
       });
-      setAiAdvice(advice);
+      setAiAdvice({
+        ...MOCK_AI_RESPONSE,
+        ...advice,
+        suggestions: advice.suggestions ?? [],
+      });
     } catch {
       setAiAdvice(MOCK_AI_RESPONSE);
     } finally {
       setAiLoading(false);
     }
-  }, [systemType, systemLabel, propertyData, propertyLocation]);
+  }, [propertyId, systemType, systemLabel, propertyData]);
 
   const handleNext = () => {
     if (currentStep < STEPS.length - 1) {
@@ -1051,13 +1127,6 @@ function MaintenanceScheduleModal({
   };
 
   const handleSave = async () => {
-    // Backend maintenance_events.property_id expects integer (properties.id), not property_uid
-    const propertyId =
-      propertyData?.id ??
-      propertyData?.property_uid ??
-      propertyData?.identity?.id ??
-      propertyIdFallback;
-
     if (scheduledDate && onSchedule) {
       onSchedule(scheduledDate);
     }
@@ -1105,151 +1174,151 @@ function MaintenanceScheduleModal({
 
   const content = (
     <div className="relative p-6">
-        {showSuccess && <SuccessOverlay />}
+      {showSuccess && <SuccessOverlay />}
 
-        {/* Header */}
-        <div className="flex items-center justify-between mb-2">
-          <div className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-xl bg-emerald-100 dark:bg-emerald-800/40 flex items-center justify-center">
-              <Calendar className="w-5 h-5 text-emerald-700 dark:text-emerald-300" />
-            </div>
-            <div>
-              <h2 className="text-lg font-semibold text-gray-900 dark:text-white">
-                Schedule Maintenance
-              </h2>
-              <p className="text-sm text-gray-500 dark:text-gray-400">
-                {systemLabel}
-              </p>
-            </div>
+      {/* Header */}
+      <div className="flex items-center justify-between mb-2">
+        <div className="flex items-center gap-3">
+          <div className="w-10 h-10 rounded-xl bg-emerald-100 dark:bg-emerald-800/40 flex items-center justify-center">
+            <Calendar className="w-5 h-5 text-emerald-700 dark:text-emerald-300" />
           </div>
+          <div>
+            <h2 className="text-lg font-semibold text-gray-900 dark:text-white">
+              Schedule Maintenance
+            </h2>
+            <p className="text-sm text-gray-500 dark:text-gray-400">
+              {systemLabel}
+            </p>
+          </div>
+        </div>
+        <button
+          type="button"
+          onClick={() => onClose(false)}
+          className="p-2 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700 text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 transition-colors"
+          aria-label="Close"
+        >
+          <X className="w-5 h-5" />
+        </button>
+      </div>
+
+      {/* Step indicator */}
+      <div className="pt-4 pb-2">
+        <StepIndicator currentStep={currentStep} steps={STEPS} />
+      </div>
+
+      {/* Step content */}
+      <div className="min-h-[280px]">
+        {currentStep === 0 && (
+          <RequestTypeStep
+            requestType={requestType}
+            setRequestType={setRequestType}
+          />
+        )}
+        {currentStep === 1 && (
+          <ContractorStep
+            contacts={contacts}
+            savedProfessionals={savedProfessionals}
+            savedProfessionalsLoading={savedProfessionalsLoading}
+            systemType={systemType}
+            hasContractor={hasContractor}
+            setHasContractor={setHasContractor}
+            selectedContractor={selectedContractor}
+            setSelectedContractor={setSelectedContractor}
+            contractorSearch={contractorSearch}
+            setContractorSearch={setContractorSearch}
+            onBrowseDirectory={() => {
+              onClose(false);
+              navigate(professionalsPath || "/professionals", {replace: false});
+            }}
+            professionalsPath={professionalsPath}
+          />
+        )}
+        {currentStep === 2 && (
+          <ScheduleStep
+            scheduledDate={scheduledDate}
+            setScheduledDate={setScheduledDate}
+            scheduledTime={scheduledTime}
+            setScheduledTime={setScheduledTime}
+            recurrenceType={recurrenceType}
+            setRecurrenceType={setRecurrenceType}
+            customIntervalValue={customIntervalValue}
+            setCustomIntervalValue={setCustomIntervalValue}
+            customIntervalUnit={customIntervalUnit}
+            setCustomIntervalUnit={setCustomIntervalUnit}
+            alertTiming={alertTiming}
+            setAlertTiming={setAlertTiming}
+            alertCustomDays={alertCustomDays}
+            setAlertCustomDays={setAlertCustomDays}
+            emailReminder={emailReminder}
+            setEmailReminder={setEmailReminder}
+          />
+        )}
+        {currentStep === 3 && (
+          <MessageStep
+            selectedContractor={selectedContractor}
+            messageEnabled={messageEnabled}
+            setMessageEnabled={setMessageEnabled}
+            messageBody={messageBody}
+            setMessageBody={setMessageBody}
+            aiAdvice={aiAdvice}
+            aiLoading={aiLoading}
+            onRequestAI={requestAIAdvice}
+            showAI={showAI}
+            setShowAI={setShowAI}
+          />
+        )}
+      </div>
+
+      {/* Footer */}
+      <div className="flex items-center justify-between mt-6 pt-5 border-t border-gray-200 dark:border-gray-700">
+        <div>
+          {currentStep > 0 && (
+            <button
+              type="button"
+              onClick={handleBack}
+              className="btn border border-gray-200 dark:border-gray-600 hover:bg-gray-50 dark:hover:bg-gray-700 text-gray-700 dark:text-gray-300"
+            >
+              Back
+            </button>
+          )}
+        </div>
+        <div className="flex gap-3">
           <button
             type="button"
             onClick={() => onClose(false)}
-            className="p-2 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700 text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 transition-colors"
-            aria-label="Close"
+            className="btn border border-gray-200 dark:border-gray-600 hover:bg-gray-50 dark:hover:bg-gray-700 text-gray-700 dark:text-gray-300"
           >
-            <X className="w-5 h-5" />
+            Cancel
           </button>
-        </div>
-
-        {/* Step indicator */}
-        <div className="pt-4 pb-2">
-          <StepIndicator currentStep={currentStep} steps={STEPS} />
-        </div>
-
-        {/* Step content */}
-        <div className="min-h-[280px]">
-          {currentStep === 0 && (
-            <RequestTypeStep
-              requestType={requestType}
-              setRequestType={setRequestType}
-            />
-          )}
-          {currentStep === 1 && (
-            <ContractorStep
-              contacts={contacts}
-              savedProfessionals={savedProfessionals}
-              savedProfessionalsLoading={savedProfessionalsLoading}
-              systemType={systemType}
-              hasContractor={hasContractor}
-              setHasContractor={setHasContractor}
-              selectedContractor={selectedContractor}
-              setSelectedContractor={setSelectedContractor}
-              contractorSearch={contractorSearch}
-              setContractorSearch={setContractorSearch}
-              onBrowseDirectory={() => {
-                onClose(false);
-                navigate(professionalsPath || "/professionals", {replace: false});
-              }}
-              professionalsPath={professionalsPath}
-            />
-          )}
-          {currentStep === 2 && (
-            <ScheduleStep
-              scheduledDate={scheduledDate}
-              setScheduledDate={setScheduledDate}
-              scheduledTime={scheduledTime}
-              setScheduledTime={setScheduledTime}
-              recurrenceType={recurrenceType}
-              setRecurrenceType={setRecurrenceType}
-              customIntervalValue={customIntervalValue}
-              setCustomIntervalValue={setCustomIntervalValue}
-              customIntervalUnit={customIntervalUnit}
-              setCustomIntervalUnit={setCustomIntervalUnit}
-              alertTiming={alertTiming}
-              setAlertTiming={setAlertTiming}
-              alertCustomDays={alertCustomDays}
-              setAlertCustomDays={setAlertCustomDays}
-              emailReminder={emailReminder}
-              setEmailReminder={setEmailReminder}
-            />
-          )}
-          {currentStep === 3 && (
-            <MessageStep
-              selectedContractor={selectedContractor}
-              messageEnabled={messageEnabled}
-              setMessageEnabled={setMessageEnabled}
-              messageBody={messageBody}
-              setMessageBody={setMessageBody}
-              aiAdvice={aiAdvice}
-              aiLoading={aiLoading}
-              onRequestAI={requestAIAdvice}
-              showAI={showAI}
-              setShowAI={setShowAI}
-            />
-          )}
-        </div>
-
-        {/* Footer */}
-        <div className="flex items-center justify-between mt-6 pt-5 border-t border-gray-200 dark:border-gray-700">
-          <div>
-            {currentStep > 0 && (
-              <button
-                type="button"
-                onClick={handleBack}
-                className="btn border border-gray-200 dark:border-gray-600 hover:bg-gray-50 dark:hover:bg-gray-700 text-gray-700 dark:text-gray-300"
-              >
-                Back
-              </button>
-            )}
-          </div>
-          <div className="flex gap-3">
+          {currentStep < STEPS.length - 1 ? (
             <button
               type="button"
-              onClick={() => onClose(false)}
-              className="btn border border-gray-200 dark:border-gray-600 hover:bg-gray-50 dark:hover:bg-gray-700 text-gray-700 dark:text-gray-300"
+              onClick={handleNext}
+              disabled={!canAdvance()}
+              className="btn bg-[#456564] hover:bg-[#34514f] text-white disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
             >
-              Cancel
+              Next
             </button>
-            {currentStep < STEPS.length - 1 ? (
-              <button
-                type="button"
-                onClick={handleNext}
-                disabled={!canAdvance()}
-                className="btn bg-[#456564] hover:bg-[#34514f] text-white disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
-              >
-                Next
-              </button>
-            ) : (
-              <button
-                type="button"
-                onClick={handleSave}
-                disabled={!scheduledDate || saving}
-                className="btn bg-[#456564] hover:bg-[#34514f] text-white disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
-              >
-                {saving ? (
-                  <span className="flex items-center gap-2">
-                    <Loader2 className="w-4 h-4 animate-spin" />
-                    Saving...
-                  </span>
-                ) : (
-                  "Schedule"
-                )}
-              </button>
-            )}
-          </div>
+          ) : (
+            <button
+              type="button"
+              onClick={handleSave}
+              disabled={!scheduledDate || saving}
+              className="btn bg-[#456564] hover:bg-[#34514f] text-white disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+            >
+              {saving ? (
+                <span className="flex items-center gap-2">
+                  <Loader2 className="w-4 h-4 animate-spin" />
+                  Saving...
+                </span>
+              ) : (
+                "Schedule"
+              )}
+            </button>
+          )}
         </div>
       </div>
+    </div>
   );
 
   if (embedded) {

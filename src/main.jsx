@@ -19,6 +19,7 @@ import React from "react";
 import ReactDOM from "react-dom/client";
 import {HashRouter} from "react-router-dom";
 import ThemeProvider from "./utils/ThemeContext";
+import {AuthProvider} from "./context/AuthContext";
 import App from "./App";
 import "./i18n";
 
@@ -28,10 +29,12 @@ if (localStorage.getItem("sidebar-expanded") === "true") {
 
 ReactDOM.createRoot(document.getElementById("root")).render(
   <React.StrictMode>
-    <HashRouter>
-      <ThemeProvider>
-        <App />
-      </ThemeProvider>
-    </HashRouter>
+    <AuthProvider>
+      <HashRouter>
+        <ThemeProvider>
+          <App />
+        </ThemeProvider>
+      </HashRouter>
+    </AuthProvider>
   </React.StrictMode>,
 );

@@ -1472,77 +1472,82 @@ function ContactsFormContainer() {
               {state.activeTab === 1 && (
                 <div className="space-y-8">
                   <div className="bg-gray-50 dark:bg-gray-700/50 rounded-lg p-6">
-                    <h3 className="text-lg font-semibold text-gray-800 dark:text-gray-100 mb-6 flex items-center gap-2">
-                      <User className="h-5 w-5 text-[#6E8276]" />
-                      {t("basicInformation")}
-                    </h3>
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                      {/* Contact Type Radio Group */}
-                      <div className="md:col-span-2">
-                        <div className="flex gap-4">
-                          <label className="flex items-center">
-                            <input
-                              type="radio"
-                              name="contactType"
-                              value="individual"
-                              checked={
-                                state.formData.contactType === "individual"
+                    <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-6">
+                      <h3 className="text-lg font-semibold text-gray-800 dark:text-gray-100 flex items-center gap-2">
+                        <User className="h-5 w-5 text-[#6E8276]" />
+                        {t("basicInformation")}
+                      </h3>
+                      {/* Contact Type Segmented Control - stacked to the right */}
+                      <div className="flex justify-end">
+                        <div className="inline-flex rounded-md border border-gray-200 dark:border-gray-600 bg-white dark:bg-gray-800 overflow-hidden">
+                          <button
+                            type="button"
+                            role="radio"
+                            aria-checked={state.formData.contactType === "individual"}
+                            onClick={() => {
+                              dispatch({
+                                type: "SET_FORM_DATA",
+                                payload: {
+                                  contactType: "individual",
+                                  jobPosition: "",
+                                  linkedCompany: "",
+                                },
+                              });
+                              if (state.isInitialLoad) {
+                                dispatch({type: "SET_FORM_CHANGED", payload: true});
                               }
-                              onChange={(e) => {
-                                dispatch({
-                                  type: "SET_FORM_DATA",
-                                  payload: {
-                                    contactType: e.target.value,
-                                    jobPosition: "",
-                                    linkedCompany: "",
-                                  },
-                                });
-                                // Mark form as changed after initial load
-                                if (state.isInitialLoad) {
-                                  dispatch({
-                                    type: "SET_FORM_CHANGED",
-                                    payload: true,
-                                  });
-                                }
-                              }}
-                              className="form-radio text-[#6E8276] focus:ring-[#6E8276]"
+                            }}
+                            className={`inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium transition-colors ${
+                              state.formData.contactType === "individual"
+                                ? "bg-gray-100 dark:bg-gray-700 text-gray-900 dark:text-gray-100"
+                                : "bg-white dark:bg-gray-800 text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300"
+                            }`}
+                          >
+                            <User
+                              className={`h-3.5 w-3.5 shrink-0 ${
+                                state.formData.contactType === "individual"
+                                  ? "text-gray-700 dark:text-gray-300"
+                                  : "text-gray-400 dark:text-gray-500"
+                              }`}
                             />
-                            <span className="ml-2 text-sm text-gray-700 dark:text-gray-300">
-                              {t("individual")}
-                            </span>
-                          </label>
-                          <label className="flex items-center">
-                            <input
-                              type="radio"
-                              name="contactType"
-                              value="company"
-                              checked={state.formData.contactType === "company"}
-                              onChange={(e) => {
-                                dispatch({
-                                  type: "SET_FORM_DATA",
-                                  payload: {
-                                    contactType: e.target.value,
-                                    jobPosition: "",
-                                    linkedCompany: "",
-                                  },
-                                });
-                                // Mark form as changed after initial load
-                                if (state.isInitialLoad) {
-                                  dispatch({
-                                    type: "SET_FORM_CHANGED",
-                                    payload: true,
-                                  });
-                                }
-                              }}
-                              className="form-radio text-[#6E8276] focus:ring-[#6E8276]"
+                            {t("individual")}
+                          </button>
+                          <button
+                            type="button"
+                            role="radio"
+                            aria-checked={state.formData.contactType === "company"}
+                            onClick={() => {
+                              dispatch({
+                                type: "SET_FORM_DATA",
+                                payload: {
+                                  contactType: "company",
+                                  jobPosition: "",
+                                  linkedCompany: "",
+                                },
+                              });
+                              if (state.isInitialLoad) {
+                                dispatch({type: "SET_FORM_CHANGED", payload: true});
+                              }
+                            }}
+                            className={`inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium transition-colors border-l border-gray-200 dark:border-gray-600 ${
+                              state.formData.contactType === "company"
+                                ? "bg-gray-100 dark:bg-gray-700 text-gray-900 dark:text-gray-100"
+                                : "bg-white dark:bg-gray-800 text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300"
+                            }`}
+                          >
+                            <Building
+                              className={`h-3.5 w-3.5 shrink-0 ${
+                                state.formData.contactType === "company"
+                                  ? "text-gray-700 dark:text-gray-300"
+                                  : "text-gray-400 dark:text-gray-500"
+                              }`}
                             />
-                            <span className="ml-2 text-sm text-gray-700 dark:text-gray-300">
-                              {t("company")}
-                            </span>
-                          </label>
+                            {t("company")}
+                          </button>
                         </div>
                       </div>
-
+                    </div>
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                       <div>
                         <label className={getLabelClasses()} htmlFor="name">
                           {t("name")} <span className="text-red-500">*</span>

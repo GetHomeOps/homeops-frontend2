@@ -619,16 +619,30 @@ function SharePropertyModal({
     activeTab === "insurance" ||
     activeTab === "mortgage";
 
+  /* Property owner: the team member with property_role "owner" */
+  const propertyOwner = useMemo(
+    () =>
+      (teamMembers ?? []).find(
+        (m) =>
+          m && (m.property_role ?? m.role ?? "").toLowerCase() === "owner",
+      ) ?? null,
+    [teamMembers],
+  );
+
+  /* Team members excluding the owner (to avoid duplicate display in "All" tab) */
+  const teamMembersExcludingOwner = useMemo(() => {
+    if (!propertyOwner?.id) return teamMembers ?? [];
+    return (teamMembers ?? []).filter(
+      (m) => m && String(m.id) !== String(propertyOwner.id),
+    );
+  }, [teamMembers, propertyOwner?.id]);
+
   /* Current user is the property owner (can transfer ownership) */
   const isCurrentUserPropertyOwner = useMemo(
     () =>
-      (teamMembers ?? []).some(
-        (m) =>
-          m &&
-          String(m.id) === String(currentUser?.id) &&
-          (m.property_role ?? m.role ?? "").toLowerCase() === "owner",
-      ),
-    [teamMembers, currentUser?.id],
+      propertyOwner &&
+      String(propertyOwner.id) === String(currentUser?.id),
+    [propertyOwner, currentUser?.id],
   );
 
   /* Options for transfer ownership: team members excluding current owner (currentUser) */
@@ -745,26 +759,36 @@ function SharePropertyModal({
             </div>
 
             <div className="flex-1 overflow-y-auto p-6 min-h-0">
-              {/* ===== Owner tab: show owner + all team members ===== */}
+              {/* ===== Owner tab: show owner (once) + team members (excluding owner) ===== */}
               {activeTab === "owner" && (
                 <div className="space-y-6">
-                  <div className="flex items-center gap-4 p-4 rounded-xl bg-[#456564]/5 dark:bg-[#5a7a78]/10 border border-[#456564]/20 dark:border-[#5a7a78]/30">
-                    <div className="w-12 h-12 rounded-full bg-[#456564] dark:bg-[#5a7a78] flex items-center justify-center text-white font-semibold shrink-0">
-                      {currentUser?.name?.charAt(0)?.toUpperCase() || "?"}
-                    </div>
-                    <div className="min-w-0 flex-1">
-                      <p className="font-semibold text-gray-900 dark:text-white">
-                        {currentUser?.name || "Account Owner"}
-                        <span className="text-gray-500 dark:text-gray-400 font-normal ml-1">(Me)</span>
-                      </p>
-                      <p className="text-sm text-gray-500 dark:text-gray-400 truncate">
-                        {currentUser?.email}
-                      </p>
-                      <span className="inline-flex items-center gap-1 mt-1 px-2 py-0.5 rounded-md bg-[#456564]/20 dark:bg-[#5a7a78]/30 text-[#456564] dark:text-[#5a7a78] text-xs font-semibold">
-                        Owner
-                      </span>
-                    </div>
-                    {onTransferOwnership && isCurrentUserPropertyOwner && transferOwnerOptions.length > 0 && (
+                  {/* Section 1: Owner */}
+                  <div>
+                    <p className="text-xs font-medium text-neutral-500 dark:text-neutral-400 uppercase tracking-wide mb-2">
+                      Owner
+                    </p>
+                    {propertyOwner ? (
+                      <div className="flex items-center gap-4 p-4 rounded-xl bg-[#456564]/5 dark:bg-[#5a7a78]/10 border border-[#456564]/20 dark:border-[#5a7a78]/30">
+                        <div className="w-12 h-12 rounded-full bg-[#456564] dark:bg-[#5a7a78] flex items-center justify-center text-white font-semibold shrink-0">
+                          {(propertyOwner.name || propertyOwner.email)?.charAt(0)?.toUpperCase() || "?"}
+                        </div>
+                        <div className="min-w-0 flex-1">
+                          <p className="font-semibold text-gray-900 dark:text-white">
+                            {propertyOwner.name || propertyOwner.email || "Unknown"}
+                            {String(propertyOwner.id) === String(currentUser?.id) && (
+                              <span className="text-gray-500 dark:text-gray-400 font-normal ml-1">(Me)</span>
+                            )}
+                          </p>
+                          {(propertyOwner.email || propertyOwner.inviteeEmail) && (
+                            <p className="text-sm text-gray-500 dark:text-gray-400 truncate">
+                              {propertyOwner.email || propertyOwner.inviteeEmail}
+                            </p>
+                          )}
+                          <span className="inline-flex items-center gap-1 mt-1 px-2 py-0.5 rounded-md bg-[#456564]/20 dark:bg-[#5a7a78]/30 text-[#456564] dark:text-[#5a7a78] text-xs font-semibold">
+                            Owner
+                          </span>
+                        </div>
+                        {onTransferOwnership && isCurrentUserPropertyOwner && transferOwnerOptions.length > 0 && (
                       <div className="shrink-0">
                         {!transferOwnershipOpen ? (
                           <button
@@ -810,15 +834,22 @@ function SharePropertyModal({
                         )}
                       </div>
                     )}
+                      </div>
+                    ) : (
+                      <div className="p-4 rounded-xl bg-gray-50 dark:bg-gray-800/50 border border-gray-200 dark:border-gray-600 text-sm text-gray-500 dark:text-gray-400">
+                        No owner assigned
+                      </div>
+                    )}
                   </div>
 
-                  {(teamMembers ?? []).length > 0 && (
-                    <div>
+                  {/* Section 2: Team Members (excluding owner) */}
+                  {teamMembersExcludingOwner.length > 0 && (
+                    <div className="pt-4 border-t border-gray-200 dark:border-gray-700">
                       <p className="text-xs font-medium text-neutral-500 dark:text-neutral-400 uppercase tracking-wide mb-2">
-                        All team members
+                        Team Members
                       </p>
                       <div className="space-y-2">
-                        {(teamMembers ?? []).map((m) => (
+                        {teamMembersExcludingOwner.map((m) => (
                           <TeamMemberCard key={m.id ?? `pending-${m.email}`} member={m} showRole currentUserId={currentUser?.id} />
                         ))}
                       </div>

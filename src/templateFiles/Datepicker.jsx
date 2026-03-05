@@ -4,14 +4,31 @@ import * as React from "react";
 import {addDays, format} from "date-fns";
 
 import {cn} from "../lib/utils";
-import {Calendar} from "./ui/calendar";
-import {Popover, PopoverContent, PopoverTrigger} from "./ui/popover";
+import {Calendar} from "../components/ui/calendar";
+import {Popover, PopoverContent, PopoverTrigger} from "../components/ui/popover";
 
 export default function DatePickerWithRange({className}) {
   const [date, setDate] = React.useState({
     from: new Date(2022, 0, 20),
     to: addDays(new Date(2022, 0, 20), 20),
   });
+
+  const handleTodayClick = () => {
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    setDate({from: today, to: today});
+  };
+
+  const todayFooter = (
+    <button
+      type="button"
+      onClick={handleTodayClick}
+      className="text-sm text-emerald-600 dark:text-emerald-400 hover:text-emerald-700 dark:hover:text-emerald-300 hover:underline font-medium"
+      aria-label="Select today's date"
+    >
+      Today
+    </button>
+  );
 
   return (
     <div className={cn("grid gap-2", className)}>
@@ -54,6 +71,7 @@ export default function DatePickerWithRange({className}) {
             defaultMonth={date?.from}
             selected={date}
             onSelect={setDate}
+            footer={todayFooter}
           />
         </PopoverContent>
       </Popover>

@@ -2377,6 +2377,9 @@ function SystemsTab({
         propertyId={
           propertyData?.identity?.id ?? propertyData?.id ?? propertyIdFallback
         }
+        propertySystems={systemsToShow
+          .filter((s) => s.id !== "general")
+          .map((s) => ({id: s.id, name: s.label}))}
         contacts={contacts}
       />
     )}
