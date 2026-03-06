@@ -430,6 +430,7 @@ function PropertiesList() {
     refreshProperties,
     viewMode,
     setViewMode,
+    deleteProperty,
   } = useContext(propertyContext);
 
   /* ─── Derive filter options from data ──────────────────────── */
@@ -812,12 +813,12 @@ function PropertiesList() {
     dispatch({type: "SET_SUBMITTING", payload: true});
     try {
       const deletedIds = [...selectedProperties];
-      setProperties((prev) =>
-        prev.filter((property) => !deletedIds.includes(property.id)),
-      );
       setSelectedProperties((prev) =>
         prev.filter((id) => !deletedIds.includes(id)),
       );
+      for (const id of deletedIds) {
+        await deleteProperty(id);
+      }
       const remainingItems = sortedProperties.length - deletedIds.length;
       if (
         state.currentPage > 1 &&
@@ -966,7 +967,6 @@ function PropertiesList() {
                 <ListDropdown
                   align="right"
                   hasSelection={selectedProperties.length > 0}
-                  onImport={() => navigate(`/${accountUrl}/properties/import`)}
                   onDelete={handleDeleteClick}
                   onDuplicate={handleDuplicate}
                 />

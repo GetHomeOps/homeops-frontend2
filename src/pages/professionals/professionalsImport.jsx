@@ -1,18 +1,16 @@
-import React, { useState, useCallback, useMemo, useRef, useContext } from "react";
+import React, { useState, useCallback, useMemo, useRef } from "react";
 import { useNavigate } from "react-router-dom";
 import * as XLSX from "xlsx";
 import {
-  PROPERTY_IMPORT_KEYS,
-  PROPERTY_IMPORT_FIELDS,
+  PROFESSIONAL_IMPORT_KEYS,
+  PROFESSIONAL_IMPORT_FIELDS,
   normalizeHeader,
   getTemplateRow,
-  getTemplateHeaders,
-} from "../../data/propertyImportSchema";
+} from "../../data/professionalImportSchema";
 import Sidebar from "../../partials/Sidebar";
 import Header from "../../partials/Header";
 import useCurrentAccount from "../../hooks/useCurrentAccount";
 import AppApi from "../../api/api";
-import propertyContext from "../../context/PropertyContext";
 import {
   Download,
   Upload,
@@ -24,42 +22,48 @@ import {
   Loader2,
   FileCheck,
   ArrowLeft,
-  Home,
+  Briefcase,
 } from "lucide-react";
 
 const PREVIEW_PAGE_SIZE = 50;
+const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
-const INTEGER_KEYS = new Set([
-  "year_built", "effective_year_built", "bed_count", "bath_count", "full_baths",
-  "three_quarter_baths", "half_baths", "number_of_showers", "number_of_bathtubs",
-  "fireplaces", "total_covered_parking", "total_uncovered_parking",
-]);
-const NUMBER_KEYS = new Set([
-  "sq_ft_total", "sq_ft_finished", "sq_ft_unfinished", "garage_sq_ft",
-  "total_dwelling_sq_ft", "price_per_sq_ft", "total_price_per_sq_ft",
-]);
+/** Build API payload for POST /professionals from an import row. */
+function rowToProfessionalPayload(row, accountId) {
+  const languagesRaw = (row.languages || "").trim();
+  const languages = languagesRaw
+    ? languagesRaw.split(/[,;]/).map((s) => s.trim()).filter(Boolean)
+    : [];
 
-function rowToPropertyPayload(row) {
+  const isVerifiedRaw = String(row.is_verified || "").trim().toLowerCase();
+  const is_verified = ["true", "1", "yes"].includes(isVerifiedRaw);
+
+  const yearsRaw = (row.years_in_business || "").trim();
+  const years_in_business = yearsRaw ? parseInt(yearsRaw, 10) : null;
+
   const payload = {
-    address: (row.address || "").trim(),
-    city: (row.city || "").trim(),
-    state: (row.state || "").trim(),
-    zip: (row.zip || "").trim(),
+    company_name: (row.company_name || "").trim(),
+    contact_name: (row.contact_name || "").trim() || null,
+    category_id: row.category_id ? parseInt(String(row.category_id), 10) : null,
+    subcategory_id: row.subcategory_id ? parseInt(String(row.subcategory_id), 10) : null,
+    description: (row.description || "").trim() || null,
+    phone: (row.phone || "").trim() || null,
+    email: (row.email || "").trim() || null,
+    website: (row.website || "").trim() || null,
+    street1: (row.street1 || "").trim() || null,
+    street2: (row.street2 || "").trim() || null,
+    city: (row.city || "").trim() || null,
+    state: (row.state || "").trim() || null,
+    zip_code: (row.zip_code || "").trim() || null,
+    country: (row.country || "").trim() || "US",
+    service_area: (row.service_area || "").trim() || null,
+    budget_level: (row.budget_level || "").trim() || null,
+    languages: languages.length > 0 ? languages : [],
+    years_in_business: Number.isNaN(years_in_business) ? null : years_in_business,
+    is_verified,
+    license_number: (row.license_number || "").trim() || null,
   };
-  for (const key of PROPERTY_IMPORT_KEYS) {
-    if (["address", "city", "state", "zip"].includes(key)) continue;
-    let v = (row[key] ?? "").toString().trim();
-    if (v === "") continue;
-    if (INTEGER_KEYS.has(key)) {
-      const n = parseInt(v, 10);
-      if (!Number.isNaN(n)) payload[key] = n;
-    } else if (NUMBER_KEYS.has(key)) {
-      const n = parseFloat(v);
-      if (!Number.isNaN(n)) payload[key] = n;
-    } else {
-      payload[key] = v;
-    }
-  }
+  if (accountId) payload.account_id = accountId;
   return payload;
 }
 
@@ -78,7 +82,7 @@ function normalizeRow(rawRow, headerMap) {
       row[key] = v;
     }
   }
-  return PROPERTY_IMPORT_KEYS.reduce((acc, k) => {
+  return PROFESSIONAL_IMPORT_KEYS.reduce((acc, k) => {
     acc[k] = row[k] ?? "";
     return acc;
   }, {});
@@ -86,10 +90,16 @@ function normalizeRow(rawRow, headerMap) {
 
 function validateRow(row) {
   const errors = [];
-  const required = ["address", "city", "state", "zip"];
-  for (const key of required) {
+  const requiredKeys = PROFESSIONAL_IMPORT_FIELDS.filter((f) => f.required).map(
+    (f) => f.key
+  );
+  for (const key of requiredKeys) {
     const val = (row[key] ?? "").trim();
     if (!val) errors.push(`${key} is required`);
+  }
+  const email = (row.email ?? "").trim();
+  if (email && !EMAIL_REGEX.test(email)) {
+    errors.push("Invalid email format");
   }
   return errors;
 }
@@ -139,17 +149,17 @@ function buildWorkbookForDownload() {
   const row = getTemplateRow();
   const ws = XLSX.utils.json_to_sheet([
     Object.fromEntries(
-      PROPERTY_IMPORT_FIELDS.map((f) => [f.label, row[f.key]])
+      PROFESSIONAL_IMPORT_FIELDS.map((f) => [f.label, row[f.key]])
     ),
   ]);
   const wb = XLSX.utils.book_new();
-  XLSX.utils.book_append_sheet(wb, ws, "Properties");
+  XLSX.utils.book_append_sheet(wb, ws, "Professionals");
   return wb;
 }
 
 function downloadXlsxTemplate() {
   const wb = buildWorkbookForDownload();
-  XLSX.writeFile(wb, "property_import_template.xlsx");
+  XLSX.writeFile(wb, "professional_import_template.xlsx");
 }
 
 const STEPS = [
@@ -158,10 +168,9 @@ const STEPS = [
   { id: 3, label: "Review & confirm", short: "Review" },
 ];
 
-function PropertiesImport() {
+function ProfessionalsImport() {
   const navigate = useNavigate();
   const { currentAccount } = useCurrentAccount();
-  const { refreshProperties } = useContext(propertyContext);
   const accountUrl = currentAccount?.url || "";
 
   const [sidebarOpen, setSidebarOpen] = useState(false);
@@ -172,7 +181,6 @@ function PropertiesImport() {
   const [validRows, setValidRows] = useState([]);
   const [invalidRows, setInvalidRows] = useState([]);
   const [rowErrors, setRowErrors] = useState({});
-  const [confirmed, setConfirmed] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [importError, setImportError] = useState(null);
   const [importSuccessCount, setImportSuccessCount] = useState(null);
@@ -216,7 +224,6 @@ function PropertiesImport() {
       return;
     }
     setParseError("");
-    setConfirmed(false);
     setImportError(null);
     setImportSuccessCount(null);
     setIsParsing(true);
@@ -225,7 +232,7 @@ function PropertiesImport() {
       .then(({ rows }) => {
         if (rows.length === 0) {
           setParseError(
-            "No data rows found. Your file needs a header row and at least one data row."
+            "No data rows found. Your file needs a header row (e.g. First Name, Last Name) and at least one data row."
           );
           setIsParsing(false);
           return;
@@ -277,7 +284,6 @@ function PropertiesImport() {
     setValidRows([]);
     setInvalidRows([]);
     setRowErrors({});
-    setConfirmed(false);
   }, []);
 
   const handleDrop = useCallback(
@@ -313,7 +319,6 @@ function PropertiesImport() {
     setValidRows([]);
     setInvalidRows([]);
     setRowErrors({});
-    setConfirmed(false);
   }, []);
 
   const handleRemoveRow = useCallback((index) => {
@@ -347,21 +352,20 @@ function PropertiesImport() {
     setImportError(null);
     setImportSuccessCount(null);
     setIsSubmitting(true);
-    const payloads = validRows.map((row) => rowToPropertyPayload(row));
+    const accountId = currentAccount?.id ?? null;
+    const payloads = validRows.map((row) => rowToProfessionalPayload(row, accountId));
     try {
       const results = await Promise.all(
-        payloads.map((payload) => AppApi.createProperty(payload))
+        payloads.map((payload) => AppApi.createProfessional(payload))
       );
       setImportSuccessCount(results.length);
-      setConfirmed(true);
-      refreshProperties?.();
     } catch (err) {
       const message = Array.isArray(err) ? err.join(" ") : (err?.message || "Import failed.");
       setImportError(message);
     } finally {
       setIsSubmitting(false);
     }
-  }, [validRows, isSubmitting, refreshProperties]);
+  }, [validRows, currentAccount?.id, isSubmitting]);
 
   return (
     <div className="flex h-[100dvh] overflow-hidden">
@@ -375,21 +379,21 @@ function PropertiesImport() {
               <button
                 type="button"
                 onClick={() =>
-                  navigate(accountUrl ? `/${accountUrl}/properties` : "/properties")
+                  navigate(accountUrl ? `/${accountUrl}/professionals/manage` : "/professionals/manage")
                 }
                 className="flex items-center gap-2 text-base text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white transition-colors py-1"
               >
                 <ArrowLeft className="w-5 h-5 shrink-0" />
-                Properties
+                Professionals
               </button>
             </nav>
 
             <div className="mb-6">
               <h1 className="text-2xl md:text-3xl text-gray-800 dark:text-gray-100 font-bold mb-1">
-                Bulk Property Import
+                Bulk Professional Import
               </h1>
               <p className="text-gray-600 dark:text-gray-400 text-sm">
-                Download a template, fill in your properties (address, city, state, zip required), then upload and review before importing.
+                Download a template, fill in your professionals (Company Name required), then upload and review before importing.
               </p>
             </div>
 
@@ -437,7 +441,7 @@ function PropertiesImport() {
                     1. Get the template
                   </h2>
                   <p className="text-xs text-gray-500 dark:text-gray-400 mt-0.5">
-                    Required: Address, City, State, Zip.
+                    Use our template so column names match. Required: First Name, Last Name.
                   </p>
                 </div>
                 <div className="p-4 flex flex-wrap gap-3">
@@ -475,10 +479,10 @@ function PropertiesImport() {
                         accept=".xlsx,.csv"
                         onChange={handleFileInput}
                         className="hidden"
-                        id="property-import-file"
+                        id="professional-import-file"
                       />
                       <label
-                        htmlFor="property-import-file"
+                        htmlFor="professional-import-file"
                         className="cursor-pointer flex flex-col items-center gap-3"
                       >
                         <div className="flex h-12 w-12 items-center justify-center rounded-full bg-gray-200 dark:bg-gray-700">
@@ -593,7 +597,7 @@ function PropertiesImport() {
                     </div>
                     <div className="flex flex-wrap items-center gap-2">
                       <span className="inline-flex items-center gap-1 rounded-full bg-gray-200 dark:bg-gray-700 px-2.5 py-0.5 text-xs font-medium text-gray-700 dark:text-gray-300">
-                        <Home className="w-3.5 h-3.5" />
+                        <Briefcase className="w-3.5 h-3.5" />
                         {totalRows} total
                       </span>
                       <span className="inline-flex items-center gap-1 rounded-full bg-green-100 dark:bg-green-900/30 px-2.5 py-0.5 text-xs font-medium text-green-800 dark:text-green-300">
@@ -636,7 +640,7 @@ function PropertiesImport() {
                         <thead>
                           <tr className="bg-gray-50 dark:bg-gray-800/80">
                             <th className="text-left py-2.5 px-3 font-semibold text-gray-700 dark:text-gray-300 w-10 text-xs">#</th>
-                            {PROPERTY_IMPORT_FIELDS.slice(0, 6).map((f) => (
+                            {PROFESSIONAL_IMPORT_FIELDS.slice(0, 6).map((f) => (
                               <th
                                 key={f.key}
                                 className="text-left py-2.5 px-3 font-semibold text-gray-700 dark:text-gray-300 whitespace-nowrap text-xs"
@@ -659,7 +663,7 @@ function PropertiesImport() {
                               }`}
                             >
                               <td className="py-2 px-3 text-gray-500 font-medium text-xs">{index + 1}</td>
-                              {PROPERTY_IMPORT_FIELDS.slice(0, 6).map((f) => (
+                              {PROFESSIONAL_IMPORT_FIELDS.slice(0, 6).map((f) => (
                                 <td
                                   key={f.key}
                                   className="py-2 px-3 text-gray-800 dark:text-gray-200 max-w-[160px] truncate text-xs"
@@ -722,12 +726,12 @@ function PropertiesImport() {
                         {isSubmitting ? (
                           <>
                             <Loader2 className="w-4 h-4 animate-spin shrink-0" />
-                            Creating {validCount} propert{validCount !== 1 ? "ies" : "y"}…
+                            Creating {validCount} professional{validCount !== 1 ? "s" : ""}…
                           </>
                         ) : (
                           <>
                             Confirm import
-                            {validCount > 0 && ` (${validCount} propert${validCount !== 1 ? "ies" : "y"})`}
+                            {validCount > 0 && ` (${validCount} professional${validCount !== 1 ? "s" : ""})`}
                           </>
                         )}
                       </button>
@@ -745,13 +749,13 @@ function PropertiesImport() {
                       {importSuccessCount != null && (
                         <span className="inline-flex items-center gap-2 text-sm text-green-600 dark:text-green-400 font-medium">
                           <CheckCircle className="w-4 h-4" />
-                          {importSuccessCount} propert{importSuccessCount !== 1 ? "ies" : "y"} created.
+                          {importSuccessCount} professional{importSuccessCount !== 1 ? "s" : ""} created.
                           <button
                             type="button"
-                            onClick={() => navigate(accountUrl ? `/${accountUrl}/properties` : "/properties")}
+                            onClick={() => navigate(accountUrl ? `/${accountUrl}/professionals/manage` : "/professionals/manage")}
                             className="underline hover:no-underline"
                           >
-                            View properties
+                            View professionals
                           </button>
                         </span>
                       )}
@@ -767,4 +771,4 @@ function PropertiesImport() {
   );
 }
 
-export default PropertiesImport;
+export default ProfessionalsImport;

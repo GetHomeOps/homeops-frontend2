@@ -7,12 +7,18 @@ const BASE_URL = API_BASE_URL;
 const TOKEN_STORAGE_KEY = "app-token";
 const REFRESH_TOKEN_STORAGE_KEY = "app-refresh-token";
 
+import { emitTierLimit, isTierRestrictionError } from "../utils/tierLimitNotifier";
+
 export class ApiError extends Error {
   constructor(messages, status = 500) {
     const msg = Array.isArray(messages) ? messages[0] : messages;
     super(typeof msg === "string" ? msg : msg?.message ?? "Request failed");
     this.messages = Array.isArray(messages) ? messages : [messages];
     this.status = status;
+
+    if (isTierRestrictionError(status, this.message)) {
+      emitTierLimit({ message: this.message, status });
+    }
   }
 }
 
@@ -278,6 +284,10 @@ class AppApi {
     return res;
   }
 
+  static async resendInvitation(id) {
+    return this.request(`invitations/${id}/resend`, {}, "POST");
+  }
+
   static async getSentInvitations() {
     let res = await this.request(`invitations/sent`);
     return res.invitations;
@@ -309,6 +319,14 @@ class AppApi {
 
   static async changePassword(currentPassword, newPassword) {
     return this.request(`auth/change-password`, { currentPassword, newPassword }, "POST");
+  }
+
+  static async requestPasswordReset(email) {
+    return this.request(`auth/forgot-password`, { email }, "POST");
+  }
+
+  static async resetPassword(token, newPassword) {
+    return this.request(`auth/reset-password`, { token, newPassword }, "POST");
   }
 
   static async completeOnboarding(data) {
@@ -430,6 +448,20 @@ class AppApi {
   static async getContactsByAccountId(accountId) {
     let res = await this.request(`contacts/account/${accountId}`);
     return res.contacts;
+  }
+
+  static async getTagsByAccountId(accountId) {
+    let res = await this.request(`contacts/account/${accountId}/tags`);
+    return res.tags || [];
+  }
+
+  static async createTag(accountId, { name, color }) {
+    let res = await this.request(`contacts/account/${accountId}/tags`, { name, color }, "POST");
+    return res.tag;
+  }
+
+  static async deleteTag(accountId, tagId) {
+    await this.request(`contacts/account/${accountId}/tags/${tagId}`, {}, "DELETE");
   }
 
   static async getContact(id) {
@@ -560,6 +592,12 @@ class AppApi {
   static async getMaintenanceRecordsByPropertyId(propertyId) {
     let res = await this.request(`maintenance/${propertyId}`);
     return res.maintenanceRecords;
+  }
+
+  /** Send maintenance report link to contractor via email. */
+  static async sendMaintenanceToContractor(recordId, { contractorEmail, contractorName } = {}) {
+    const res = await this.request(`maintenance/${recordId}/send-to-contractor`, { contractorEmail, contractorName }, "POST");
+    return res;
   }
 
   /* --------- Maintenance Events (Calendar) --------- */
@@ -769,6 +807,34 @@ class AppApi {
     return res.analysis ?? null;
   }
 
+  /* --------- Inspection Checklist --------- */
+
+  static async getInspectionChecklist(propertyId, { systemKey, status } = {}) {
+    const params = {};
+    if (systemKey) params.systemKey = systemKey;
+    if (status) params.status = status;
+    const res = await this.request(`properties/${propertyId}/inspection-checklist`, params, "GET");
+    return res.items ?? [];
+  }
+
+  static async getInspectionChecklistProgress(propertyId) {
+    const res = await this.request(`properties/${propertyId}/inspection-checklist/progress`, {}, "GET");
+    return res.progress ?? { total: 0, completed: 0, pending: 0, bySystem: {} };
+  }
+
+  static async updateChecklistItem(itemId, data) {
+    const res = await this.request(`inspection-checklist/${itemId}`, data, "PATCH");
+    return res.item;
+  }
+
+  static async completeChecklistItem(itemId, { maintenanceId, notes } = {}) {
+    const res = await this.request(`inspection-checklist/${itemId}/complete`, {
+      maintenanceId: maintenanceId || null,
+      notes: notes || null,
+    }, "POST");
+    return res.item;
+  }
+
   /* --------- Property Contractors --------- */
 
   static async getPropertyContractors(propertyId, query = "") {
@@ -827,7 +893,7 @@ class AppApi {
     return res;
   }
 
-  /* --------- Property Data Lookup (ATTOM) --------- */
+  /* --------- Property Data Lookup (RentCast) --------- */
 
   static async lookupPropertyDetails(propertyInfo) {
     let res = await this.request("predict/property-details", propertyInfo, "POST");
@@ -871,6 +937,11 @@ class AppApi {
   static async getCostPerAccount(params = {}) {
     let res = await this.request("analytics/costs/per-account", params);
     return res.accounts;
+  }
+
+  static async getCostPerUser(params = {}) {
+    let res = await this.request("analytics/costs/per-user", params);
+    return res.users ?? [];
   }
 
   static async getAgentAnalytics() {
@@ -950,6 +1021,26 @@ class AppApi {
   static async getProfessional(id) {
     let res = await this.request(`professionals/${id}`);
     return res.professional;
+  }
+
+  /** Get reviews for a professional. */
+  static async getProfessionalReviews(professionalId) {
+    const res = await this.request(`professionals/${professionalId}/reviews`);
+    return { reviews: res.reviews ?? [], aggregate: res.aggregate ?? {} };
+  }
+
+  /** Check if current user can submit a review. */
+  static async getProfessionalReviewEligibility(professionalId) {
+    return this.request(`professionals/${professionalId}/review-eligibility`);
+  }
+
+  /** Create a review (backend validates eligibility and one-per-user). */
+  static async createProfessionalReview(professionalId, { rating, comment }) {
+    const res = await this.request(`professionals/${professionalId}/reviews`, {
+      rating,
+      comment: comment || null,
+    }, "POST");
+    return res.review;
   }
 
   static async createProfessional(data) {

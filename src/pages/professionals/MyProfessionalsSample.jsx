@@ -1,4 +1,4 @@
-import React, {useState, useMemo, useCallback, useEffect} from "react";
+import React, {useState, useMemo, useCallback} from "react";
 import {useNavigate} from "react-router-dom";
 import {
   ArrowLeft,
@@ -16,8 +16,7 @@ import Sidebar from "../../partials/Sidebar";
 import Header from "../../partials/Header";
 import useCurrentAccount from "../../hooks/useCurrentAccount";
 import {ProfessionalCard} from "./components";
-import AppApi from "../../api/api";
-import {normalizeProfessional} from "./utils/normalizeProfessional";
+import {MOCK_PROFESSIONALS, SERVICE_CATEGORIES} from "./data/mockData";
 
 const RATING_OPTIONS = [
   {value: 4.5, label: "4.5+"},
@@ -25,67 +24,38 @@ const RATING_OPTIONS = [
   {value: 3.5, label: "3.5+"},
 ];
 
-function MyProfessionals() {
+function MyProfessionalsSample() {
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [expandedCategories, setExpandedCategories] = useState({});
   const [searchTerm, setSearchTerm] = useState("");
   const [viewMode, setViewMode] = useState("list");
   const [filterCategoryId, setFilterCategoryId] = useState("");
   const [filterRating, setFilterRating] = useState(null);
-  const [professionals, setProfessionals] = useState([]);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState(null);
   const navigate = useNavigate();
   const {currentAccount} = useCurrentAccount();
   const accountUrl = currentAccount?.url || "";
 
-  const fetchSavedProfessionals = useCallback(async () => {
-    setLoading(true);
-    setError(null);
-    try {
-      const data = await AppApi.getSavedProfessionals();
-      const normalized = (data || [])
-        .map(normalizeProfessional)
-        .filter(Boolean);
-      setProfessionals(normalized);
-    } catch (err) {
-      setError(err?.message || "Failed to load saved professionals");
-      setProfessionals([]);
-    } finally {
-      setLoading(false);
-    }
+  const [professionals, setProfessionals] = useState(MOCK_PROFESSIONALS);
+
+  const toggleSave = useCallback((proId) => {
+    setProfessionals((prev) =>
+      prev.map((p) => (p.id === proId ? {...p, saved: !p.saved} : p)),
+    );
   }, []);
 
-  useEffect(() => {
-    fetchSavedProfessionals();
-  }, [fetchSavedProfessionals]);
-
-  const toggleSave = useCallback(
-    async (proId) => {
-      try {
-        await AppApi.unsaveProfessional(proId);
-        setProfessionals((prev) => prev.filter((p) => p.id !== proId));
-      } catch (err) {
-        setError(err?.message || "Failed to remove professional");
-      }
-    },
-    [],
+  const allSaved = useMemo(
+    () => professionals.filter((p) => p.saved),
+    [professionals],
   );
-
-  const allSaved = useMemo(() => professionals, [professionals]);
 
   const savedCategories = useMemo(() => {
     const counts = {};
     allSaved.forEach((pro) => {
-      const catId = pro.categoryId || pro.categoryIds?.[0] || "other";
-      counts[catId] = (counts[catId] || 0) + 1;
+      counts[pro.categoryId] = (counts[pro.categoryId] || 0) + 1;
     });
-    return Object.entries(counts).map(([id, count]) => ({
-      id,
-      name: allSaved.find((p) => (p.categoryId || p.categoryIds?.[0]) === id)
-        ?.categoryName || id,
-      count,
-    })).sort((a, b) => b.count - a.count);
+    return SERVICE_CATEGORIES.filter((c) => counts[c.id])
+      .map((c) => ({...c, count: counts[c.id]}))
+      .sort((a, b) => b.count - a.count);
   }, [allSaved]);
 
   const savedPros = useMemo(() => {
@@ -94,20 +64,16 @@ function MyProfessionals() {
       const q = searchTerm.toLowerCase();
       list = list.filter(
         (p) =>
-          (p.name || "").toLowerCase().includes(q) ||
-          (p.companyName || "").toLowerCase().includes(q) ||
-          (p.categoryName || "").toLowerCase().includes(q),
+          p.name.toLowerCase().includes(q) ||
+          p.companyName.toLowerCase().includes(q) ||
+          p.categoryName.toLowerCase().includes(q),
       );
     }
     if (filterCategoryId) {
-      list = list.filter(
-        (p) =>
-          p.categoryId === filterCategoryId ||
-          (p.categoryIds || []).includes(filterCategoryId),
-      );
+      list = list.filter((p) => p.categoryId === filterCategoryId);
     }
     if (filterRating != null) {
-      list = list.filter((p) => (p.rating || 0) >= filterRating);
+      list = list.filter((p) => p.rating >= filterRating);
     }
     return list;
   }, [allSaved, searchTerm, filterCategoryId, filterRating]);
@@ -115,19 +81,19 @@ function MyProfessionals() {
   const groupedByCategory = useMemo(() => {
     const groups = {};
     savedPros.forEach((pro) => {
-      const catId = pro.categoryId || pro.categoryIds?.[0] || "other";
-      if (!groups[catId]) {
-        groups[catId] = {
-          categoryId: catId,
-          categoryName: pro.categoryName || catId,
-          imageUrl: null,
+      if (!groups[pro.categoryId]) {
+        const cat = SERVICE_CATEGORIES.find((c) => c.id === pro.categoryId);
+        groups[pro.categoryId] = {
+          categoryId: pro.categoryId,
+          categoryName: cat?.name || pro.categoryName,
+          imageUrl: cat?.imageUrl,
           pros: [],
         };
       }
-      groups[catId].pros.push(pro);
+      groups[pro.categoryId].pros.push(pro);
     });
     return Object.values(groups).sort((a, b) =>
-      (a.categoryName || "").localeCompare(b.categoryName || ""),
+      a.categoryName.localeCompare(b.categoryName),
     );
   }, [savedPros]);
 
@@ -145,19 +111,10 @@ function MyProfessionals() {
     setSearchTerm("");
   };
 
-  if (loading) {
-    return (
-      <div className="flex h-[100dvh] overflow-hidden">
-        <Sidebar sidebarOpen={sidebarOpen} setSidebarOpen={setSidebarOpen} />
-        <div className="relative flex flex-col flex-1 overflow-y-auto overflow-x-hidden bg-gray-50/50 dark:bg-gray-900">
-          <Header sidebarOpen={sidebarOpen} setSidebarOpen={setSidebarOpen} />
-          <main className="grow flex items-center justify-center">
-            <p className="text-sm text-gray-500 dark:text-gray-400">Loading…</p>
-          </main>
-        </div>
-      </div>
+  const goToSampleDirectory = () =>
+    navigate(
+      accountUrl ? `/${accountUrl}/professionals-sample` : "/professionals-sample",
     );
-  }
 
   return (
     <div className="flex h-[100dvh] overflow-hidden">
@@ -170,27 +127,12 @@ function MyProfessionals() {
           <div className="px-0 sm:px-4 lg:px-5 xxl:px-12 py-8 w-full max-w-[96rem] mx-auto">
             <button
               type="button"
-              onClick={() =>
-                navigate(accountUrl ? `/${accountUrl}/professionals` : "/professionals")
-              }
+              onClick={goToSampleDirectory}
               className="inline-flex items-center gap-2 text-sm font-medium text-[#456564] dark:text-[#7aa3a2] hover:text-[#34514f] dark:hover:text-[#9ec5c4] transition-colors mb-5"
             >
               <ArrowLeft className="w-4 h-4" />
               Back to Directory
             </button>
-
-            {error && (
-              <div className="mb-4 p-3 rounded-lg bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 text-red-700 dark:text-red-300 text-sm">
-                {error}
-                <button
-                  type="button"
-                  onClick={fetchSavedProfessionals}
-                  className="ml-2 underline"
-                >
-                  Retry
-                </button>
-              </div>
-            )}
 
             {/* Header card with filters */}
             <div className="bg-white dark:bg-gray-800 rounded-2xl border border-gray-200/60 dark:border-gray-700/50 shadow-sm p-5 sm:p-6 mb-6">
@@ -451,11 +393,7 @@ function MyProfessionals() {
                 ) : (
                   <button
                     type="button"
-                    onClick={() =>
-                      navigate(
-                        accountUrl ? `/${accountUrl}/professionals` : "/professionals",
-                      )
-                    }
+                    onClick={goToSampleDirectory}
                     className="text-sm font-medium bg-[#456564] text-white px-5 py-2.5 rounded-lg hover:bg-[#34514f] transition-colors shadow-sm"
                   >
                     Browse Directory
@@ -470,4 +408,4 @@ function MyProfessionals() {
   );
 }
 
-export default MyProfessionals;
+export default MyProfessionalsSample;

@@ -14,6 +14,7 @@ function SystemActionButtons({
   isNewInstall,
   onNewInstallChange,
   onScheduleInspection,
+  onScheduleSuccess,
   propertyId,
   propertyData = {},
   systemsToShow = [],
@@ -129,6 +130,7 @@ function SystemActionButtons({
             systemType={systemType}
             contacts={contacts}
             onSchedule={onScheduleInspection}
+            onScheduleSuccess={onScheduleSuccess}
             propertyId={propertyId}
             propertyData={propertyData}
           />,

@@ -177,7 +177,12 @@ function DocumentsPreviewPanel({
                   selectedDocument.type === "inspection") &&
                   onOpenAIReport && (
                   <button
-                    onClick={onOpenAIReport}
+                    type="button"
+                    onClick={(e) => {
+                      e.preventDefault();
+                      e.stopPropagation();
+                      onOpenAIReport();
+                    }}
                     className="w-full btn-sm border border-[#456564] text-[#456564] dark:border-[#5a7a78] dark:text-[#5a7a78] hover:bg-[#456564]/10 dark:hover:bg-[#5a7a78]/20 flex items-center justify-center gap-1.5"
                     title="View report analysis in AI"
                   >
@@ -234,7 +239,12 @@ function DocumentsPreviewPanel({
                 selectedDocument.type === "inspection") &&
                 onOpenAIReport && (
                 <button
-                  onClick={onOpenAIReport}
+                  type="button"
+                  onClick={(e) => {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    onOpenAIReport();
+                  }}
                   className="btn-sm border border-[#456564] text-[#456564] dark:border-[#5a7a78] dark:text-[#5a7a78] hover:bg-[#456564]/10 flex items-center gap-1 px-2 py-1 text-xs flex-shrink-0"
                   title="View report analysis in AI"
                 >

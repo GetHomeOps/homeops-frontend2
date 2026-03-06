@@ -20,6 +20,9 @@ import OnboardingWizard from "../onboarding/OnboardingWizard";
 import Signin from "../auth/Signin";
 import Signup from "../auth/Signup";
 import AuthCallback from "../auth/AuthCallback";
+import ForgotPassword from "../auth/ForgotPassword";
+import ResetPassword from "../auth/ResetPassword";
+import ContractorReportPage from "../properties/ContractorReportPage";
 
 // Private pages (sidebar/navbar only when authenticated, guarded by ProtectedRoute)
 import Account from "../accountSettings/Account";
@@ -33,7 +36,6 @@ import UsersImport from "../users/usersImport";
 import Contact from "../contacts/Contact";
 import PropertiesList from "../properties/PropertiesList";
 import Property from "../properties/Property";
-import PropertiesImport from "../properties/propertiesImport";
 import UserConfirmationEmail from "../users/UserConfirmationEmail";
 import MaintenanceRecordPage from "../properties/MaintenanceRecordPage";
 import PdfFileExample from "../pdfFileExample";
@@ -47,19 +49,23 @@ import ProfessionalsDirectorySample from "../professionals/ProfessionalsDirector
 import CategoryDirectoryPage from "../professionals/CategoryDirectoryPage";
 import CategoryDirectoryPageSample from "../professionals/CategoryDirectoryPageSample";
 import MyProfessionals from "../professionals/MyProfessionals";
+import MyProfessionalsSample from "../professionals/MyProfessionalsSample";
 import ProfessionalProfile from "../professionals/ProfessionalProfile";
 import ProfessionalFormContainer from "../professionals/ProfessionalFormContainer";
 import ProfessionalsList from "../professionals/ProfessionalsList";
+import ProfessionalsImport from "../professionals/professionalsImport";
 import CategoriesList from "../professionals/categories/CategoriesList";
 import CategoryFormContainer from "../professionals/categories/CategoryFormContainer";
 import DashboardOverview from "../dashboard/DashboardOverview";
 import AccountAnalytics from "../dashboard/AccountAnalytics";
 import AgentAnalytics from "../dashboard/AgentAnalytics";
 import CostAnalytics from "../dashboard/CostAnalytics";
+import UnitCostDashboard from "../dashboard/UnitCostDashboard";
 import EngagementDashboard from "../dashboard/EngagementDashboard";
 import GrowthDashboard from "../dashboard/GrowthDashboard";
 import InvitationsList from "../invitations/InvitationsList";
 import BillingPage from "../settings/BillingPage";
+import UpgradePlanPage from "../settings/UpgradePlanPage";
 import BillingSuccess from "../billing/BillingSuccess";
 import ConfigurationPage from "../settings/ConfigurationPage";
 import SupportList from "../support/SupportList";
@@ -111,6 +117,29 @@ function RoutesList() {
         }
       />
       <Route path="/auth/callback" element={<AuthCallback />} />
+      <Route
+        path="/forgot-password"
+        element={
+          <PublicRoute>
+            <ForgotPassword />
+          </PublicRoute>
+        }
+      />
+      <Route
+        path="/reset-password"
+        element={
+          <PublicRoute>
+            <ResetPassword />
+          </PublicRoute>
+        }
+      />
+      {/* Public contractor report page — accessed via token link, no auth needed */}
+      <Route path="/contractor-report" element={<ContractorReportPage />} />
+      {/* Invite confirmation: allow both logged-in and logged-out users (invitee may be testing while logged in) */}
+      <Route
+        path="/:accountUrl/invite/:invitation"
+        element={<UserConfirmationEmail />}
+      />
       <Route
         path="/onboarding"
         element={
@@ -182,6 +211,14 @@ function RoutesList() {
         }
       />
       <Route
+        path="/:accountUrl/dashboard/unit-cost"
+        element={
+          <AdminRoute>
+            <UnitCostDashboard />
+          </AdminRoute>
+        }
+      />
+      <Route
         path="/:accountUrl/dashboard/costs"
         element={
           <ProtectedRoute>
@@ -218,6 +255,14 @@ function RoutesList() {
         element={
           <ProtectedRoute>
             <BillingPage />
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/:accountUrl/settings/upgrade"
+        element={
+          <ProtectedRoute>
+            <UpgradePlanPage />
           </ProtectedRoute>
         }
       />
@@ -326,14 +371,6 @@ function RoutesList() {
         }
       />
       <Route
-        path="/:accountUrl/properties/import"
-        element={
-          <ProtectedRoute>
-            <PropertiesImport />
-          </ProtectedRoute>
-        }
-      />
-      <Route
         path="/:accountUrl/properties/:uid"
         element={
           <ProtectedRoute>
@@ -406,6 +443,14 @@ function RoutesList() {
         }
       />
       <Route
+        path="/:accountUrl/professionals/import"
+        element={
+          <ProtectedRoute>
+            <ProfessionalsImport />
+          </ProtectedRoute>
+        }
+      />
+      <Route
         path="/:accountUrl/professionals/manage/new"
         element={
           <ProtectedRoute>
@@ -450,6 +495,22 @@ function RoutesList() {
         element={
           <ProtectedRoute>
             <MyProfessionals />
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/my-professionals-sample"
+        element={
+          <ProtectedRoute>
+            <MyProfessionalsSample />
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/:accountUrl/my-professionals-sample"
+        element={
+          <ProtectedRoute>
+            <MyProfessionalsSample />
           </ProtectedRoute>
         }
       />
@@ -604,14 +665,6 @@ function RoutesList() {
           <AdminRoute>
             <FeedbackManagement />
           </AdminRoute>
-        }
-      />
-      <Route
-        path="/:accountUrl/invite/:invitation"
-        element={
-          <ProtectedRoute>
-            <UserConfirmationEmail />
-          </ProtectedRoute>
         }
       />
       <Route

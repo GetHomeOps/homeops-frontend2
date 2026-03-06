@@ -25,7 +25,11 @@ function ProfessionalsDirectorySample() {
     .slice(0, 8);
 
   const goToMyPros = () => {
-    navigate(accountUrl ? `/${accountUrl}/my-professionals` : "/my-professionals");
+    navigate(
+      accountUrl
+        ? `/${accountUrl}/my-professionals-sample`
+        : "/my-professionals-sample",
+    );
   };
 
   const goToSearch = () => {

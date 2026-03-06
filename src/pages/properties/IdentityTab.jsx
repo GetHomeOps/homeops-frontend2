@@ -112,7 +112,7 @@ function SelectField({
           )}
         </label>
         <div
-          className={`form-input w-full ${errorClasses} ${readOnlyClasses} py-2.5`}
+          className={`form-input w-full min-h-[2.5rem] ${errorClasses} ${readOnlyClasses} py-2.5 flex items-center`}
           aria-readonly
         >
           {value ?? ""}

@@ -8,6 +8,7 @@ import Header from "../../partials/Header";
 import PaginationClassic from "../../components/PaginationClassic";
 import ModalBlank from "../../components/ModalBlank";
 import Banner from "../../partials/containers/Banner";
+import ListDropdown from "../../partials/buttons/ListDropdown";
 import useCurrentAccount from "../../hooks/useCurrentAccount";
 import AppApi from "../../api/api";
 import ProfessionalsTable from "./ProfessionalsTable";
@@ -763,22 +764,12 @@ function ProfessionalsList() {
                 </p>
               </div>
               <div className="flex items-center gap-2">
-                {selectedItems.length > 0 && (
-                  <button
-                    className="btn border-gray-200 dark:border-gray-700/60 hover:border-gray-300 dark:hover:border-gray-600 text-red-500"
-                    onClick={handleDeleteClick}
-                  >
-                    <svg
-                      className="shrink-0 fill-current mr-1"
-                      width="16"
-                      height="16"
-                      viewBox="0 0 16 16"
-                    >
-                      <path d="M5 7h2v6H5V7zm4 0h2v6H9V7zm3-6v2h4v2h-1v10c0 .6-.4 1-1 1H2c-.6 0-1-.4-1-1V5H0V3h4V1c0-.6.4-1 1-1h6c.6 0 1 .4 1 1zm-7 0v1h4V1H5zm6 4H3v9h8V5z" />
-                    </svg>
-                    <span>{t("delete")}</span>
-                  </button>
-                )}
+                <ListDropdown
+                  align="right"
+                  hasSelection={selectedItems.length > 0}
+                  onImport={() => navigate(`/${accountUrl}/professionals/import`)}
+                  onDelete={handleDeleteClick}
+                />
                 <button
                   className="btn bg-[#456564] hover:bg-[#34514f] text-white shadow-sm"
                   onClick={handleNewProfessional}

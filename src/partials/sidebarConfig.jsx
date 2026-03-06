@@ -30,6 +30,7 @@ import {
   UsersRound,
   BookOpen,
   BarChart3,
+  DollarSign,
 } from "lucide-react";
 
 const ICON_SIZE = 18;
@@ -67,6 +68,7 @@ export const SIDEBAR_CONFIG = [
         roles: "adminOnly",
         children: [
           { id: "agent-analytics", label: "Agent Analytics", path: "dashboard/agent-analytics", icon: icon(Users), roles: "adminOnly" },
+          { id: "unit-cost", label: "Unit Cost", path: "dashboard/unit-cost", icon: icon(DollarSign), roles: "adminOnly" },
         ],
       },
     ],
@@ -85,7 +87,7 @@ export const SIDEBAR_CONFIG = [
         icon: icon(FolderOpen),
         defaultExpanded: true,
         children: [
-          { id: "professionals", label: "Professionals", path: "professionals", activePaths: ["professionals", "my-professionals"], icon: icon(Users), roles: "all" },
+          { id: "professionals", label: "Professionals", path: "professionals", activePaths: ["professionals", "my-professionals"], excludeFromActive: ["professionals/manage", "professionals/categories", "professionals/import"], icon: icon(Users), roles: "all" },
           { id: "categories", label: "Categories", path: "professionals/categories", icon: icon(LayoutGrid), roles: "adminOnly" },
           { id: "manage", label: "Manage", path: "professionals/manage", icon: icon(Settings2), roles: "adminOnly" },
         ],
@@ -134,6 +136,7 @@ export const PROFESSIONALS_SAMPLE = {
   id: "professionals-sample",
   label: "Professionals (Sample)",
   path: "professionals-sample",
+  activePaths: ["professionals-sample", "my-professionals-sample"],
   icon: icon(Users),
   roles: "all",
 };

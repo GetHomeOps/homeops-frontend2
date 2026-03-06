@@ -23,6 +23,7 @@ import {
   User,
   ExternalLink,
   Camera,
+  AlertCircle,
 } from "lucide-react";
 
 import Sidebar from "../../partials/Sidebar";
@@ -62,9 +63,8 @@ const US_STATES = [
 ];
 
 const initialFormData = {
-  first_name: "",
-  last_name: "",
   company_name: "",
+  contact_name: "",
   category_id: "",
   subcategory_id: "",
   description: "",
@@ -336,9 +336,8 @@ function ProfessionalFormContainer() {
         const pro = await AppApi.getProfessional(professionalId);
         if (cancelled) return;
         const loadedData = {
-          first_name: pro.first_name || "",
-          last_name: pro.last_name || "",
           company_name: pro.company_name || "",
+          contact_name: pro.contact_name || "",
           category_id: pro.category_id ? String(pro.category_id) : "",
           subcategory_id: pro.subcategory_id
             ? String(pro.subcategory_id)
@@ -413,10 +412,6 @@ function ProfessionalFormContainer() {
 
   const validate = useCallback(() => {
     const errs = {};
-    if (!state.formData.first_name.trim())
-      errs.first_name = "First name is required";
-    if (!state.formData.last_name.trim())
-      errs.last_name = "Last name is required";
     if (!state.formData.company_name.trim())
       errs.company_name = "Company name is required";
     if (!state.formData.phone.trim()) errs.phone = "Phone is required";
@@ -441,6 +436,15 @@ function ProfessionalFormContainer() {
     const errs = validate();
     if (Object.keys(errs).length > 0) {
       dispatch({type: "SET_ERRORS", payload: errs});
+      const msg = Object.values(errs).filter(Boolean).join(". ");
+      dispatch({
+        type: "SET_BANNER",
+        payload: {
+          open: true,
+          type: "error",
+          message: msg || (t("settings.pleaseFixErrors") || "Please fix the following errors."),
+        },
+      });
       return;
     }
 
@@ -487,6 +491,16 @@ function ProfessionalFormContainer() {
 
       if (isNew) {
         navigate(`/${accountUrl}/professionals/manage/${pro.id}`);
+      } else {
+        // Sync initial snapshot so hasChanges becomes false and Update button hides
+        const syncedData = {
+          ...state.formData,
+          years_in_business: state.formData.years_in_business
+            ? String(state.formData.years_in_business)
+            : "",
+          languages: [...(state.formData.languages || [])],
+        };
+        initialFormDataRef.current = syncedData;
       }
     } catch (err) {
       const msg =
@@ -560,7 +574,7 @@ function ProfessionalFormContainer() {
           }
         />
 
-        <div className="fixed right-0 w-auto sm:w-full z-50">
+        <div className="fixed top-18 right-0 w-auto sm:w-full z-50">
           <Banner
             type={state.bannerType}
             open={state.bannerOpen}
@@ -588,7 +602,7 @@ function ProfessionalFormContainer() {
             <div className="flex justify-between items-center mb-4">
               <button
                 type="button"
-                className="btn text-gray-500 hover:text-gray-800 dark:text-gray-300 dark:hover:text-gray-600 pl-0 focus:outline-none shadow-none"
+                className="btn text-gray-500 hover:text-gray-800 dark:text-gray-300 dark:hover:text-gray-600 mb-2 pl-0 focus:outline-none shadow-none"
                 onClick={handleBack}
               >
                 <svg
@@ -655,10 +669,10 @@ function ProfessionalFormContainer() {
                     </div>
 
                     <div className="space-y-1.5">
-                      {(fd.first_name || fd.last_name) && (
+                      {fd.contact_name && (
                         <div className="flex items-center text-sm text-gray-600 dark:text-gray-300">
                           <User className="w-4 h-4 mr-2 text-[#456564] shrink-0" />
-                          <span>{[fd.first_name, fd.last_name].filter(Boolean).join(" ")}</span>
+                          <span>{fd.contact_name}</span>
                         </div>
                       )}
                       {fd.phone && (
@@ -708,48 +722,25 @@ function ProfessionalFormContainer() {
                         }
                       />
                       {err.company_name && (
-                        <p className="mt-1 text-xs text-red-500">
-                          {err.company_name}
-                        </p>
+                        <div className="mt-1 flex items-center text-sm text-red-500">
+                          <AlertCircle className="h-4 w-4 mr-1 shrink-0" />
+                          <span>{err.company_name}</span>
+                        </div>
                       )}
                     </div>
-                    <div>
+                    <div className="md:col-span-2">
                       <label className="block text-sm font-medium mb-1 text-gray-500 dark:text-gray-400">
-                        First Name <span className="text-red-500">*</span>
+                        Contact Name
                       </label>
                       <input
                         type="text"
-                        className={inputClass("first_name")}
-                        placeholder="James"
-                        value={fd.first_name}
+                        className={inputClass("contact_name")}
+                        placeholder="Optional contact person"
+                        value={fd.contact_name}
                         onChange={(e) =>
-                          handleFieldChange("first_name", e.target.value)
+                          handleFieldChange("contact_name", e.target.value)
                         }
                       />
-                      {err.first_name && (
-                        <p className="mt-1 text-xs text-red-500">
-                          {err.first_name}
-                        </p>
-                      )}
-                    </div>
-                    <div>
-                      <label className="block text-sm font-medium mb-1 text-gray-500 dark:text-gray-400">
-                        Last Name <span className="text-red-500">*</span>
-                      </label>
-                      <input
-                        type="text"
-                        className={inputClass("last_name")}
-                        placeholder="Anderson"
-                        value={fd.last_name}
-                        onChange={(e) =>
-                          handleFieldChange("last_name", e.target.value)
-                        }
-                      />
-                      {err.last_name && (
-                        <p className="mt-1 text-xs text-red-500">
-                          {err.last_name}
-                        </p>
-                      )}
                     </div>
                     <div>
                       <label className="block text-sm font-medium mb-1 text-gray-500 dark:text-gray-400">
@@ -765,7 +756,10 @@ function ProfessionalFormContainer() {
                         }
                       />
                       {err.phone && (
-                        <p className="mt-1 text-xs text-red-500">{err.phone}</p>
+                        <div className="mt-1 flex items-center text-sm text-red-500">
+                          <AlertCircle className="h-4 w-4 mr-1 shrink-0" />
+                          <span>{err.phone}</span>
+                        </div>
                       )}
                     </div>
                     <div>
@@ -782,7 +776,10 @@ function ProfessionalFormContainer() {
                         }
                       />
                       {err.email && (
-                        <p className="mt-1 text-xs text-red-500">{err.email}</p>
+                        <div className="mt-1 flex items-center text-sm text-red-500">
+                          <AlertCircle className="h-4 w-4 mr-1 shrink-0" />
+                          <span>{err.email}</span>
+                        </div>
                       )}
                     </div>
                     <div className="md:col-span-2">
@@ -799,9 +796,10 @@ function ProfessionalFormContainer() {
                         }
                       />
                       {err.website && (
-                        <p className="mt-1 text-xs text-red-500">
-                          {err.website}
-                        </p>
+                        <div className="mt-1 flex items-center text-sm text-red-500">
+                          <AlertCircle className="h-4 w-4 mr-1 shrink-0" />
+                          <span>{err.website}</span>
+                        </div>
                       )}
                     </div>
                   </div>
@@ -856,7 +854,10 @@ function ProfessionalFormContainer() {
                         }
                       />
                       {err.city && (
-                        <p className="mt-1 text-xs text-red-500">{err.city}</p>
+                        <div className="mt-1 flex items-center text-sm text-red-500">
+                          <AlertCircle className="h-4 w-4 mr-1 shrink-0" />
+                          <span>{err.city}</span>
+                        </div>
                       )}
                     </div>
                     <div>
@@ -878,9 +879,10 @@ function ProfessionalFormContainer() {
                         ))}
                       </select>
                       {err.state && (
-                        <p className="mt-1 text-xs text-red-500">
-                          {err.state}
-                        </p>
+                        <div className="mt-1 flex items-center text-sm text-red-500">
+                          <AlertCircle className="h-4 w-4 mr-1 shrink-0" />
+                          <span>{err.state}</span>
+                        </div>
                       )}
                     </div>
                     <div>
@@ -944,9 +946,10 @@ function ProfessionalFormContainer() {
                         ))}
                       </select>
                       {err.category_id && (
-                        <p className="mt-1 text-xs text-red-500">
-                          {err.category_id}
-                        </p>
+                        <div className="mt-1 flex items-center text-sm text-red-500">
+                          <AlertCircle className="h-4 w-4 mr-1 shrink-0" />
+                          <span>{err.category_id}</span>
+                        </div>
                       )}
                     </div>
                     <div>
@@ -973,9 +976,10 @@ function ProfessionalFormContainer() {
                         ))}
                       </select>
                       {err.subcategory_id && (
-                        <p className="mt-1 text-xs text-red-500">
-                          {err.subcategory_id}
-                        </p>
+                        <div className="mt-1 flex items-center text-sm text-red-500">
+                          <AlertCircle className="h-4 w-4 mr-1 shrink-0" />
+                          <span>{err.subcategory_id}</span>
+                        </div>
                       )}
                     </div>
                     <div>

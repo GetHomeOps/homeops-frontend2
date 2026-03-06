@@ -35,6 +35,7 @@ import AIReanalysisAuditModal from "./partials/AIReanalysisAuditModal";
 
 function SystemsTab({
   propertyData,
+  maintenanceRecords = [],
   propertyIdFallback,
   handleInputChange,
   onSilentSystemsUpdate,
@@ -43,6 +44,7 @@ function SystemsTab({
   systems = [],
   inspectionAnalysis,
   maintenanceEvents = [],
+  onScheduleSuccess,
   onOpenInspectionReport,
   onSystemsCompletionChange,
   aiSidebarOpen: aiSidebarOpenProp,
@@ -324,6 +326,8 @@ function SystemsTab({
           systemsToShow={systemsToShow}
           customSystemsData={customSystemsData}
           maintenanceEvents={maintenanceEvents}
+          maintenanceRecords={maintenanceRecords}
+          onScheduleSuccess={onScheduleSuccess}
           aiCondition={aiConditionBySystem.roof}
           inspectionAnalysis={inspectionAnalysis}
           onOpenInspectionReport={onOpenInspectionReport}
@@ -484,6 +488,8 @@ function SystemsTab({
           systemsToShow={systemsToShow}
           customSystemsData={customSystemsData}
           maintenanceEvents={maintenanceEvents}
+          maintenanceRecords={maintenanceRecords}
+          onScheduleSuccess={onScheduleSuccess}
           aiCondition={aiConditionBySystem.gutters}
           inspectionAnalysis={inspectionAnalysis}
           onOpenInspectionReport={onOpenInspectionReport}
@@ -643,6 +649,8 @@ function SystemsTab({
           systemsToShow={systemsToShow}
           customSystemsData={customSystemsData}
           maintenanceEvents={maintenanceEvents}
+          maintenanceRecords={maintenanceRecords}
+          onScheduleSuccess={onScheduleSuccess}
           aiCondition={aiConditionBySystem.foundation}
           inspectionAnalysis={inspectionAnalysis}
           onOpenInspectionReport={onOpenInspectionReport}
@@ -752,6 +760,8 @@ function SystemsTab({
           systemsToShow={systemsToShow}
           customSystemsData={customSystemsData}
           maintenanceEvents={maintenanceEvents}
+          maintenanceRecords={maintenanceRecords}
+          onScheduleSuccess={onScheduleSuccess}
           aiCondition={aiConditionBySystem.exterior}
           inspectionAnalysis={inspectionAnalysis}
           onOpenInspectionReport={onOpenInspectionReport}
@@ -868,6 +878,8 @@ function SystemsTab({
           systemsToShow={systemsToShow}
           customSystemsData={customSystemsData}
           maintenanceEvents={maintenanceEvents}
+          maintenanceRecords={maintenanceRecords}
+          onScheduleSuccess={onScheduleSuccess}
           aiCondition={aiConditionBySystem.windows}
           inspectionAnalysis={inspectionAnalysis}
           onOpenInspectionReport={onOpenInspectionReport}
@@ -1028,6 +1040,8 @@ function SystemsTab({
           systemsToShow={systemsToShow}
           customSystemsData={customSystemsData}
           maintenanceEvents={maintenanceEvents}
+          maintenanceRecords={maintenanceRecords}
+          onScheduleSuccess={onScheduleSuccess}
           aiCondition={aiConditionBySystem.heating}
           inspectionAnalysis={inspectionAnalysis}
           onOpenInspectionReport={onOpenInspectionReport}
@@ -1196,6 +1210,8 @@ function SystemsTab({
           systemsToShow={systemsToShow}
           customSystemsData={customSystemsData}
           maintenanceEvents={maintenanceEvents}
+          maintenanceRecords={maintenanceRecords}
+          onScheduleSuccess={onScheduleSuccess}
           aiCondition={aiConditionBySystem.ac}
           inspectionAnalysis={inspectionAnalysis}
           onOpenInspectionReport={onOpenInspectionReport}
@@ -1367,6 +1383,8 @@ function SystemsTab({
           systemsToShow={systemsToShow}
           customSystemsData={customSystemsData}
           maintenanceEvents={maintenanceEvents}
+          maintenanceRecords={maintenanceRecords}
+          onScheduleSuccess={onScheduleSuccess}
           aiCondition={aiConditionBySystem.waterHeating}
           inspectionAnalysis={inspectionAnalysis}
           onOpenInspectionReport={onOpenInspectionReport}
@@ -1540,6 +1558,8 @@ function SystemsTab({
           systemsToShow={systemsToShow}
           customSystemsData={customSystemsData}
           maintenanceEvents={maintenanceEvents}
+          maintenanceRecords={maintenanceRecords}
+          onScheduleSuccess={onScheduleSuccess}
           aiCondition={aiConditionBySystem.electrical}
           inspectionAnalysis={inspectionAnalysis}
           onOpenInspectionReport={onOpenInspectionReport}
@@ -1713,6 +1733,8 @@ function SystemsTab({
           systemsToShow={systemsToShow}
           customSystemsData={customSystemsData}
           maintenanceEvents={maintenanceEvents}
+          maintenanceRecords={maintenanceRecords}
+          onScheduleSuccess={onScheduleSuccess}
           aiCondition={aiConditionBySystem.plumbing}
           inspectionAnalysis={inspectionAnalysis}
           onOpenInspectionReport={onOpenInspectionReport}
@@ -1907,6 +1929,8 @@ function SystemsTab({
           systemsToShow={systemsToShow}
           customSystemsData={customSystemsData}
           maintenanceEvents={maintenanceEvents}
+          maintenanceRecords={maintenanceRecords}
+          onScheduleSuccess={onScheduleSuccess}
           aiCondition={aiConditionBySystem.safety}
           inspectionAnalysis={inspectionAnalysis}
           onOpenInspectionReport={onOpenInspectionReport}
@@ -1976,6 +2000,8 @@ function SystemsTab({
           systemsToShow={systemsToShow}
           customSystemsData={customSystemsData}
           maintenanceEvents={maintenanceEvents}
+          maintenanceRecords={maintenanceRecords}
+          onScheduleSuccess={onScheduleSuccess}
           aiCondition={aiConditionBySystem.inspections}
           inspectionAnalysis={inspectionAnalysis}
           onOpenInspectionReport={onOpenInspectionReport}
@@ -2257,6 +2283,8 @@ function SystemsTab({
               systemsToShow={systemsToShow}
               customSystemsData={customSystemsData}
               maintenanceEvents={maintenanceEvents}
+              maintenanceRecords={maintenanceRecords}
+              onScheduleSuccess={onScheduleSuccess}
               aiCondition={aiConditionBySystem[sectionId] ?? aiConditionBySystem[`custom-${systemName}`]}
               inspectionAnalysis={inspectionAnalysis}
               onOpenInspectionReport={onOpenInspectionReport}

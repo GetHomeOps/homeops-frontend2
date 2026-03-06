@@ -1,10 +1,13 @@
 import React, {useState, useEffect} from "react";
 import {useTranslation} from "react-i18next";
+import {useNavigate} from "react-router-dom";
+import {Sparkles} from "lucide-react";
 import Header from "../../partials/Header";
 import Sidebar from "../../partials/Sidebar";
 import useCurrentAccount from "../../hooks/useCurrentAccount";
 import {useAuth} from "../../context/AuthContext";
 import AppApi from "../../api/api";
+import { PAGE_LAYOUT } from "../../constants/layout";
 
 /**
  * Billing page — current plan, usage vs limits, Stripe Customer Portal.
@@ -12,9 +15,11 @@ import AppApi from "../../api/api";
  */
 function BillingPage() {
   const {t} = useTranslation();
+  const navigate = useNavigate();
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const {currentAccount} = useCurrentAccount();
   const {currentUser} = useAuth();
+  const accountUrl = currentAccount?.url || currentAccount?.name || "";
   const [billing, setBilling] = useState(null);
   const [plans, setPlans] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -81,7 +86,7 @@ function BillingPage() {
         <Sidebar sidebarOpen={sidebarOpen} setSidebarOpen={setSidebarOpen} />
         <div className="relative flex flex-col flex-1 overflow-y-auto">
           <Header sidebarOpen={sidebarOpen} setSidebarOpen={setSidebarOpen} />
-          <main className="grow px-0 sm:px-4 lg:px-5 xxl:px-12 py-8">
+          <main className={`grow ${PAGE_LAYOUT.settings}`}>
             <p className="text-gray-600 dark:text-gray-400">Select an account to view billing.</p>
           </main>
         </div>
@@ -95,7 +100,7 @@ function BillingPage() {
       <div className="relative flex flex-col flex-1 overflow-y-auto overflow-x-hidden">
         <Header sidebarOpen={sidebarOpen} setSidebarOpen={setSidebarOpen} />
         <main className="grow">
-          <div className="px-0 sm:px-4 lg:px-5 xxl:px-12 py-8 w-full max-w-[96rem] mx-auto">
+          <div className={PAGE_LAYOUT.settings}>
             <div className="mb-8">
               <h1 className="text-2xl md:text-3xl text-gray-800 dark:text-gray-100 font-bold">
                 {t("settings.billing") || "Billing"}
@@ -123,16 +128,26 @@ function BillingPage() {
                     <h2 className="text-lg font-semibold text-gray-800 dark:text-gray-100">
                       {t("settings.currentPlan") || "Current Plan"}
                     </h2>
-                    {(sub?.status === "active" || sub?.status === "trialing" || billing?.mockMode) && (
+                    <div className="flex items-center gap-3">
                       <button
                         type="button"
-                        onClick={handleManageBilling}
-                        disabled={portalLoading}
-                        className="btn bg-gray-900 dark:bg-white text-white dark:text-gray-900 hover:bg-gray-800 dark:hover:bg-gray-100 disabled:opacity-50"
+                        onClick={() => navigate(`/${accountUrl}/settings/upgrade`)}
+                        className="btn bg-violet-600 text-white hover:bg-violet-700 inline-flex items-center gap-2"
                       >
-                        {portalLoading ? (t("loading") || "Loading...") : "Manage billing"}
+                        <Sparkles className="w-4 h-4" />
+                        Upgrade plan
                       </button>
-                    )}
+                      {(sub?.status === "active" || sub?.status === "trialing" || billing?.mockMode) && (
+                        <button
+                          type="button"
+                          onClick={handleManageBilling}
+                          disabled={portalLoading}
+                          className="btn bg-gray-900 dark:bg-white text-white dark:text-gray-900 hover:bg-gray-800 dark:hover:bg-gray-100 disabled:opacity-50"
+                        >
+                          {portalLoading ? (t("loading") || "Loading...") : "Manage billing"}
+                        </button>
+                      )}
+                    </div>
                   </div>
                   <div className="p-6">
                     {sub || billing?.mockMode ? (

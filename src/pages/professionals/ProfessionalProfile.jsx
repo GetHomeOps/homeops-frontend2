@@ -1,7 +1,6 @@
-import React, {useState, useMemo, useRef, useCallback, useEffect} from "react";
+import React, {useState, useEffect, useRef, useCallback} from "react";
 import {useParams, useNavigate} from "react-router-dom";
 import {
-  ArrowLeft,
   ChevronLeft,
   ChevronRight,
   Star,
@@ -26,7 +25,8 @@ import {
 import Sidebar from "../../partials/Sidebar";
 import Header from "../../partials/Header";
 import useCurrentAccount from "../../hooks/useCurrentAccount";
-import {MOCK_PROFESSIONALS} from "./data/mockData";
+import AppApi from "../../api/api";
+import {normalizeProfessional} from "./utils/normalizeProfessional";
 
 const TABS = [
   {id: "about", label: "About"},
@@ -42,17 +42,95 @@ function ProfessionalProfile() {
   const [activeTab, setActiveTab] = useState("about");
   const {currentAccount} = useCurrentAccount();
   const accountUrl = currentAccount?.url || "";
+  const [professional, setProfessional] = useState(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
 
-  const professional = useMemo(
-    () => MOCK_PROFESSIONALS.find((p) => p.id === proId),
-    [proId],
-  );
+  useEffect(() => {
+    if (!proId) {
+      setProfessional(null);
+      setLoading(false);
+      return;
+    }
+    setLoading(true);
+    setError(null);
+    AppApi.getProfessional(proId)
+      .then((data) => {
+        const norm = normalizeProfessional(data);
+        if (norm) {
+          setProfessional({
+            ...norm,
+            projectPhotos: norm.projectPhotos?.length
+              ? norm.projectPhotos
+              : [{id: "profile", url: norm.photoUrl, caption: "Profile"}],
+          });
+        } else {
+          setProfessional(null);
+        }
+      })
+      .catch((err) => {
+        setError(err?.message || "Failed to load professional");
+        setProfessional(null);
+      })
+      .finally(() => setLoading(false));
+  }, [proId]);
+
+  const fetchReviewsAndEligibility = useCallback(() => {
+    if (!proId) return;
+    setReviewsLoading(true);
+    Promise.all([
+      AppApi.getProfessionalReviews(proId),
+      AppApi.getProfessionalReviewEligibility(proId),
+    ])
+      .then(([reviewsData, eligibility]) => {
+        setReviews(reviewsData.reviews ?? []);
+        setReviewsAggregate(reviewsData.aggregate ?? { count: 0, avgRating: 0 });
+        setReviewEligibility(eligibility ?? {});
+      })
+      .catch(() => {
+        setReviews([]);
+        setReviewsAggregate({ count: 0, avgRating: 0 });
+        setReviewEligibility(null);
+      })
+      .finally(() => setReviewsLoading(false));
+  }, [proId]);
+
+  const handleSubmitReview = async () => {
+    if (!proId || reviewForm.rating < 1 || reviewForm.rating > 5) return;
+    setReviewError(null);
+    setReviewSubmitting(true);
+    try {
+      await AppApi.createProfessionalReview(proId, {
+        rating: reviewForm.rating,
+        comment: reviewForm.comment.trim() || null,
+      });
+      setReviewForm({ rating: 0, comment: "" });
+      fetchReviewsAndEligibility();
+    } catch (err) {
+      setReviewError(err?.message || err?.messages?.[0] || "Failed to submit review");
+    } finally {
+      setReviewSubmitting(false);
+    }
+  };
+
+  useEffect(() => {
+    if (!proId) return;
+    fetchReviewsAndEligibility();
+  }, [proId, fetchReviewsAndEligibility]);
 
   const [saved, setSaved] = useState(professional?.saved ?? false);
   const [saveToast, setSaveToast] = useState(false);
   const [messageText, setMessageText] = useState("");
   const [messageSent, setMessageSent] = useState(false);
   const [carouselIdx, setCarouselIdx] = useState(0);
+
+  const [reviews, setReviews] = useState([]);
+  const [reviewsAggregate, setReviewsAggregate] = useState({ count: 0, avgRating: 0 });
+  const [reviewsLoading, setReviewsLoading] = useState(false);
+  const [reviewEligibility, setReviewEligibility] = useState(null);
+  const [reviewForm, setReviewForm] = useState({ rating: 0, comment: "" });
+  const [reviewSubmitting, setReviewSubmitting] = useState(false);
+  const [reviewError, setReviewError] = useState(null);
 
   const sectionRefs = useRef({});
   const tabBarRef = useRef(null);
@@ -121,7 +199,23 @@ function ProfessionalProfile() {
     setMessageText("");
   };
 
-  if (!professional) {
+  if (loading) {
+    return (
+      <div className="flex h-[100dvh] overflow-hidden">
+        <Sidebar sidebarOpen={sidebarOpen} setSidebarOpen={setSidebarOpen} />
+        <div className="relative flex flex-col flex-1 overflow-y-auto overflow-x-hidden">
+          <Header sidebarOpen={sidebarOpen} setSidebarOpen={setSidebarOpen} />
+          <main className="grow flex items-center justify-center">
+            <div className="text-center text-gray-500 dark:text-gray-400">
+              Loading professional...
+            </div>
+          </main>
+        </div>
+      </div>
+    );
+  }
+
+  if (!professional || error) {
     return (
       <div className="flex h-[100dvh] overflow-hidden">
         <Sidebar sidebarOpen={sidebarOpen} setSidebarOpen={setSidebarOpen} />
@@ -132,6 +226,11 @@ function ProfessionalProfile() {
               <h2 className="text-xl font-bold text-gray-900 dark:text-white mb-2">
                 Professional not found
               </h2>
+              {error && (
+                <p className="text-sm text-gray-500 dark:text-gray-400 mb-3">
+                  {error}
+                </p>
+              )}
               <button
                 type="button"
                 onClick={() =>
@@ -154,9 +253,15 @@ function ProfessionalProfile() {
   const nextSlide = () =>
     setCarouselIdx((i) => (i === photos.length - 1 ? 0 : i + 1));
 
+  const displayRating = reviewsAggregate.count > 0
+    ? reviewsAggregate.avgRating
+    : (professional.rating || 0);
+  const displayReviewCount = reviewsAggregate.count > 0
+    ? reviewsAggregate.count
+    : (professional.reviewCount || 0);
   const stars = Array.from({length: 5}, (_, i) => ({
-    filled: i < Math.floor(professional.rating),
-    half: i >= Math.floor(professional.rating) && i < professional.rating,
+    filled: i < Math.floor(displayRating),
+    half: i >= Math.floor(displayRating) && i < displayRating,
     key: i,
   }));
 
@@ -207,10 +312,17 @@ function ProfessionalProfile() {
             <button
               type="button"
               onClick={() => navigate(-1)}
-              className="inline-flex items-center gap-2 text-sm font-medium text-[#456564] dark:text-[#7aa3a2] hover:text-[#34514f] dark:hover:text-[#9ec5c4] transition-colors mb-4"
+              className="btn text-gray-500 hover:text-gray-800 dark:text-gray-300 dark:hover:text-gray-600 mb-4 pl-0 focus:outline-none shadow-none"
             >
-              <ArrowLeft className="w-4 h-4" />
-              Back
+              <svg
+                className="fill-current shrink-0 mr-1"
+                width="18"
+                height="18"
+                viewBox="0 0 18 18"
+              >
+                <path d="M9.4 13.4l1.4-1.4-4-4 4-4-1.4-1.4L4 8z" />
+              </svg>
+              <span className="text-lg">Professionals</span>
             </button>
 
             {/* ═══ Hero Carousel ═══ */}
@@ -303,10 +415,10 @@ function ProfessionalProfile() {
                             />
                           ))}
                           <span className="text-xs font-bold text-gray-700 dark:text-gray-300 ml-1">
-                            {professional.rating}
+                            {displayRating}
                           </span>
                           <span className="text-xs text-gray-400 ml-0.5">
-                            ({professional.reviewCount})
+                            ({displayReviewCount})
                           </span>
                         </div>
                         <span className="inline-flex items-center gap-1 text-[11px] font-semibold text-emerald-600 dark:text-emerald-400">
@@ -461,16 +573,15 @@ function ProfessionalProfile() {
                   <h2 className="text-base font-bold text-gray-900 dark:text-white mb-3">
                     About
                   </h2>
-                  <p className="text-sm text-gray-600 dark:text-gray-400 leading-relaxed">
-                    {professional.description}
-                  </p>
-                  <p className="text-sm text-gray-600 dark:text-gray-400 leading-relaxed mt-3">
-                    We pride ourselves on delivering high-quality work that
-                    exceeds client expectations. From initial consultation to
-                    project completion, we maintain clear communication and
-                    transparent pricing. Our team of skilled professionals is
-                    dedicated to bringing your vision to life.
-                  </p>
+                  {professional.description ? (
+                    <p className="text-sm text-gray-600 dark:text-gray-400 leading-relaxed">
+                      {professional.description}
+                    </p>
+                  ) : (
+                    <p className="text-sm text-gray-500 dark:text-gray-500 italic">
+                      No description provided.
+                    </p>
+                  )}
 
                   <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 mt-6 pt-5 border-t border-gray-100 dark:border-gray-700">
                     {[
@@ -478,10 +589,10 @@ function ProfessionalProfile() {
                         value: professional.yearsInBusiness,
                         label: "Years in Business",
                       },
-                      {value: professional.reviewCount, label: "Reviews"},
+                      {value: displayReviewCount, label: "Reviews"},
                       {value: photos.length, label: "Projects"},
                       {
-                        value: professional.rating,
+                        value: displayRating,
                         label: "Rating",
                         accent: true,
                       },
@@ -561,7 +672,7 @@ function ProfessionalProfile() {
                       {
                         icon: Languages,
                         label: "Languages",
-                        value: professional.languages.join(", "),
+                        value: (professional.languages || []).join(", ") || "—",
                       },
                       {
                         icon: Award,
@@ -637,62 +748,135 @@ function ProfessionalProfile() {
                     <h2 className="text-base font-bold text-gray-900 dark:text-white mb-5">
                       Reviews
                     </h2>
-                    <div className="flex items-start gap-6">
-                      <div className="text-center shrink-0">
-                        <p className="text-4xl font-bold text-gray-900 dark:text-white">
-                          {professional.rating}
-                        </p>
-                        <div className="flex items-center gap-0.5 mt-1.5 justify-center">
-                          {stars.map((s) => (
-                            <Star
-                              key={s.key}
-                              className={`w-3.5 h-3.5 ${
-                                s.filled
-                                  ? "fill-amber-400 text-amber-400"
-                                  : "fill-gray-200 dark:fill-gray-600 text-gray-200"
-                              }`}
-                            />
-                          ))}
-                        </div>
-                        <p className="text-[11px] text-gray-400 mt-1">
-                          {professional.reviewCount} reviews
-                        </p>
-                      </div>
-                      <div className="flex-1 space-y-1.5">
-                        {[5, 4, 3, 2, 1].map((n) => {
-                          const pct =
-                            n === 5
-                              ? 72
-                              : n === 4
-                                ? 20
-                                : n === 3
-                                  ? 5
-                                  : n === 2
-                                    ? 2
-                                    : 1;
-                          return (
-                            <div key={n} className="flex items-center gap-2">
-                              <span className="text-[11px] text-gray-400 w-3 text-right">
-                                {n}
-                              </span>
-                              <Star className="w-3 h-3 fill-amber-400 text-amber-400" />
-                              <div className="flex-1 h-1.5 bg-gray-100 dark:bg-gray-700 rounded-full overflow-hidden">
-                                <div
-                                  className="h-full bg-amber-400 rounded-full"
-                                  style={{width: `${pct}%`}}
+                    {reviewsLoading ? (
+                      <p className="text-sm text-gray-500 dark:text-gray-400">
+                        Loading reviews...
+                      </p>
+                    ) : (
+                      <>
+                        <div className="flex items-start gap-6">
+                          <div className="text-center shrink-0">
+                            <p className="text-4xl font-bold text-gray-900 dark:text-white">
+                              {displayRating || "—"}
+                            </p>
+                            <div className="flex items-center gap-0.5 mt-1.5 justify-center">
+                              {stars.map((s) => (
+                                <Star
+                                  key={s.key}
+                                  className={`w-3.5 h-3.5 ${
+                                    s.filled
+                                      ? "fill-amber-400 text-amber-400"
+                                      : "fill-gray-200 dark:fill-gray-600 text-gray-200"
+                                  }`}
                                 />
-                              </div>
-                              <span className="text-[11px] text-gray-400 w-8">
-                                {pct}%
-                              </span>
+                              ))}
                             </div>
-                          );
-                        })}
-                      </div>
-                    </div>
+                            <p className="text-[11px] text-gray-400 mt-1">
+                              {displayReviewCount} {displayReviewCount === 1 ? "review" : "reviews"}
+                            </p>
+                          </div>
+                          {reviews.length > 0 && (
+                            <div className="flex-1 space-y-1.5">
+                              {[5, 4, 3, 2, 1].map((n) => {
+                                const count = reviews.filter((r) => r.rating === n).length;
+                                const pct = reviews.length > 0 ? Math.round((count / reviews.length) * 100) : 0;
+                                return (
+                                  <div key={n} className="flex items-center gap-2">
+                                    <span className="text-[11px] text-gray-400 w-3 text-right">
+                                      {n}
+                                    </span>
+                                    <Star className="w-3 h-3 fill-amber-400 text-amber-400" />
+                                    <div className="flex-1 h-1.5 bg-gray-100 dark:bg-gray-700 rounded-full overflow-hidden">
+                                      <div
+                                        className="h-full bg-amber-400 rounded-full transition-all"
+                                        style={{width: `${pct}%`}}
+                                      />
+                                    </div>
+                                    <span className="text-[11px] text-gray-400 w-8">
+                                      {pct}%
+                                    </span>
+                                  </div>
+                                );
+                              })}
+                            </div>
+                          )}
+                        </div>
+
+                        {reviewEligibility?.canReview && (
+                          <div className="mt-6 pt-5 border-t border-gray-100 dark:border-gray-700">
+                            <h3 className="text-sm font-semibold text-gray-800 dark:text-gray-200 mb-3">
+                              Write a review
+                            </h3>
+                            {reviewError && (
+                              <p className="text-sm text-red-600 dark:text-red-400 mb-2">
+                                {reviewError}
+                              </p>
+                            )}
+                            <div className="flex flex-wrap gap-2 mb-3">
+                              {[1, 2, 3, 4, 5].map((n) => (
+                                <button
+                                  key={n}
+                                  type="button"
+                                  onClick={() => setReviewForm((f) => ({...f, rating: n}))}
+                                  className={`p-1.5 rounded transition-colors ${
+                                    reviewForm.rating >= n
+                                      ? "text-amber-500 hover:text-amber-600"
+                                      : "text-gray-300 dark:text-gray-600 hover:text-amber-400"
+                                  }`}
+                                >
+                                  <Star
+                                    className={`w-6 h-6 ${
+                                      reviewForm.rating >= n ? "fill-current" : ""
+                                    }`}
+                                  />
+                                </button>
+                              ))}
+                            </div>
+                            <textarea
+                              value={reviewForm.comment}
+                              onChange={(e) =>
+                                setReviewForm((f) => ({...f, comment: e.target.value}))
+                              }
+                              placeholder="Share your experience (optional)"
+                              rows={3}
+                              className="form-input w-full text-sm mb-3"
+                            />
+                            <button
+                              type="button"
+                              onClick={handleSubmitReview}
+                              disabled={
+                                reviewForm.rating < 1 ||
+                                reviewSubmitting
+                              }
+                              className="btn bg-[#456564] hover:bg-[#34514f] text-white disabled:opacity-50"
+                            >
+                              {reviewSubmitting ? "Submitting..." : "Submit Review"}
+                            </button>
+                          </div>
+                        )}
+                        {reviewEligibility?.alreadyReviewed && !reviewEligibility?.canReview && (
+                          <p className="mt-4 text-sm text-gray-500 dark:text-gray-400">
+                            You have already submitted a review for this professional.
+                          </p>
+                        )}
+                        {reviewEligibility && !reviewEligibility.canReview && !reviewEligibility.alreadyReviewed && reviewEligibility.hasCompletedWork === false && (
+                          <p className="mt-4 text-sm text-gray-500 dark:text-gray-400">
+                            Complete at least one maintenance appointment with this professional to leave a review.
+                          </p>
+                        )}
+                      </>
+                    )}
                   </div>
 
-                  {mockReviews.map((review) => (
+                  {reviews.length === 0 && !reviewsLoading && (
+                    <div className="bg-white dark:bg-gray-800 rounded-xl border border-gray-200/60 dark:border-gray-700/50 shadow-sm p-8 text-center">
+                      <p className="text-sm text-gray-500 dark:text-gray-400">
+                        No reviews yet.
+                      </p>
+                    </div>
+                  )}
+
+                  {reviews.map((review) => (
                     <div
                       key={review.id}
                       className="bg-white dark:bg-gray-800 rounded-xl border border-gray-200/60 dark:border-gray-700/50 shadow-sm p-5"
@@ -700,11 +884,11 @@ function ProfessionalProfile() {
                       <div className="flex items-center justify-between mb-2">
                         <div className="flex items-center gap-2.5">
                           <div className="w-8 h-8 rounded-full bg-[#456564]/10 flex items-center justify-center text-xs font-bold text-[#456564]">
-                            {review.author[0]}
+                            {(review.authorName || "?").charAt(0).toUpperCase()}
                           </div>
                           <div>
                             <p className="text-sm font-semibold text-gray-900 dark:text-white">
-                              {review.author}
+                              {review.authorName || "Anonymous"}
                             </p>
                             <div className="flex items-center gap-0.5">
                               {Array.from({length: 5}, (_, i) => (
@@ -721,12 +905,20 @@ function ProfessionalProfile() {
                           </div>
                         </div>
                         <span className="text-[11px] text-gray-400">
-                          {review.date}
+                          {review.createdAt
+                            ? new Date(review.createdAt).toLocaleDateString("en-US", {
+                                month: "short",
+                                day: "numeric",
+                                year: "numeric",
+                              })
+                            : ""}
                         </span>
                       </div>
-                      <p className="text-sm text-gray-600 dark:text-gray-400 leading-relaxed">
-                        {review.text}
-                      </p>
+                      {review.comment && (
+                        <p className="text-sm text-gray-600 dark:text-gray-400 leading-relaxed">
+                          {review.comment}
+                        </p>
+                      )}
                     </div>
                   ))}
                 </div>

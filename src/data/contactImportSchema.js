@@ -5,7 +5,6 @@
  */
 export const CONTACT_IMPORT_FIELDS = [
   { key: "name", label: "Name", required: true, type: "string" },
-  { key: "image", label: "Image", required: false, type: "string" },
   { key: "type", label: "Type", required: false, type: "number" },
   { key: "phone", label: "Phone", required: false, type: "string" },
   { key: "email", label: "Email", required: false, type: "email" },

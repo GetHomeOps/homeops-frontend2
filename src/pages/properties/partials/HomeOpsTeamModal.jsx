@@ -1,5 +1,5 @@
 import React, {useEffect, useMemo, useState} from "react";
-import {UserPlus, X, UserCog, Home, Users, Mail, Send, Check, AlertCircle} from "lucide-react";
+import {UserPlus, X, UserCog, Home, Users, Mail, Send, Check, AlertCircle, RefreshCw} from "lucide-react";
 import ModalBlank from "../../../components/ModalBlank";
 import SelectDropdown from "../../contacts/SelectDropdown";
 import {useTranslation} from "react-i18next";
@@ -40,6 +40,7 @@ function HomeOpsTeamModal({
   const [inviteSuccess, setInviteSuccess] = useState(null);
   const [inviteError, setInviteError] = useState(null);
   const [pendingInvitations, setPendingInvitations] = useState([]);
+  const [resendingId, setResendingId] = useState(null);
 
   const {currentAccount} = useCurrentAccount();
   const {t} = useTranslation();
@@ -216,6 +217,20 @@ function HomeOpsTeamModal({
       setInviteError(err?.message || "Failed to send invitation");
     } finally {
       setInviteSending(false);
+    }
+  };
+
+  const handleResendInvitation = async (inv) => {
+    setResendingId(inv.id);
+    setInviteError(null);
+    try {
+      await AppApi.resendInvitation(inv.id);
+      setInviteSuccess(inv.invitee_email || inv.inviteeEmail || "Invitation resent");
+      setTimeout(() => setInviteSuccess(null), 3000);
+    } catch (err) {
+      setInviteError(err?.message || (t("invitations.resendError") || "Error resending invitation"));
+    } finally {
+      setResendingId(null);
     }
   };
 
@@ -466,20 +481,33 @@ function HomeOpsTeamModal({
             {pendingInvitations.length > 0 && (
               <div className="mt-3">
                 <p className="text-xs font-medium text-gray-500 dark:text-gray-400 mb-1.5">
-                  Pending invitations
+                  {t("invitations.statusPending") || "Pending invitations"}
                 </p>
                 <div className="space-y-1">
                   {pendingInvitations.map((inv) => (
                     <div
                       key={inv.id}
-                      className="flex items-center justify-between py-1.5 px-2 bg-gray-50 dark:bg-gray-800 rounded text-xs"
+                      className="flex items-center justify-between gap-2 py-1.5 px-2 bg-gray-50 dark:bg-gray-800 rounded text-xs"
                     >
-                      <span className="text-gray-700 dark:text-gray-300 truncate">
+                      <span className="text-gray-700 dark:text-gray-300 truncate flex-1 min-w-0">
                         {inv.invitee_email || inv.inviteeEmail}
                       </span>
-                      <span className="text-gray-400 dark:text-gray-500 ml-2 shrink-0">
+                      <span className="text-gray-400 dark:text-gray-500 shrink-0">
                         {inv.intended_role || inv.intendedRole || "editor"}
                       </span>
+                      <button
+                        type="button"
+                        onClick={() => handleResendInvitation(inv)}
+                        disabled={resendingId === inv.id}
+                        className="shrink-0 inline-flex items-center gap-1 text-[#456564] dark:text-[#5a7a78] hover:underline font-medium disabled:opacity-50"
+                      >
+                        {resendingId === inv.id ? (
+                          <span className="animate-spin rounded-full h-3 w-3 border-2 border-current border-t-transparent" />
+                        ) : (
+                          <RefreshCw className="w-3 h-3" />
+                        )}
+                        {t("invitations.resendInvitationEmail") || "Resend Invitation Email"}
+                      </button>
                     </div>
                   ))}
                 </div>

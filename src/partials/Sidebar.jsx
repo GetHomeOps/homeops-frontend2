@@ -313,7 +313,9 @@ function Sidebar({sidebarOpen, setSidebarOpen, variant = "default"}) {
   );
 
   const isPathActive = useCallback(
-    (path, activePaths) => {
+    (path, activePaths, excludeFromActive) => {
+      if (excludeFromActive?.some((excl) => new RegExp(`\\/${excl}(\\/|$)`).test(pathname)))
+        return false;
       const segments = activePaths || [path];
       return segments.some((seg) => new RegExp(`\\/${seg}(\\/|$)`).test(pathname));
     },
@@ -364,7 +366,7 @@ function Sidebar({sidebarOpen, setSidebarOpen, variant = "default"}) {
 
   const renderNavLink = (item, isChild = false) => {
     const path = toPath(item.path);
-    const active = isPathActive(item.path, item.activePaths);
+    const active = isPathActive(item.path, item.activePaths, item.excludeFromActive);
     const Icon = item.icon;
     const classes = isChild
       ? active
@@ -402,7 +404,7 @@ function Sidebar({sidebarOpen, setSidebarOpen, variant = "default"}) {
     if (children.length === 0) return null;
 
     const isGroupActive = children.some((c) =>
-      isPathActive(c.path, c.activePaths),
+      isPathActive(c.path, c.activePaths, c.excludeFromActive),
     );
     const Icon = group.icon;
 
@@ -536,6 +538,7 @@ function Sidebar({sidebarOpen, setSidebarOpen, variant = "default"}) {
           sidebarOpen ? "opacity-100" : "opacity-0 pointer-events-none"
         }`}
         aria-hidden="true"
+        onClick={() => setSidebarOpen(false)}
       />
 
       <div className="relative">

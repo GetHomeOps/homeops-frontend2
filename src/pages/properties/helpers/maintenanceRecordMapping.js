@@ -8,6 +8,7 @@ export const RECORD_STATUS = {
   DRAFT: "draft",
   USER_COMPLETED: "user_completed",
   CONTRACTOR_PENDING: "contractor_pending",
+  CONTRACTOR_COMPLETED: "contractor_completed",
 };
 
 /** Fields stored in the `data` object; null/undefined become empty string or [] */
@@ -130,6 +131,7 @@ export function fromMaintenanceRecordBackend(backend) {
       backend.recordStatus ??
       backend.record_status ??
       (d.requestStatus === "pending" ? RECORD_STATUS.CONTRACTOR_PENDING : null),
+    contractorSubmittedAt: d.contractorSubmittedAt ?? null,
   };
 }
 

@@ -14,6 +14,7 @@ import {
   Star,
   MessageSquare,
   Loader2,
+  Wrench,
 } from "lucide-react";
 import ModalBlank from "../../../components/ModalBlank";
 import DatePickerInput from "../../../components/DatePickerInput";
@@ -59,13 +60,16 @@ Thank you!`;
 
 /* ──────────────────────────── Step Indicator ──────────────────────────── */
 
-function StepIndicator({currentStep, steps}) {
-  const circleSize = 32; // w-8 h-8 = 32px
-  const lineVerticalOffset = circleSize / 2; // align line with center of circles
+/** Fixed slot widths keep circles/labels aligned and avoid over-stretching */
+const STEP_SLOT_CLASS = "w-14 sm:w-16 flex-shrink-0";
+const CONNECTOR_LINE_CLASS = "w-6 sm:w-8 h-0.5 mx-0.5 sm:mx-1 flex-shrink-0";
 
+function StepIndicator({currentStep, steps}) {
   return (
     <div className="mb-6 flex justify-center">
-      <div className="flex items-start justify-center">
+      <div className="w-full max-w-[320px] sm:max-w-[360px]">
+      {/* Circles and connector lines */}
+      <div className="flex items-center justify-center">
         {steps.map((step, idx) => {
           const isActive = idx === currentStep;
           const isCompleted = idx < currentStep;
@@ -73,16 +77,15 @@ function StepIndicator({currentStep, steps}) {
             <React.Fragment key={step.id}>
               {idx > 0 && (
                 <div
-                  className={`flex-shrink-0 h-0.5 w-4 sm:w-8 mx-0.5 transition-colors duration-200 ${
+                  className={`${CONNECTOR_LINE_CLASS} transition-colors duration-200 ${
                     idx <= currentStep
                       ? "bg-[#456564]"
                       : "bg-gray-200 dark:bg-gray-600"
                   }`}
-                  style={{marginTop: `${lineVerticalOffset}px`}}
                   aria-hidden
                 />
               )}
-              <div className="flex flex-col items-center flex-shrink-0">
+              <div className={`${STEP_SLOT_CLASS} flex justify-center`}>
                 <div
                   className={`w-8 h-8 rounded-full flex items-center justify-center text-sm font-semibold border-2 transition-all duration-200 ${
                     isCompleted
@@ -94,20 +97,32 @@ function StepIndicator({currentStep, steps}) {
                 >
                   {isCompleted ? <CheckCircle2 className="w-4 h-4" /> : idx + 1}
                 </div>
-                <span
-                  className={`text-[10px] sm:text-xs font-medium mt-1.5 text-center leading-tight max-w-[72px] truncate ${
-                    isActive || isCompleted
-                      ? "text-[#456564] dark:text-[#7aa3a2]"
-                      : "text-gray-400 dark:text-gray-500"
-                  }`}
-                  title={step.label}
-                >
-                  {step.label}
-                </span>
               </div>
             </React.Fragment>
           );
         })}
+      </div>
+      {/* Labels row - same slot structure as circles for precise alignment */}
+      <div className="flex items-start justify-center mt-1.5">
+        {steps.map((step, idx) => {
+          const isActive = idx === currentStep;
+          const isCompleted = idx < currentStep;
+          return (
+            <React.Fragment key={step.id}>
+              {idx > 0 && <div className={CONNECTOR_LINE_CLASS} aria-hidden />}
+              <span
+                className={`${STEP_SLOT_CLASS} text-[10px] sm:text-xs font-medium text-center leading-tight block px-1 whitespace-normal break-words ${
+                  isActive || isCompleted
+                    ? "text-[#456564] dark:text-[#7aa3a2]"
+                    : "text-gray-400 dark:text-gray-500"
+                }`}
+              >
+                {step.label}
+              </span>
+            </React.Fragment>
+          );
+        })}
+      </div>
       </div>
     </div>
   );
@@ -444,7 +459,15 @@ function DetailsStep({
   setScheduledDate,
   scheduledTime,
   setScheduledTime,
+  scheduleType,
+  maintenanceRecommendations = [],
+  maintenanceLoading = false,
 }) {
+  const hasRecommendations =
+    scheduleType === "inspection" &&
+    Array.isArray(maintenanceRecommendations) &&
+    maintenanceRecommendations.length > 0;
+
   return (
     <div className="space-y-5">
       <div>
@@ -455,6 +478,33 @@ function DetailsStep({
           Pick a date and time, add notes, and set a reminder.
         </p>
       </div>
+
+      {scheduleType === "inspection" && (
+        <div className="rounded-lg border border-[#456564]/20 dark:border-[#7aa3a2]/30 bg-[#456564]/5 dark:bg-[#456564]/10 p-4">
+          <h4 className="text-sm font-semibold text-gray-800 dark:text-gray-200 mb-2 flex items-center gap-1.5">
+            <Wrench className="w-4 h-4 text-[#456564] dark:text-[#7aa3a2]" />
+            Suggested inspection scope
+          </h4>
+          {maintenanceLoading ? (
+            <p className="text-sm text-gray-500 dark:text-gray-400">
+              Loading recommendations...
+            </p>
+          ) : hasRecommendations ? (
+            <ul className="text-sm text-gray-700 dark:text-gray-300 space-y-1.5">
+              {maintenanceRecommendations.map((item, idx) => (
+                <li key={idx} className="flex items-start gap-2">
+                  <CheckCircle2 className="w-4 h-4 text-[#456564] dark:text-[#7aa3a2] flex-shrink-0 mt-0.5" />
+                  <span>{typeof item === "string" ? item : item.task || item}</span>
+                </li>
+              ))}
+            </ul>
+          ) : (
+            <p className="text-sm text-gray-500 dark:text-gray-400">
+              No specific recommendations yet. Add inspection documents or run AI analysis for tailored suggestions.
+            </p>
+          )}
+        </div>
+      )}
 
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
         <div>
@@ -627,8 +677,10 @@ function ScheduleSystemModal({
   systemType,
   contacts = [],
   onSchedule,
+  onScheduleSuccess,
   propertyId,
   propertyData = {},
+  checklistItemId = null,
 }) {
   const {accountUrl: paramAccountUrl} = useParams();
   const {currentAccount} = useCurrentAccount();
@@ -647,6 +699,8 @@ function ScheduleSystemModal({
   const [scheduledDate, setScheduledDate] = useState("");
   const [scheduledTime, setScheduledTime] = useState("");
   const [messageBody, setMessageBody] = useState("");
+  const [maintenanceRecommendations, setMaintenanceRecommendations] = useState([]);
+  const [maintenanceLoading, setMaintenanceLoading] = useState(false);
   const [alertEnabled, setAlertEnabled] = useState(true);
   const [alertTiming, setAlertTiming] = useState("3d");
   const [alertDate, setAlertDate] = useState("");
@@ -681,12 +735,57 @@ function ScheduleSystemModal({
       setScheduledDate("");
       setScheduledTime("");
       setMessageBody("");
+      setMaintenanceRecommendations([]);
+      setMaintenanceLoading(false);
       setAlertEnabled(true);
       setAlertTiming("3d");
       setAlertDate("");
       setAlertTime("");
     }
   }, [isOpen]);
+
+  /* Fetch maintenance recommendations when scheduling an inspection */
+  const propId =
+    propertyId ??
+    propertyData?.id ??
+    propertyData?.identity?.id ??
+    propertyData?.property_uid ??
+    propertyData?.identity?.property_uid;
+  useEffect(() => {
+    if (
+      !isOpen ||
+      scheduleType !== "inspection" ||
+      !propId ||
+      !systemType ||
+      !systemLabel
+    ) {
+      setMaintenanceRecommendations([]);
+      return;
+    }
+    let cancelled = false;
+    setMaintenanceLoading(true);
+    AppApi.getAIMaintenanceAdvice(propId, {
+      systemType,
+      systemName: systemLabel,
+      systemContext: {},
+    })
+      .then((advice) => {
+        if (!cancelled && advice?.suggestions?.length) {
+          setMaintenanceRecommendations(advice.suggestions);
+        } else if (!cancelled) {
+          setMaintenanceRecommendations([]);
+        }
+      })
+      .catch(() => {
+        if (!cancelled) setMaintenanceRecommendations([]);
+      })
+      .finally(() => {
+        if (!cancelled) setMaintenanceLoading(false);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [isOpen, scheduleType, propId, systemType, systemLabel]);
 
   const messageTemplateSetRef = useRef(false);
   useEffect(() => {
@@ -786,11 +885,13 @@ function ScheduleSystemModal({
       message_enabled: !!messageBody?.trim(),
       message_body: messageBody?.trim() || null,
       timezone: Intl.DateTimeFormat().resolvedOptions().timeZone,
+      checklist_item_id: checklistItemId || null,
     };
 
     setSaving(true);
     try {
       await AppApi.createMaintenanceEvent(propId, eventPayload);
+      onScheduleSuccess?.();
       setShowSuccess(true);
       setTimeout(() => {
         setShowSuccess(false);
@@ -909,6 +1010,9 @@ function ScheduleSystemModal({
               setScheduledDate={setScheduledDate}
               scheduledTime={scheduledTime}
               setScheduledTime={setScheduledTime}
+              scheduleType={scheduleType}
+              maintenanceRecommendations={maintenanceRecommendations}
+              maintenanceLoading={maintenanceLoading}
             />
           )}
           {currentStep === 3 && (

@@ -20,10 +20,9 @@ export function normalizeProfessional(apiPro) {
 
   return {
     id: apiPro.id,
-    firstName: apiPro.first_name,
-    lastName: apiPro.last_name,
-    name: [apiPro.first_name, apiPro.last_name].filter(Boolean).join(" "),
+    contactName: apiPro.contact_name || "",
     companyName: apiPro.company_name || "",
+    name: apiPro.company_name || [apiPro.first_name, apiPro.last_name].filter(Boolean).join(" ") || "",
     categoryId: apiPro.category_id || apiPro.subcategory_id,
     categoryIds: [apiPro.category_id, apiPro.subcategory_id].filter(Boolean),
     categoryName: apiPro.subcategory_name || apiPro.category_name || "",

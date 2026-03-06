@@ -278,19 +278,28 @@ function UsersFormContainer() {
         type: 'account',
       });
 
-      if (result?.token && (user || state.user)) {
-        const email = encodeURIComponent(
-          user?.email || state.user?.email || state.formData?.email || "",
-        );
-        const name = encodeURIComponent(
-          user?.name || state.user?.name || state.formData?.name || "",
-        );
-        const tokenValue = encodeURIComponent(result.token);
-        const url = `/#/${accountUrl}/invite/confirm?token=${tokenValue}&email=${email}&name=${name}`;
-        window.open(url, "_blank", "noopener,noreferrer");
+      if (result?.invitation) {
+        const email = user?.email || state.user?.email || state.formData?.email || "";
+        dispatch({
+          type: "SET_BANNER",
+          payload: {
+            open: true,
+            type: "success",
+            message: t("confirmationEmailMessage")?.replace("{{email}}", email) || `Invitation email sent to ${email}. Please check your email for the confirmation link.`,
+          },
+        });
+        return result;
       }
     } catch (error) {
       console.error("Error sending user invitation:", error);
+      dispatch({
+        type: "SET_BANNER",
+        payload: {
+          open: true,
+          type: "error",
+          message: error?.message || "Failed to send invitation email",
+        },
+      });
       return null;
     }
   }

@@ -25,6 +25,10 @@ function UploadDocumentModal({
   systemLabel,
   propertyId,
   systemsToShow = [],
+  /** When true, lock to inspection report (system + type fixed), hide system/type dropdowns */
+  inspectionReportOnly = false,
+  /** Called after successful upload with created docs: [{key, name, type}] */
+  onSuccess,
 }) {
   const [upgradePromptOpen, setUpgradePromptOpen] = useState(false);
   const [upgradePromptMsg, setUpgradePromptMsg] = useState("");
@@ -32,8 +36,12 @@ function UploadDocumentModal({
   const [documentDate, setDocumentDate] = useState(
     new Date().toISOString().slice(0, 10),
   );
-  const [documentType, setDocumentType] = useState("receipt");
-  const [uploadSystemKey, setUploadSystemKey] = useState(systemType);
+  const [documentType, setDocumentType] = useState(
+    inspectionReportOnly ? "inspection" : "receipt",
+  );
+  const [uploadSystemKey, setUploadSystemKey] = useState(
+    inspectionReportOnly ? "inspectionReport" : systemType,
+  );
   const [uploadFiles, setUploadFiles] = useState([]);
   const [uploadError, setUploadError] = useState(null);
   const [uploadSuccessCount, setUploadSuccessCount] = useState(0);
@@ -51,8 +59,8 @@ function UploadDocumentModal({
     if (!isUploading) {
       setDocumentName("");
       setDocumentDate(new Date().toISOString().slice(0, 10));
-      setDocumentType("receipt");
-      setUploadSystemKey(systemType);
+      setDocumentType(inspectionReportOnly ? "inspection" : "receipt");
+      setUploadSystemKey(inspectionReportOnly ? "inspectionReport" : systemType);
       setUploadFiles([]);
       setUploadError(null);
       setUploadSuccessCount(0);
@@ -83,6 +91,7 @@ function UploadDocumentModal({
     setUploadSuccessCount(0);
     clearUploadHookError();
 
+    const createdDocs = [];
     let successCount = 0;
     for (let i = 0; i < uploadFiles.length; i++) {
       const file = uploadFiles[i];
@@ -104,6 +113,7 @@ function UploadDocumentModal({
         });
         successCount++;
         setUploadSuccessCount(successCount);
+        createdDocs.push({key: s3Key, name: file.name, type: file.type});
       } catch (err) {
         if (err?.status === 403 && err?.message?.toLowerCase().includes("limit")) {
           setUpgradePromptMsg(err.message);
@@ -120,7 +130,8 @@ function UploadDocumentModal({
     if (successCount === uploadFiles.length && successCount > 0) {
       setUploadFiles([]);
       setDocumentName("");
-      setTimeout(() => handleClose(), 2000);
+      onSuccess?.(createdDocs);
+      setTimeout(() => handleClose(), inspectionReportOnly ? 0 : 2000);
     }
   };
 
@@ -133,10 +144,15 @@ function UploadDocumentModal({
   // Sync uploadSystemKey when systemType changes (e.g. modal opened for different system)
   React.useEffect(() => {
     if (isOpen) {
-      const valid = systemsToShow.some((s) => s.id === systemType);
-      setUploadSystemKey(valid ? systemType : systemsToShow[0]?.id ?? "general");
+      if (inspectionReportOnly) {
+        setUploadSystemKey("inspectionReport");
+        setDocumentType("inspection");
+      } else {
+        const valid = systemsToShow.some((s) => s.id === systemType);
+        setUploadSystemKey(valid ? systemType : systemsToShow[0]?.id ?? "general");
+      }
     }
-  }, [isOpen, systemType, systemsToShow]);
+  }, [isOpen, systemType, systemsToShow, inspectionReportOnly]);
 
   return (
     <>
@@ -151,11 +167,13 @@ function UploadDocumentModal({
         <div className="flex items-center justify-between">
           <div>
             <h2 className="text-lg font-semibold text-gray-800 dark:text-gray-100">
-              Upload Document
+              {inspectionReportOnly ? "Upload Inspection Report" : "Upload Document"}
             </h2>
-            <p className="text-xs text-gray-500 dark:text-gray-400 mt-0.5">
-              {systemLabel} System
-            </p>
+            {!inspectionReportOnly && (
+              <p className="text-xs text-gray-500 dark:text-gray-400 mt-0.5">
+                {systemLabel} System
+              </p>
+            )}
           </div>
           <button
             onClick={handleClose}
@@ -229,41 +247,45 @@ function UploadDocumentModal({
           />
         </div>
 
-        <div>
-          <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-            Document Type <span className="text-red-500">*</span>
-          </label>
-          <select
-            value={documentType}
-            onChange={(e) => setDocumentType(e.target.value)}
-            className="form-select w-full bg-white dark:bg-gray-800 border-gray-200 dark:border-gray-700"
-            required
-          >
-            {documentTypes.map((t) => (
-              <option key={t.id} value={t.id}>
-                {t.label}
-              </option>
-            ))}
-          </select>
-        </div>
+        {!inspectionReportOnly && (
+          <>
+            <div>
+              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                Document Type <span className="text-red-500">*</span>
+              </label>
+              <select
+                value={documentType}
+                onChange={(e) => setDocumentType(e.target.value)}
+                className="form-select w-full bg-white dark:bg-gray-800 border-gray-200 dark:border-gray-700"
+                required
+              >
+                {documentTypes.map((t) => (
+                  <option key={t.id} value={t.id}>
+                    {t.label}
+                  </option>
+                ))}
+              </select>
+            </div>
 
-        <div>
-          <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-            System <span className="text-red-500">*</span>
-          </label>
-          <select
-            value={uploadSystemKey}
-            onChange={(e) => setUploadSystemKey(e.target.value)}
-            className="form-select w-full bg-white dark:bg-gray-800 border-gray-200 dark:border-gray-700"
-            required
-          >
-            {systemsToShow.map((cat) => (
-              <option key={cat.id} value={cat.id}>
-                {cat.label}
-              </option>
-            ))}
-          </select>
-        </div>
+            <div>
+              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                System <span className="text-red-500">*</span>
+              </label>
+              <select
+                value={uploadSystemKey}
+                onChange={(e) => setUploadSystemKey(e.target.value)}
+                className="form-select w-full bg-white dark:bg-gray-800 border-gray-200 dark:border-gray-700"
+                required
+              >
+                {systemsToShow.map((cat) => (
+                  <option key={cat.id} value={cat.id}>
+                    {cat.label}
+                  </option>
+                ))}
+              </select>
+            </div>
+          </>
+        )}
 
         <div>
           <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">

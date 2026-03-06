@@ -14,7 +14,7 @@ export function PropertyProvider({children}) {
   const [maintenanceRecords, setMaintenanceRecords] = useState([]);
   const [selectedItems, setSelectedItems] = useState([]);
   const [viewMode, setViewMode] = useLocalStorage(
-    "properties-view-mode-v2",
+    "properties-view-mode-v3",
     "grid",
   );
   const {currentUser, isLoading} = useAuth();

@@ -85,10 +85,13 @@ function AgentHome() {
   const fetchedTeamUidsRef = useRef(new Set());
 
   const accountUrl = currentAccount?.url || currentAccount?.name || "";
-  const agentName =
+  const rawFirstName =
     currentUser?.fullName?.split(" ")[0] ||
     currentUser?.name?.split(" ")[0] ||
     "Agent";
+  const agentName = rawFirstName
+    ? rawFirstName.charAt(0).toUpperCase() + rawFirstName.slice(1).toLowerCase()
+    : rawFirstName;
 
   const totalProperties = properties?.length || 0;
   const totalUsers = users?.length || 0;

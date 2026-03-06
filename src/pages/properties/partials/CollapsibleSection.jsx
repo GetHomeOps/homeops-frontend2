@@ -16,6 +16,7 @@ import SystemActionButtons from "./SystemActionButtons";
 import Tooltip from "../../../utils/Tooltip";
 import {getSystemStatus, getCurrentConditionValue} from "../helpers/systemStatusHelpers";
 import {getSystemFindingsFromAnalysis} from "../helpers/inspectionAnalysisHelpers";
+import InspectionChecklistPanel from "./InspectionChecklistPanel";
 
 /**
  * Collapsible Section Component with Progress Bar and Action Buttons
@@ -37,6 +38,7 @@ function CollapsibleSection({
   isNewInstall = false,
   onNewInstallChange,
   onScheduleInspection,
+  onScheduleSuccess,
   progress = {filled: 0, total: 0, percent: 0},
   propertyId,
   propertyData = {},
@@ -47,8 +49,9 @@ function CollapsibleSection({
   inspectionAnalysis,
   onOpenInspectionReport,
   maintenanceEvents = [],
+  maintenanceRecords = [],
 }) {
-  const {needsAttention, hasScheduledEvent, scheduledDate} = useMemo(
+  const formStatus = useMemo(
     () =>
       showActionButtons
         ? getSystemStatus(
@@ -58,7 +61,7 @@ function CollapsibleSection({
             customSystemsData,
             maintenanceEvents,
           )
-        : {needsAttention: false, hasScheduledEvent: false},
+        : {needsAttention: false, attentionReasons: [], hasScheduledEvent: false},
     [
       showActionButtons,
       propertyData,
@@ -73,6 +76,23 @@ function CollapsibleSection({
     () => getSystemFindingsFromAnalysis(systemType, inspectionAnalysis),
     [systemType, inspectionAnalysis],
   );
+
+  // Unified health: merge form-based reasons with AI findings (both drive "needs attention")
+  const {needsAttention, attentionReasons, hasScheduledEvent, scheduledDate} = useMemo(() => {
+    const reasons = [...(formStatus.attentionReasons || [])];
+    const aiNeeds = systemFindings?.needsAttention ?? [];
+    aiNeeds.forEach((n) => {
+      const label = n.title || n.suggestedAction || "AI finding";
+      if (label && !reasons.includes(label)) reasons.push(label);
+    });
+    const merged = formStatus.needsAttention || aiNeeds.length > 0;
+    return {
+      needsAttention: merged,
+      attentionReasons: reasons,
+      hasScheduledEvent: formStatus.hasScheduledEvent,
+      scheduledDate: formStatus.scheduledDate,
+    };
+  }, [formStatus, systemFindings]);
 
   const aiInspectionTooltip = useMemo(() => {
     if (!aiCondition) return null;
@@ -259,6 +279,7 @@ function CollapsibleSection({
                 isNewInstall={isNewInstall}
                 onNewInstallChange={onNewInstallChange}
                 onScheduleInspection={onScheduleInspection}
+                onScheduleSuccess={onScheduleSuccess}
                 propertyId={propertyId}
                 propertyData={propertyData}
                 systemsToShow={systemsToShow}
@@ -283,7 +304,7 @@ function CollapsibleSection({
                     type="button"
                     onClick={(e) => {
                       e.stopPropagation();
-                      onOpenInspectionReport?.();
+                      onOpenInspectionReport?.(systemType);
                     }}
                     className={`inline-flex items-center justify-center w-[18px] h-[18px] transition-colors rounded hover:opacity-80 p-0.5 ${
                       aiCondition.status === "excellent"
@@ -303,7 +324,15 @@ function CollapsibleSection({
                 </Tooltip>
               )}
               {needsAttention && (
-                <Tooltip content="Needs attention" position="bottom">
+                <Tooltip
+                  content={
+                    attentionReasons.length > 0
+                      ? attentionReasons.join(" · ")
+                      : "Needs attention"
+                  }
+                  position="bottom"
+                  size="lg"
+                >
                   <span className="inline-flex items-center justify-center w-[18px] h-[18px] text-amber-600 dark:text-amber-500/90 hover:text-amber-700 dark:hover:text-amber-400 transition-colors cursor-default">
                     <AlertTriangle className="w-[18px] h-[18px]" strokeWidth={2} />
                   </span>
@@ -335,10 +364,8 @@ function CollapsibleSection({
                     onClick={(e) => {
                       e.stopPropagation();
                       const cond = aiCondition?.status || getCurrentConditionValue(propertyData, systemType) || null;
-                      const {needsAttention: _n, hasScheduledEvent: _s, scheduledDate: nextDate, scheduledTime: nextTime} =
-                        showActionButtons
-                          ? getSystemStatus(propertyData, systemType, isNewInstall, customSystemsData, maintenanceEvents)
-                          : {};
+                      const nextDate = formStatus.scheduledDate;
+                      const nextTime = formStatus.scheduledTime;
                       const upcomingForSystem = (maintenanceEvents || []).filter(
                         (e) => (e.system_key ?? e.systemKey) === systemType && (e.scheduled_date ?? e.scheduledDate) >= new Date().toISOString().slice(0, 10)
                       );
@@ -402,6 +429,19 @@ function CollapsibleSection({
           )}
         </div>
       </div>
+
+      {/* Inspection checklist for this system — visible when expanded */}
+      {isOpen && showActionButtons && inspectionAnalysis && propertyId && (
+        <div className="px-6 pb-2">
+          <InspectionChecklistPanel
+            propertyId={propertyId}
+            systemKey={systemType}
+            onScheduleMaintenance={onScheduleInspection ? (data) => onScheduleInspection(data) : undefined}
+            maintenanceRecords={maintenanceRecords}
+            compact
+          />
+        </div>
+      )}
 
       {/* Form fields - Only visible when expanded */}
       {isOpen && <div className="px-6 pb-6">{children}</div>}

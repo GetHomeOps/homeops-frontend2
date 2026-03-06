@@ -4,6 +4,7 @@ import React, {
   useContext,
   useState,
   useRef,
+  useCallback,
 } from "react";
 import {useNavigate, useParams, useLocation, NavLink} from "react-router-dom";
 import {
@@ -147,6 +148,28 @@ function ContactsFormContainer() {
   const {t} = useTranslation();
   const [upgradePromptOpen, setUpgradePromptOpen] = useState(false);
   const [upgradePromptMsg, setUpgradePromptMsg] = useState("");
+  const [createTagsModalOpen, setCreateTagsModalOpen] = useState(false);
+  const createTagsButtonRef = useRef(null);
+  const [accountTags, setAccountTags] = useState([]);
+  const [newTagName, setNewTagName] = useState("");
+  const [newTagColor, setNewTagColor] = useState(null);
+  const [creatingTag, setCreatingTag] = useState(false);
+  const [deletingTagId, setDeletingTagId] = useState(null);
+
+  const TAG_COLOR_OPTIONS = [
+    { value: "#3b82f6", classes: "bg-blue-100 text-blue-800 dark:bg-blue-900/60 dark:text-blue-300" },
+    { value: "#22c55e", classes: "bg-green-100 text-green-800 dark:bg-green-900/60 dark:text-green-300" },
+    { value: "#a855f7", classes: "bg-purple-100 text-purple-800 dark:bg-purple-900/60 dark:text-purple-300" },
+    { value: "#f97316", classes: "bg-orange-100 text-orange-800 dark:bg-orange-900/60 dark:text-orange-300" },
+    { value: "#ef4444", classes: "bg-red-100 text-red-800 dark:bg-red-900/60 dark:text-red-300" },
+    { value: "#14b8a6", classes: "bg-teal-100 text-teal-800 dark:bg-teal-900/60 dark:text-teal-300" },
+    { value: "#f59e0b", classes: "bg-amber-100 text-amber-800 dark:bg-amber-900/60 dark:text-amber-300" },
+    { value: "#ec4899", classes: "bg-pink-100 text-pink-800 dark:bg-pink-900/60 dark:text-pink-300" },
+  ];
+
+  const DEFAULT_TAG_CLASSES = "bg-gray-100 text-gray-800 dark:bg-gray-900/60 dark:text-gray-300";
+  const hexToTagClasses = (hex) =>
+    TAG_COLOR_OPTIONS.find((o) => o.value === hex)?.classes || DEFAULT_TAG_CLASSES;
 
   const {
     uploadImage,
@@ -186,6 +209,18 @@ function ContactsFormContainer() {
     viewMode,
     getCurrentViewContacts,
   } = useContext(contactContext);
+
+  // Fetch tags when account is available (for dropdown) and when modal opens (refresh)
+  const fetchTags = useCallback(() => {
+    if (!currentAccount?.id) return;
+    AppApi.getTagsByAccountId(currentAccount.id)
+      .then((tags) => setAccountTags(tags || []))
+      .catch(() => setAccountTags([]));
+  }, [currentAccount?.id]);
+
+  useEffect(() => {
+    fetchTags();
+  }, [fetchTags, createTagsModalOpen]);
 
   // Fetch contact based on URL's contact id
   useEffect(() => {
@@ -893,10 +928,12 @@ function ContactsFormContainer() {
 
   // Handler for adding tags
   function handleAddTag(tagId) {
-    if (!state.formData.tags.includes(tagId)) {
+    const ids = state.formData.tags || [];
+    const idNum = Number(tagId);
+    if (!ids.some((id) => Number(id) === idNum)) {
       dispatch({
         type: "SET_FORM_DATA",
-        payload: {tags: [...state.formData.tags, tagId]},
+        payload: {tags: [...ids, idNum]},
       });
 
       // Mark form as changed after initial load
@@ -911,7 +948,9 @@ function ContactsFormContainer() {
     dispatch({
       type: "SET_FORM_DATA",
       payload: {
-        tags: state.formData.tags.filter((tagId) => tagId !== tagIdToRemove),
+        tags: state.formData.tags.filter(
+          (tagId) => Number(tagId) !== Number(tagIdToRemove),
+        ),
       },
     });
 
@@ -921,26 +960,81 @@ function ContactsFormContainer() {
     }
   }
 
-  // Available tags for selection
-  const availableTags = [
-    {
-      id: "agent",
-      name: "Agent",
-      color: "bg-blue-100 text-blue-800 dark:bg-blue-900/60 dark:text-blue-300",
-    },
-    {
-      id: "contractor",
-      name: "Contractor",
-      color:
-        "bg-green-100 text-green-800 dark:bg-green-900/60 dark:text-green-300",
-    },
-    {
-      id: "homeowner",
-      name: "Homeowner",
-      color:
-        "bg-purple-100 text-purple-800 dark:bg-purple-900/60 dark:text-purple-300",
-    },
-  ];
+  // Delete tag permanently (removes from account, no longer in dropdown)
+  async function handleDeleteTag(tagId) {
+    if (!currentAccount?.id || deletingTagId) return;
+    setDeletingTagId(tagId);
+    try {
+      await AppApi.deleteTag(currentAccount.id, tagId);
+      setAccountTags((prev) => prev.filter((t) => Number(t.id) !== Number(tagId)));
+      handleRemoveTag(tagId);
+    } catch (err) {
+      console.error("Error deleting tag:", err);
+      const msg = err?.message || err?.messages?.[0] || "Failed to delete tag.";
+      dispatch({ type: "SET_BANNER", payload: { open: true, type: "error", message: msg } });
+    } finally {
+      setDeletingTagId(null);
+    }
+  }
+
+  // Create new tag and optionally assign to contact
+  async function handleCreateTag() {
+    const name = newTagName.trim();
+    if (!name || !currentAccount?.id) {
+      if (!currentAccount?.id) {
+        dispatch({
+          type: "SET_BANNER",
+          payload: {
+            open: true,
+            type: "error",
+            message: t("noAccountSelected") || "Please select an account first.",
+          },
+        });
+      }
+      return;
+    }
+    setCreatingTag(true);
+    try {
+      const tag = await AppApi.createTag(currentAccount.id, {
+        name,
+        color: newTagColor || TAG_COLOR_OPTIONS[0].value,
+      });
+      if (!tag || tag.id == null) {
+        dispatch({
+          type: "SET_BANNER",
+          payload: {
+            open: true,
+            type: "error",
+            message: t("tagCreateFailed") || "Failed to create tag. Please try again.",
+          },
+        });
+        return;
+      }
+      setAccountTags((prev) => [...prev, tag]);
+      setNewTagName("");
+      setNewTagColor(null);
+      handleAddTag(tag.id);
+    } catch (err) {
+      console.error("Error creating tag:", err);
+      const msg = err?.message || err?.messages?.[0] || "Failed to create tag.";
+      dispatch({
+        type: "SET_BANNER",
+        payload: {
+          open: true,
+          type: "error",
+          message: msg,
+        },
+      });
+    } finally {
+      setCreatingTag(false);
+    }
+  }
+
+  const availableTags = accountTags.map((tag) => ({
+    id: tag.id,
+    name: tag.name,
+    color: hexToTagClasses(tag.color),
+  }));
 
   // Get company contacts for the dropdown
   const companyContacts = contacts.filter(
@@ -994,8 +1088,11 @@ function ContactsFormContainer() {
     };
 
     // Get available options (not already selected)
+    const selectedSet = new Set(
+      selectedValues.map((v) => (typeof v === "number" ? v : Number(v))),
+    );
     const availableOptions = options.filter(
-      (option) => !selectedValues.includes(option.id),
+      (option) => !selectedSet.has(Number(option.id)),
     );
 
     // Match exact height of native select elements
@@ -1022,7 +1119,9 @@ function ContactsFormContainer() {
               {selectedValues.length > 0 ? (
                 <div className="flex flex-wrap gap-1">
                   {selectedValues.map((value) => {
-                    const option = options.find((opt) => opt.id === value);
+                    const option = options.find(
+                      (opt) => Number(opt.id) === Number(value),
+                    );
                     return (
                       <span
                         key={value}
@@ -1131,6 +1230,120 @@ function ContactsFormContainer() {
       </div>
 
       <div className="m-1.5">
+        <ModalBlank
+          id="create-tags-modal"
+          modalOpen={createTagsModalOpen}
+          setModalOpen={setCreateTagsModalOpen}
+          ignoreClickRef={createTagsButtonRef}
+        >
+          <div className="p-5">
+            <div className="mb-4">
+              <div className="text-lg font-semibold text-gray-800 dark:text-gray-100">
+                {t("createTags") || "Create tags"}
+              </div>
+              <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">
+                {t("createTagsDescription") ||
+                  "Create new tags. Use the tags field to assign them to this contact."}
+              </p>
+            </div>
+
+            {/* Create new tag */}
+            <div className="space-y-3 mb-4">
+              <div className="flex gap-2">
+                <input
+                  type="text"
+                  className="form-input flex-1"
+                  placeholder={t("tagNamePlaceholder") || "Tag name"}
+                  value={newTagName}
+                  onChange={(e) => setNewTagName(e.target.value)}
+                  onKeyDown={(e) => {
+                    if (e.key === "Enter") {
+                      e.preventDefault();
+                      handleCreateTag();
+                    }
+                  }}
+                />
+                <button
+                  type="button"
+                  className="btn-sm bg-[#456564] hover:bg-[#34514f] text-white disabled:opacity-50"
+                  onClick={handleCreateTag}
+                  disabled={!newTagName.trim() || creatingTag}
+                >
+                  {creatingTag ? t("saving") || "..." : t("add") || "Add"}
+                </button>
+              </div>
+              <div className="flex items-center gap-2 flex-wrap">
+                <span className="text-sm text-gray-500 dark:text-gray-400">
+                  {t("tagColor") || "Color"}:
+                </span>
+                {TAG_COLOR_OPTIONS.map((opt) => (
+                  <button
+                    key={opt.value}
+                    type="button"
+                    onClick={() =>
+                      setNewTagColor((c) =>
+                        c === opt.value ? null : opt.value,
+                      )
+                    }
+                    className={`w-7 h-7 rounded-full border-2 transition-all ${
+                      newTagColor === opt.value
+                        ? "border-gray-700 dark:border-gray-300 scale-110"
+                        : "border-gray-200 dark:border-gray-600 hover:border-gray-400"
+                    }`}
+                    style={{ backgroundColor: opt.value }}
+                    aria-label={t("selectColor") || "Select color"}
+                  />
+                ))}
+              </div>
+            </div>
+
+            {/* List of existing tags */}
+            <div className="space-y-2 max-h-48 overflow-y-auto">
+              {availableTags.length === 0 ? (
+                <p className="text-sm text-gray-500 dark:text-gray-400 py-2">
+                  {t("noTagsYet") || "No tags yet. Create one above."}
+                </p>
+              ) : (
+                <div className="flex flex-wrap gap-2">
+                  {availableTags.map((tag) => (
+                    <span
+                      key={tag.id}
+                      className={`inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-sm font-medium ${tag.color}`}
+                    >
+                      {tag.name}
+                      <button
+                        type="button"
+                        onClick={() => handleDeleteTag(tag.id)}
+                        disabled={deletingTagId === tag.id}
+                        className="opacity-70 hover:opacity-100 focus:opacity-100 rounded p-0.5 disabled:opacity-50"
+                        aria-label={t("deleteTag") || "Delete tag"}
+                      >
+                        <svg className="w-3.5 h-3.5" fill="currentColor" viewBox="0 0 20 20">
+                          <path fillRule="evenodd" d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z" clipRule="evenodd" />
+                        </svg>
+                      </button>
+                    </span>
+                  ))}
+                </div>
+              )}
+            </div>
+
+            <div className="flex justify-end mt-6">
+              <button
+                type="button"
+                className="btn-sm bg-[#456564] hover:bg-[#34514f] text-white"
+                onClick={() => {
+                  setNewTagName("");
+                  setNewTagColor(null);
+                  setCreateTagsModalOpen(false);
+                }}
+              >
+                {t("close") || "Close"}
+              </button>
+            </div>
+          </div>
+        </ModalBlank>
+
         <ModalBlank
           id="danger-modal"
           modalOpen={state.dangerModalOpen}
@@ -1723,9 +1936,19 @@ function ContactsFormContainer() {
 
                       {/* Tags Field */}
                       <div>
-                        <label className={getLabelClasses()} htmlFor="tags">
-                          {t("tags")}
-                        </label>
+                        <div className="flex items-center justify-between mb-1">
+                          <label className={getLabelClasses()} htmlFor="tags">
+                            {t("tags")}
+                          </label>
+                          <button
+                            ref={createTagsButtonRef}
+                            type="button"
+                            onClick={() => setCreateTagsModalOpen(true)}
+                            className="text-sm text-[#6E8276] hover:text-[#456564] dark:text-gray-400 dark:hover:text-gray-300 transition-colors"
+                          >
+                            {t("createTags") || "Create tags"}
+                          </button>
+                        </div>
                         <TagsDropdown
                           options={availableTags}
                           selectedValues={state.formData.tags}

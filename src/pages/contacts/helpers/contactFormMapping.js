@@ -90,7 +90,10 @@ export function mapBackendToFrontend(backendData) {
     // Keep UI-only fields (not in backend)
     jobPosition: backendData.jobPosition || "",
     linkedCompany: backendData.linkedCompany || "",
-    tags: backendData.tags || [],
+    // tags from backend: [{ id, name, color }, ...] -> form stores tag ids
+    tags: Array.isArray(backendData.tags)
+      ? backendData.tags.map((t) => (typeof t === "object" && t?.id != null ? t.id : t))
+      : [],
   };
 }
 
@@ -133,5 +136,8 @@ export function mapFrontendToBackend(formData) {
         ? formData.countryCode.substring(0, 2).toUpperCase()
         : "US"),
     notes: formData.notes || "",
+    tagIds: Array.isArray(formData.tags)
+      ? formData.tags.map((id) => Number(id)).filter((n) => !Number.isNaN(n))
+      : [],
   };
 }

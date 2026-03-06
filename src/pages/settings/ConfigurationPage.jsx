@@ -6,6 +6,8 @@ import Sidebar from "../../partials/Sidebar";
 import { useAuth } from "../../context/AuthContext";
 import AppApi from "../../api/api";
 import { PAGE_LAYOUT, SETTINGS_CARD } from "../../constants/layout";
+import useImageUpload from "../../hooks/useImageUpload";
+import ImageUploadField from "../../components/ImageUploadField";
 
 /**
  * Configuration page — profile settings: name, password, phone, MFA.
@@ -50,6 +52,45 @@ function ConfigurationPage() {
   const [disableUsePassword, setDisableUsePassword] = useState(true);
   const [mfaActionError, setMfaActionError] = useState(null);
   const [mfaActionLoading, setMfaActionLoading] = useState(false);
+
+  const [photoError, setPhotoError] = useState(null);
+  const [pendingImageKey, setPendingImageKey] = useState(null);
+  const [pendingRemovePhoto, setPendingRemovePhoto] = useState(false);
+  const {
+    uploadImage,
+    imagePreviewUrl,
+    uploadedImageUrl,
+    imageUploading,
+    imageUploadError,
+    setImageUploadError,
+    clearPreview,
+    clearUploadedUrl,
+  } = useImageUpload({
+    onSuccess: (key) => {
+      setPhotoError(null);
+      setPendingImageKey(key);
+      setPendingRemovePhoto(false);
+    },
+    onError: (msg) => setPhotoError(msg),
+  });
+
+  const profilePhotoUrl = pendingRemovePhoto
+    ? null
+    : imagePreviewUrl ||
+      uploadedImageUrl ||
+      currentUser?.avatarUrl ||
+      currentUser?.image_url;
+  const hasProfilePhoto =
+    !pendingRemovePhoto && !!(profilePhotoUrl || currentUser?.image);
+
+  function handleRemoveProfilePhoto() {
+    if (profileSaving) return;
+    setPhotoError(null);
+    setPendingRemovePhoto(true);
+    setPendingImageKey(null);
+    clearPreview();
+    clearUploadedUrl();
+  }
 
   useEffect(() => {
     if (currentUser) {
@@ -100,9 +141,20 @@ function ConfigurationPage() {
     setProfileSuccess(false);
     setProfileSaving(true);
     try {
-      await AppApi.updateUser(currentUser.id, { name, phone });
+      const payload = { name, phone };
+      if (pendingRemovePhoto) {
+        payload.image = null;
+        payload.avatar_url = null;
+      } else if (pendingImageKey) {
+        payload.image = pendingImageKey;
+      }
+      await AppApi.updateUser(currentUser.id, payload);
       setProfileSuccess(true);
-      setTimeout(() => setProfileSuccess(false), 3000);
+      clearPreview();
+      clearUploadedUrl();
+      setPendingImageKey(null);
+      setPendingRemovePhoto(false);
+      setTimeout(() => window.location.reload(), 500);
     } catch (err) {
       setProfileError(err.message || err.messages?.[0] || "Failed to save profile");
     } finally {
@@ -223,55 +275,6 @@ function ConfigurationPage() {
             </div>
 
             <div className="space-y-10">
-              {/* Language — applies only on save */}
-              <section className={SETTINGS_CARD.card}>
-                <div className={SETTINGS_CARD.header}>
-                  <div className="flex items-center gap-2">
-                    <Globe className="w-5 h-5 text-[#456564] dark:text-[#5a7a78]" />
-                    <h2 className="text-lg font-semibold text-gray-900 dark:text-white">
-                      {t("settings.language") || "Language"}
-                    </h2>
-                  </div>
-                  <p className="mt-1.5 text-sm text-gray-600 dark:text-gray-400">
-                    {t("settings.languageDescription") ||
-                      "Choose your preferred language for the interface."}
-                  </p>
-                </div>
-                <form onSubmit={handleLanguageSubmit} className={SETTINGS_CARD.body}>
-                  {languageSuccess && (
-                    <div className="mb-4 rounded-lg bg-emerald-50 dark:bg-emerald-900/20 px-4 py-3 text-sm text-emerald-700 dark:text-emerald-300">
-                      {t("settings.languageSaved") || "Language saved. The interface will update."}
-                    </div>
-                  )}
-                  <div className="flex flex-wrap items-end gap-4">
-                    <div className="min-w-[200px]">
-                      <label htmlFor="config-language" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                        {t("settings.language") || "Language"}
-                      </label>
-                      <select
-                        id="config-language"
-                        value={language}
-                        onChange={(e) => setLanguage(e.target.value)}
-                        className="form-select w-full"
-                      >
-                        {LANGUAGES.map((lang) => (
-                          <option key={lang.code} value={lang.code}>
-                            {lang.label}
-                          </option>
-                        ))}
-                      </select>
-                    </div>
-                    <button
-                      type="submit"
-                      disabled={languageSaving}
-                      className="btn bg-[#456564] hover:bg-[#34514f] text-white disabled:opacity-50"
-                    >
-                      {languageSaving ? (t("saving") || "Saving...") : (t("save") || "Save Changes")}
-                    </button>
-                  </div>
-                </form>
-              </section>
-
               {/* Profile — name, phone (email read-only) */}
               <section className={SETTINGS_CARD.card}>
                 <div className={SETTINGS_CARD.header}>
@@ -283,10 +286,15 @@ function ConfigurationPage() {
                       "Update your name and contact information. Email cannot be changed here."}
                   </p>
                 </div>
-                <form onSubmit={handleProfileSubmit} className={`${SETTINGS_CARD.body} space-y-4`}>
+                <div className={`${SETTINGS_CARD.body} space-y-4`}>
                   {profileError && (
                     <div className="rounded-lg bg-red-50 dark:bg-red-900/20 px-4 py-3 text-sm text-red-700 dark:text-red-300">
                       {profileError}
+                    </div>
+                  )}
+                  {photoError && (
+                    <div className="rounded-lg bg-red-50 dark:bg-red-900/20 px-4 py-3 text-sm text-red-700 dark:text-red-300">
+                      {photoError}
                     </div>
                   )}
                   {profileSuccess && (
@@ -294,6 +302,31 @@ function ConfigurationPage() {
                       {t("settings.profileSaved") || "Profile saved successfully."}
                     </div>
                   )}
+                  {/* Profile photo — outside form so remove button doesn't trigger form submit */}
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                      {t("settings.profilePhoto") || "Profile photo"}
+                    </label>
+                    <ImageUploadField
+                      imageSrc={profilePhotoUrl}
+                      hasImage={hasProfilePhoto}
+                      imageUploading={imageUploading || profileSaving}
+                      onUpload={uploadImage}
+                      onRemove={handleRemoveProfilePhoto}
+                      showRemove={hasProfilePhoto}
+                      imageUploadError={imageUploadError}
+                      onDismissError={() => {
+                        setImageUploadError(null);
+                        setPhotoError(null);
+                      }}
+                      size="sm"
+                      placeholder="avatar"
+                      alt={currentUser?.name || "Profile"}
+                      uploadLabel={t("uploadImage") || "Upload photo"}
+                      removeLabel={t("removePhoto") || "Remove photo"}
+                    />
+                  </div>
+                  <form onSubmit={handleProfileSubmit} className="space-y-4">
                   <div>
                     <label htmlFor="config-name" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
                       {t("name") || "Name"}
@@ -345,7 +378,8 @@ function ConfigurationPage() {
                       {profileSaving ? (t("saving") || "Saving...") : (t("save") || "Save Changes")}
                     </button>
                   </div>
-                </form>
+                  </form>
+                </div>
               </section>
 
               {/* Password */}
@@ -423,6 +457,55 @@ function ConfigurationPage() {
                       {passwordSaving
                         ? (t("saving") || "Saving...")
                         : (t("settings.changePassword") || "Change Password")}
+                    </button>
+                  </div>
+                </form>
+              </section>
+
+              {/* Language — applies only on save */}
+              <section className={SETTINGS_CARD.card}>
+                <div className={SETTINGS_CARD.header}>
+                  <div className="flex items-center gap-2">
+                    <Globe className="w-5 h-5 text-[#456564] dark:text-[#5a7a78]" />
+                    <h2 className="text-lg font-semibold text-gray-900 dark:text-white">
+                      {t("settings.language") || "Language"}
+                    </h2>
+                  </div>
+                  <p className="mt-1.5 text-sm text-gray-600 dark:text-gray-400">
+                    {t("settings.languageDescription") ||
+                      "Choose your preferred language for the interface."}
+                  </p>
+                </div>
+                <form onSubmit={handleLanguageSubmit} className={SETTINGS_CARD.body}>
+                  {languageSuccess && (
+                    <div className="mb-4 rounded-lg bg-emerald-50 dark:bg-emerald-900/20 px-4 py-3 text-sm text-emerald-700 dark:text-emerald-300">
+                      {t("settings.languageSaved") || "Language saved. The interface will update."}
+                    </div>
+                  )}
+                  <div className="flex flex-wrap items-end gap-4">
+                    <div className="min-w-[200px]">
+                      <label htmlFor="config-language" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                        {t("settings.language") || "Language"}
+                      </label>
+                      <select
+                        id="config-language"
+                        value={language}
+                        onChange={(e) => setLanguage(e.target.value)}
+                        className="form-select w-full"
+                      >
+                        {LANGUAGES.map((lang) => (
+                          <option key={lang.code} value={lang.code}>
+                            {lang.label}
+                          </option>
+                        ))}
+                      </select>
+                    </div>
+                    <button
+                      type="submit"
+                      disabled={languageSaving}
+                      className="btn bg-[#456564] hover:bg-[#34514f] text-white disabled:opacity-50"
+                    >
+                      {languageSaving ? (t("saving") || "Saving...") : (t("save") || "Save Changes")}
                     </button>
                   </div>
                 </form>

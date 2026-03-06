@@ -5,12 +5,12 @@
  * Includes per-system scheduling like AIFindingsPanel in the setup modal.
  */
 
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useRef, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
-import { Loader2, AlertCircle, Calendar, ExternalLink, ArrowUpCircle } from "lucide-react";
+import { Loader2, AlertCircle, Calendar, ExternalLink, ArrowUpCircle, Upload, ClipboardList } from "lucide-react";
 import { useInspectionAnalysis } from "../../../hooks/useInspectionAnalysis";
 import { PROPERTY_SYSTEMS } from "../constants/propertySystems";
-import UpgradePrompt from "../../../components/UpgradePrompt";
+import InspectionChecklistPanel from "./InspectionChecklistPanel";
 
 const CONDITION_BADGES = {
   excellent: "bg-emerald-100 text-emerald-800 dark:bg-emerald-900/40 dark:text-emerald-300",
@@ -49,18 +49,31 @@ export default function InspectionAnalysisModalContent({
   propertyId,
   isOpen,
   onScheduleMaintenance,
+  onTierRestriction,
+  onUploadReport,
 }) {
   const navigate = useNavigate();
   const { accountUrl } = useParams();
   const professionalsPath = accountUrl ? `/${accountUrl}/professionals` : "/professionals";
   const { status, data, error, generate, refresh, load } =
     useInspectionAnalysis(propertyId);
+  const tierRestrictionNotifiedRef = useRef(false);
 
   useEffect(() => {
     if (isOpen && propertyId) {
       load();
     }
   }, [isOpen, propertyId, load]);
+
+  useEffect(() => {
+    if (status === "quota_exceeded" && onTierRestriction && !tierRestrictionNotifiedRef.current) {
+      tierRestrictionNotifiedRef.current = true;
+      onTierRestriction(error);
+    }
+    if (status !== "quota_exceeded") {
+      tierRestrictionNotifiedRef.current = false;
+    }
+  }, [status, error, onTierRestriction]);
 
   if (!propertyId) {
     return (
@@ -102,7 +115,7 @@ export default function InspectionAnalysisModalContent({
         </p>
         <button
           type="button"
-          onClick={() => navigate(`/${accountUrl}/settings/billing`)}
+          onClick={() => navigate(`/${accountUrl}/settings/upgrade`)}
           className="mt-4 inline-flex items-center gap-2 px-4 py-2 rounded-lg bg-violet-600 hover:bg-violet-700 text-white text-sm font-medium"
         >
           Upgrade plan
@@ -142,13 +155,25 @@ export default function InspectionAnalysisModalContent({
         <p className="text-xs text-neutral-500 dark:text-neutral-400 mt-1 max-w-sm mb-4">
           Upload an inspection report in the Documents tab, then generate analysis.
         </p>
-        <button
-          type="button"
-          onClick={generate}
-          className="inline-flex items-center gap-2 px-4 py-2 rounded-lg bg-[#456564] hover:bg-[#34514f] text-white text-sm font-medium"
-        >
-          Generate Analysis
-        </button>
+        <div className="flex flex-col sm:flex-row gap-3">
+          {onUploadReport && (
+            <button
+              type="button"
+              onClick={onUploadReport}
+              className="inline-flex items-center gap-2 px-4 py-2 rounded-lg bg-[#456564] hover:bg-[#34514f] text-white text-sm font-medium"
+            >
+              <Upload className="w-4 h-4" />
+              Upload report
+            </button>
+          )}
+          <button
+            type="button"
+            onClick={generate}
+            className="inline-flex items-center gap-2 px-4 py-2 rounded-lg border border-neutral-200 dark:border-neutral-600 text-neutral-700 dark:text-neutral-300 hover:bg-neutral-50 dark:hover:bg-neutral-800 text-sm font-medium"
+          >
+            Generate Analysis
+          </button>
+        </div>
       </div>
     );
   }
@@ -257,7 +282,22 @@ export default function InspectionAnalysisModalContent({
           )}
         </section>
 
-        {/* Recommended Actions */}
+        {/* Inspection Checklist — trackable items */}
+        <section>
+          <h3 className="text-xs font-semibold text-neutral-500 dark:text-neutral-400 uppercase tracking-wider mb-3 flex items-center gap-2">
+            <ClipboardList className="w-3.5 h-3.5" />
+            Inspection Checklist
+          </h3>
+          <p className="text-xs text-neutral-400 dark:text-neutral-500 mb-3">
+            Track progress on items identified in the inspection report. Mark items as done when completed.
+          </p>
+          <InspectionChecklistPanel
+            propertyId={propertyId}
+            onScheduleMaintenance={onScheduleMaintenance}
+          />
+        </section>
+
+        {/* Recommended Actions (raw from analysis) */}
         <section>
           <h3 className="text-xs font-semibold text-neutral-500 dark:text-neutral-400 uppercase tracking-wider mb-3">
             Recommended Actions
@@ -311,7 +351,11 @@ export default function InspectionAnalysisModalContent({
                       </button>
                       <button
                         type="button"
-                        onClick={() => navigate(professionalsPath)}
+                        onClick={() => {
+                          const base = typeof window !== "undefined" ? window.location.href.split("#")[0] : "";
+                          const cleanPath = (professionalsPath || "").replace(/^\//, "");
+                          window.open(`${base}#/${cleanPath}`, "_blank");
+                        }}
                         className="inline-flex items-center gap-0.5 text-[11px] text-neutral-500 hover:text-[#456564] dark:text-neutral-400 dark:hover:text-[#7aa3a2] transition-colors"
                       >
                         Professionals

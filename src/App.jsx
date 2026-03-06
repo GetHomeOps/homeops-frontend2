@@ -4,6 +4,7 @@ import RoutesList from "./pages/routes-nav/RoutesList";
 import {ContactProvider} from "./context/ContactContext";
 import {UserProvider} from "./context/UserContext";
 import {PropertyProvider} from "./context/PropertyContext";
+import TierLimitBanner from "./components/TierLimitBanner";
 
 import "./css/style.css";
 
@@ -20,6 +21,7 @@ function App() {
     <ContactProvider>
       <UserProvider>
         <PropertyProvider>
+          <TierLimitBanner />
           <RoutesList />
         </PropertyProvider>
       </UserProvider>

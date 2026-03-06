@@ -184,12 +184,18 @@ export function ContactProvider({children}) {
         street2: contactToDuplicate.street2 || "",
         city: contactToDuplicate.city || "",
         state: contactToDuplicate.state || "",
-        zip: contactToDuplicate.zip || "",
+        zip_code: contactToDuplicate.zip_code || contactToDuplicate.zip || "",
         country: contactToDuplicate.country || "",
+        country_code: contactToDuplicate.country_code || "",
         job_position: contactToDuplicate.job_position || "",
         phone: contactToDuplicate.phone || "",
         email: contactToDuplicate.email || "",
         website: contactToDuplicate.website || "",
+        tagIds: Array.isArray(contactToDuplicate.tags)
+          ? contactToDuplicate.tags.map((t) =>
+              typeof t === "object" && t?.id != null ? t.id : t,
+            )
+          : [],
       };
 
       const res = await createContact(contactData);

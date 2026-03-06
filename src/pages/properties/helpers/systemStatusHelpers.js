@@ -3,18 +3,18 @@
  * used by the Systems tab collapsible headers.
  */
 
-/** systemType -> { lastInspection, nextInspection, condition, issues } field names */
+/** systemType -> { lastInspection, nextInspection, condition, issues, installDate } field names */
 export const INSPECTION_FIELDS_BY_SYSTEM = {
-  roof: { lastInspection: "roofLastInspection", nextInspection: "roofNextInspection", condition: "roofCondition", issues: "roofIssues" },
-  gutters: { lastInspection: "gutterLastInspection", nextInspection: "gutterNextInspection", condition: "gutterCondition", issues: "gutterIssues" },
-  foundation: { lastInspection: "foundationLastInspection", nextInspection: "foundationNextInspection", condition: "foundationCondition", issues: "foundationIssues" },
-  exterior: { lastInspection: "sidingLastInspection", nextInspection: "sidingNextInspection", condition: "sidingCondition", issues: "sidingIssues" },
-  windows: { lastInspection: "windowLastInspection", nextInspection: "windowNextInspection", condition: "windowCondition", issues: "windowIssues" },
-  heating: { lastInspection: "heatingLastInspection", nextInspection: "heatingNextInspection", condition: "heatingCondition", issues: "heatingIssues" },
-  ac: { lastInspection: "acLastInspection", nextInspection: "acNextInspection", condition: "acCondition", issues: "acIssues" },
-  waterHeating: { lastInspection: "waterHeatingLastInspection", nextInspection: "waterHeatingNextInspection", condition: "waterHeatingCondition", issues: "waterHeatingIssues" },
-  electrical: { lastInspection: "electricalLastInspection", nextInspection: "electricalNextInspection", condition: "electricalCondition", issues: "electricalIssues" },
-  plumbing: { lastInspection: "plumbingLastInspection", nextInspection: "plumbingNextInspection", condition: "plumbingCondition", issues: "plumbingIssues" },
+  roof: { lastInspection: "roofLastInspection", nextInspection: "roofNextInspection", condition: "roofCondition", issues: "roofIssues", installDate: "roofInstallDate" },
+  gutters: { lastInspection: "gutterLastInspection", nextInspection: "gutterNextInspection", condition: "gutterCondition", issues: "gutterIssues", installDate: "gutterInstallDate" },
+  foundation: { lastInspection: "foundationLastInspection", nextInspection: "foundationNextInspection", condition: "foundationCondition", issues: "foundationIssues", installDate: null },
+  exterior: { lastInspection: "sidingLastInspection", nextInspection: "sidingNextInspection", condition: "sidingCondition", issues: "sidingIssues", installDate: "sidingInstallDate" },
+  windows: { lastInspection: "windowLastInspection", nextInspection: "windowNextInspection", condition: "windowCondition", issues: "windowIssues", installDate: "windowInstallDate" },
+  heating: { lastInspection: "heatingLastInspection", nextInspection: "heatingNextInspection", condition: "heatingCondition", issues: "heatingIssues", installDate: "heatingInstallDate" },
+  ac: { lastInspection: "acLastInspection", nextInspection: "acNextInspection", condition: "acCondition", issues: "acIssues", installDate: "acInstallDate" },
+  waterHeating: { lastInspection: "waterHeatingLastInspection", nextInspection: "waterHeatingNextInspection", condition: "waterHeatingCondition", issues: "waterHeatingIssues", installDate: "waterHeatingInstallDate" },
+  electrical: { lastInspection: "electricalLastInspection", nextInspection: "electricalNextInspection", condition: "electricalCondition", issues: "electricalIssues", installDate: "electricalInstallDate" },
+  plumbing: { lastInspection: "plumbingLastInspection", nextInspection: "plumbingNextInspection", condition: "plumbingCondition", issues: "plumbingIssues", installDate: "plumbingInstallDate" },
 };
 
 function isFilled(value) {
@@ -76,13 +76,13 @@ function getUpcomingEventForSystem(maintenanceEvents, systemType) {
 }
 
 /**
- * Compute status flags for a system.
+ * Compute status flags and attention reasons for a system.
  * @param {Object} propertyData - Property form data
  * @param {string} systemType - System ID (e.g. "roof", "custom-Solar-0")
  * @param {boolean} isNewInstall - Whether system is marked as new install
  * @param {Object} customSystemsData - Custom system data (for custom systems)
  * @param {Array} [maintenanceEvents] - Upcoming maintenance events from API
- * @returns {{ needsAttention: boolean, hasScheduledEvent: boolean, scheduledDate?: string, scheduledTime?: string|null }}
+ * @returns {{ needsAttention: boolean, attentionReasons: string[], hasScheduledEvent: boolean, scheduledDate?: string, scheduledTime?: string|null }}
  */
 export function getSystemStatus(
   propertyData,
@@ -93,6 +93,7 @@ export function getSystemStatus(
 ) {
   let lastInspection = null;
   let nextInspection = null;
+  let installDate = null;
 
   const customName = getCustomSystemName(systemType);
   let condition = null;
@@ -104,6 +105,7 @@ export function getSystemStatus(
     nextInspection = customData.nextInspection;
     condition = customData.condition;
     issues = customData.issues;
+    installDate = customData.installDate;
   } else {
     const fields = INSPECTION_FIELDS_BY_SYSTEM[systemType];
     if (fields) {
@@ -111,13 +113,27 @@ export function getSystemStatus(
       nextInspection = propertyData?.[fields.nextInspection];
       condition = propertyData?.[fields.condition];
       issues = propertyData?.[fields.issues];
+      installDate = fields.installDate ? propertyData?.[fields.installDate] : null;
     }
   }
 
-  // Needs Attention: no inspection recorded (and not new install), OR requires maintenance (Poor/Fair condition or has known issues)
-  const noInspectionRecorded = !isNewInstall && !isFilled(lastInspection);
-  const requiresMaintenance = ["Poor", "Fair"].includes(condition) || isFilled(issues);
-  const needsAttention = noInspectionRecorded || requiresMaintenance;
+  const attentionReasons = [];
+  if (!isNewInstall && !isFilled(lastInspection)) {
+    attentionReasons.push("No inspection date recorded");
+  }
+  if (!isNewInstall && !isFilled(installDate) && (customName || INSPECTION_FIELDS_BY_SYSTEM[systemType]?.installDate)) {
+    attentionReasons.push("No installation data available");
+  }
+  if (condition === "Poor") {
+    attentionReasons.push("Condition: Poor");
+  } else if (condition === "Fair") {
+    attentionReasons.push("Condition: Fair");
+  }
+  if (isFilled(issues)) {
+    attentionReasons.push("Known issues reported");
+  }
+
+  const needsAttention = attentionReasons.length > 0;
 
   // Scheduled Event: from form (nextInspection) OR from maintenance_events (e.g. AI chat scheduling)
   const fromForm = isFilled(nextInspection) && isUpcomingDate(nextInspection);
@@ -135,6 +151,7 @@ export function getSystemStatus(
 
   return {
     needsAttention,
+    attentionReasons,
     hasScheduledEvent,
     ...(scheduledDate != null && {scheduledDate}),
     ...(scheduledTime !== undefined && {scheduledTime}),

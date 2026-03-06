@@ -12,12 +12,13 @@ function ModalBlank({
   ignoreClickRef,
 }) {
   const modalContent = useRef(null);
+  const isOpen = modalOpen === true;
 
   // close on click outside (when enabled)
   useEffect(() => {
     if (!closeOnClickOutside) return;
     const clickHandler = ({target}) => {
-      if (!modalOpen) return;
+      if (!isOpen) return;
       if (modalContent.current?.contains(target)) return;
       // Ignore clicks on the trigger button (e.g. Preview) so opening click doesn't immediately close
       if (ignoreClickRef?.current?.contains(target)) return;
@@ -27,17 +28,17 @@ function ModalBlank({
     };
     document.addEventListener("click", clickHandler);
     return () => document.removeEventListener("click", clickHandler);
-  }, [modalOpen, closeOnClickOutside, setModalOpen, ignoreClickRef]);
+  }, [isOpen, closeOnClickOutside, setModalOpen, ignoreClickRef]);
 
   // close if the esc key is pressed
   useEffect(() => {
     const keyHandler = ({keyCode}) => {
-      if (!modalOpen || keyCode !== 27) return;
+      if (!isOpen || keyCode !== 27) return;
       setModalOpen(false);
     };
     document.addEventListener("keydown", keyHandler);
     return () => document.removeEventListener("keydown", keyHandler);
-  }, [modalOpen, setModalOpen]);
+  }, [isOpen, setModalOpen]);
 
   const handleBackdropClick = (e) => {
     if (e.target === e.currentTarget && closeOnBackdropClick)
@@ -48,8 +49,10 @@ function ModalBlank({
     <>
       {/* Modal backdrop - click to close, z-[200] ensures modals appear above floating elements like ImageUploadField (z-[100]) */}
       <Transition
-        className="fixed inset-0 bg-gray-900/30 z-[200] transition-opacity cursor-default"
-        show={modalOpen}
+        className={`fixed inset-0 bg-gray-900/30 z-[200] transition-opacity cursor-default ${
+          isOpen ? "pointer-events-auto" : "pointer-events-none"
+        }`}
+        show={isOpen}
         appear={true}
         enter="transition ease-out duration-200"
         enterStart="opacity-0"
@@ -66,7 +69,7 @@ function ModalBlank({
         className="fixed inset-0 z-[200] overflow-hidden flex items-center my-4 justify-center px-4 sm:px-6"
         role="dialog"
         aria-modal="true"
-        show={modalOpen}
+        show={isOpen}
         appear={true}
         enter="transition ease-in-out duration-200"
         enterStart="opacity-0 translate-y-4"

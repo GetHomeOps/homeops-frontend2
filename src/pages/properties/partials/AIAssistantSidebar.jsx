@@ -34,7 +34,6 @@ function AIAssistantSidebar({
   initialPrompt,
   onScheduleSuccess,
   onOpenScheduleModal,
-  onMarkAsMaintained,
 }) {
   const navigate = useNavigate();
   const {accountUrl} = useParams();
@@ -526,22 +525,16 @@ function AIAssistantSidebar({
                     )}
                     <button
                       type="button"
-                      onClick={() => navigate(professionalsPath)}
+                      onClick={() => {
+                        const base = typeof window !== "undefined" ? window.location.href.split("#")[0] : "";
+                        const cleanPath = (professionalsPath || "").replace(/^\//, "");
+                        window.open(`${base}#/${cleanPath}`, "_blank");
+                      }}
                       className="inline-flex items-center gap-1 px-2 py-1 rounded text-xs font-medium bg-gray-200 dark:bg-gray-600 text-gray-700 dark:text-gray-300 hover:bg-gray-300 dark:hover:bg-gray-500"
                     >
                       <UserPlus className="w-3 h-3" />
                       Find Contractor
                     </button>
-                    {onMarkAsMaintained && (
-                      <button
-                        type="button"
-                        onClick={() => onMarkAsMaintained({ systemId: activeSystemId || systemContext?.systemId, systemName: activeSystemName || systemContext?.systemName })}
-                        className="inline-flex items-center gap-1 px-2 py-1 rounded text-xs font-medium bg-emerald-100 dark:bg-emerald-900/30 text-emerald-700 dark:text-emerald-400 hover:bg-emerald-200 dark:hover:bg-emerald-900/50"
-                      >
-                        <Wrench className="w-3 h-3" />
-                        Mark as Maintained
-                      </button>
-                    )}
                   </div>
                 )}
               </div>
@@ -649,7 +642,11 @@ function AIAssistantSidebar({
                       No contractors found.{" "}
                       <button
                         type="button"
-                        onClick={() => navigate(professionalsPath)}
+                        onClick={() => {
+                          const base = typeof window !== "undefined" ? window.location.href.split("#")[0] : "";
+                          const cleanPath = (professionalsPath || "").replace(/^\//, "");
+                          window.open(`${base}#/${cleanPath}`, "_blank");
+                        }}
                         className="text-[#456564] hover:underline font-medium inline-flex items-center gap-0.5"
                       >
                         Browse professionals directory

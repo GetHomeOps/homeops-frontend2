@@ -204,7 +204,13 @@ function InlineDocumentPreview({
   );
 }
 
-function DocumentsTab({propertyData, onOpenAIAssistant, onOpenAIReport}) {
+function DocumentsTab({
+  propertyData,
+  onOpenAIAssistant,
+  onOpenAIReport,
+  openUploadModalForInspectionReport = false,
+  onUploadModalOpened,
+}) {
   const propertyId = propertyData?.id ?? propertyData?.identity?.id;
   const [documents, setDocuments] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -252,6 +258,16 @@ function DocumentsTab({propertyData, onOpenAIAssistant, onOpenAIReport}) {
       fetchPresignedPreview(selectedDocument.document_key);
     }
   }, [selectedDocument?.document_key, fetchPresignedPreview]);
+
+  // Open upload modal with inspection report preselected when requested from Inspection Analysis
+  useEffect(() => {
+    if (openUploadModalForInspectionReport) {
+      setUploadSystemKey("inspectionReport");
+      setUploadDocumentType("inspection");
+      setShowUploadModal(true);
+      onUploadModalOpened?.();
+    }
+  }, [openUploadModalForInspectionReport, onUploadModalOpened]);
 
   const fetchDocuments = useCallback(async () => {
     if (!propertyId) {

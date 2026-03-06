@@ -131,7 +131,7 @@ const DatePickerInput = React.memo(function DatePickerInput({
             required={required}
             className={cn(
               "form-input w-full pr-9",
-              disabled && "cursor-not-allowed",
+              disabled ? "cursor-not-allowed" : "cursor-pointer",
               className,
             )}
             style={style}

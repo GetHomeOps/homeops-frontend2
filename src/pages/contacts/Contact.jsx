@@ -3,7 +3,7 @@ import {useNavigate} from "react-router-dom";
 
 import Sidebar from "../../partials/Sidebar";
 import Header from "../../partials/Header";
-
+import { PAGE_LAYOUT } from "../../constants/layout";
 import ContactFormContainer from "./ContactFormContainer";
 
 function ContactContainer() {
@@ -25,7 +25,7 @@ function ContactContainer() {
         <Header sidebarOpen={sidebarOpen} setSidebarOpen={setSidebarOpen} />
 
         <main className="grow">
-          <div className="px-0 sm:px-4 lg:px-5 xxl:px-12 py-8 w-full max-w-5xl mx-auto">
+          <div className={PAGE_LAYOUT.form}>
             {/* Form */}
             <ContactFormContainer onReturn={handleReturn} />
           </div>

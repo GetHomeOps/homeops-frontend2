@@ -43,7 +43,6 @@ function rowToContactPayload(row, accountId) {
     phone: (row.phone || "").trim() || undefined,
     email: (row.email || "").trim() || undefined,
     website: (row.website || "").trim() || undefined,
-    image: (row.image || "").trim() || undefined,
     street1: (row.street1 || "").trim() || undefined,
     street2: (row.street2 || "").trim() || undefined,
     city: (row.city || "").trim() || undefined,

@@ -114,10 +114,13 @@ function HomeownerHome() {
   const [professionalsLoading, setProfessionalsLoading] = useState(true);
 
   const accountUrl = currentAccount?.url || currentAccount?.name || "";
-  const homeownerName =
+  const rawFirstName =
     currentUser?.fullName?.split(" ")[0] ||
     currentUser?.name?.split(" ")[0] ||
     "Homeowner";
+  const homeownerName = rawFirstName
+    ? rawFirstName.charAt(0).toUpperCase() + rawFirstName.slice(1).toLowerCase()
+    : rawFirstName;
 
   const totalProperties = properties?.length || 0;
   const activeProperty = totalProperties > 0 ? properties[activeIndex] : null;
@@ -571,7 +574,7 @@ function HomeownerHome() {
           {/* Bottom Section - Welcome, Name & Address */}
           <div className="px-0 sm:px-4 lg:px-5 xxl:px-12 pb-32 lg:pb-36">
             <p className="text-white/70 text-sm leading-tight">
-              Welcome back,
+              Welcome,
             </p>
             <h1 className="text-3xl lg:text-4xl font-bold text-white mb-2 leading-tight">
               {homeownerName}

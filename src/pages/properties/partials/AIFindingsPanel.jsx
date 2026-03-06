@@ -319,7 +319,11 @@ function AIFindingsPanel({
                       </button>
                       <button
                         type="button"
-                        onClick={() => navigate(professionalsPath)}
+                        onClick={() => {
+                          const base = typeof window !== "undefined" ? window.location.href.split("#")[0] : "";
+                          const cleanPath = (professionalsPath || "").replace(/^\//, "");
+                          window.open(`${base}#/${cleanPath}`, "_blank");
+                        }}
                         className="inline-flex items-center gap-0.5 text-[11px] text-gray-500 hover:text-[#456564] dark:text-gray-400 dark:hover:text-[#7aa3a2] transition-colors"
                       >
                         Professionals

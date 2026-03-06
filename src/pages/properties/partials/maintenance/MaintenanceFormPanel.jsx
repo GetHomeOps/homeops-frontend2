@@ -18,9 +18,11 @@ import {
   Trash2,
   Save,
   Plus,
+  ClipboardCheck,
 } from "lucide-react";
 import DatePickerInput from "../../../../components/DatePickerInput";
 import InstallerSelect from "../InstallerSelect";
+import AppApi from "../../../../api/api";
 import {RECORD_STATUS} from "../../helpers/maintenanceRecordMapping";
 
 /**
@@ -64,8 +66,23 @@ function MaintenanceFormPanel({
   const [recordStatus, setRecordStatus] = useState(null);
   const [submitRequestBannerVisible, setSubmitRequestBannerVisible] =
     useState(true);
+  const [checklistItems, setChecklistItems] = useState([]);
+  const [selectedChecklistItemId, setSelectedChecklistItemId] = useState("");
+
+  useEffect(() => {
+    if (!propertyId || !systemId) return;
+    AppApi.getInspectionChecklist(propertyId, { systemKey: systemId, status: "pending" })
+      .then((items) => {
+        const inProgress = AppApi.getInspectionChecklist(propertyId, { systemKey: systemId, status: "in_progress" });
+        return inProgress.then((ipItems) => setChecklistItems([...items, ...ipItems]));
+      })
+      .catch(() => setChecklistItems([]));
+  }, [propertyId, systemId]);
+
+  const [isSendingToContractor, setIsSendingToContractor] = useState(false);
 
   const isContractorPending = recordStatus === RECORD_STATUS.CONTRACTOR_PENDING;
+  const isContractorCompleted = recordStatus === RECORD_STATUS.CONTRACTOR_COMPLETED;
   const isDraft =
     recordStatus === RECORD_STATUS.DRAFT || recordStatus == null;
 
@@ -96,6 +113,7 @@ function MaintenanceFormPanel({
         systemId: systemId || "roof",
         id,
         record_status: recordStatus,
+        checklist_item_id: selectedChecklistItemId ? parseInt(selectedChecklistItemId, 10) : null,
         ...overrides,
       };
     },
@@ -226,32 +244,47 @@ function MaintenanceFormPanel({
     return Math.round((bytes / Math.pow(k, i)) * 100) / 100 + " " + sizes[i];
   };
 
-  const handleSubmitRequest = () => {
+  const handleSubmitRequest = async () => {
     if (isContractorPending) return;
     if (!formData.date?.trim()) {
       alert("Please provide a date before submitting a request.");
       return;
     }
-    if (
-      !formData.contractor ||
-      (!formData.contractorEmail && !formData.contractorPhone)
-    ) {
+    if (!formData.contractor || !formData.contractorEmail) {
       alert(
-        "Please provide contractor name and at least one contact method (email or phone) before submitting a request.",
+        "Please provide contractor name and email before submitting a request.",
       );
       return;
     }
-    setRecordStatus(RECORD_STATUS.CONTRACTOR_PENDING);
-    if (persistOnChange) {
-      queueMicrotask(() =>
-        notifyRecordChange(formData, uploadedFiles, {
-          record_status: RECORD_STATUS.CONTRACTOR_PENDING,
-        }),
-      );
+
+    const recordId = record?.id;
+    const isPersistedRecord = recordId && !/^MT-\d+$/.test(String(recordId));
+
+    if (!isPersistedRecord) {
+      alert("Please save the record first before sending it to the contractor.");
+      return;
     }
-    alert(
-      "Request submitted to contractor. They will be notified to fill out the maintenance report.",
-    );
+
+    setIsSendingToContractor(true);
+    try {
+      await AppApi.sendMaintenanceToContractor(recordId, {
+        contractorEmail: formData.contractorEmail,
+        contractorName: formData.contractor,
+      });
+      setRecordStatus(RECORD_STATUS.CONTRACTOR_PENDING);
+      if (persistOnChange) {
+        queueMicrotask(() =>
+          notifyRecordChange(formData, uploadedFiles, {
+            record_status: RECORD_STATUS.CONTRACTOR_PENDING,
+          }),
+        );
+      }
+      alert("Report link sent to contractor! They'll receive an email to fill out the maintenance report.");
+    } catch (err) {
+      alert(`Failed to send to contractor: ${err.message}`);
+    } finally {
+      setIsSendingToContractor(false);
+    }
   };
 
   const handleCancelSubmitRequest = () => {
@@ -347,8 +380,25 @@ function MaintenanceFormPanel({
                 Awaiting contractor completion
               </h3>
               <p className="text-xs text-amber-700 dark:text-amber-300">
-                This record has been sent to the contractor. Editing is disabled
-                until the contractor completes their response.
+                An email with a report link has been sent to the contractor.
+                Editing is disabled until they submit their response.
+              </p>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Contractor completed - show success banner */}
+      {isContractorCompleted && (
+        <div className="px-6 py-4 bg-emerald-50 dark:bg-emerald-900/20 border-b border-emerald-200 dark:border-emerald-800">
+          <div className="flex items-center gap-3">
+            <ClipboardCheck className="w-5 h-5 text-emerald-600 dark:text-emerald-400 flex-shrink-0" />
+            <div>
+              <h3 className="text-sm font-semibold text-emerald-900 dark:text-emerald-200">
+                Contractor report received
+              </h3>
+              <p className="text-xs text-emerald-700 dark:text-emerald-300">
+                The contractor has submitted their report. Review the details below.
               </p>
             </div>
           </div>
@@ -378,17 +428,18 @@ function MaintenanceFormPanel({
                       <button
                         type="button"
                         onClick={handleSubmitRequest}
-                        className="inline-flex items-center gap-2 px-4 py-2 text-white text-sm font-medium rounded-lg transition-colors"
+                        disabled={isSendingToContractor}
+                        className="inline-flex items-center gap-2 px-4 py-2 text-white text-sm font-medium rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
                         style={{backgroundColor: "#456654"}}
                         onMouseEnter={(e) => {
-                          e.target.style.backgroundColor = "#3a5548";
+                          if (!isSendingToContractor) e.target.style.backgroundColor = "#3a5548";
                         }}
                         onMouseLeave={(e) => {
-                          e.target.style.backgroundColor = "#456654";
+                          if (!isSendingToContractor) e.target.style.backgroundColor = "#456654";
                         }}
                       >
                         <Send className="w-4 h-4" />
-                        Submit Request
+                        {isSendingToContractor ? "Sending..." : "Send to Contractor"}
                       </button>
                       <button
                         type="button"
@@ -443,6 +494,37 @@ function MaintenanceFormPanel({
               </div>
             </div>
           </div>
+
+          {/* Addresses Inspection Finding */}
+          {checklistItems.length > 0 && (
+            <div className="pb-6 border-b border-gray-200 dark:border-gray-700">
+              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                <ClipboardCheck className="w-4 h-4 inline mr-2" />
+                Addresses Inspection Finding
+              </label>
+              <select
+                value={selectedChecklistItemId}
+                onChange={(e) => {
+                  setSelectedChecklistItemId(e.target.value);
+                  const next = {...formData};
+                  notifyRecordChange(next, uploadedFiles, {
+                    checklist_item_id: e.target.value ? parseInt(e.target.value, 10) : null,
+                  });
+                }}
+                className="form-input w-full text-sm"
+              >
+                <option value="">None — not linked to an inspection item</option>
+                {checklistItems.map((ci) => (
+                  <option key={ci.id} value={ci.id}>
+                    {ci.title}{ci.priority && ci.priority !== "medium" ? ` (${ci.priority})` : ""}
+                  </option>
+                ))}
+              </select>
+              <p className="mt-1 text-xs text-gray-500 dark:text-gray-400">
+                Link this maintenance record to an inspection checklist item to track progress
+              </p>
+            </div>
+          )}
 
           {/* Contractor Information */}
           <div className="pb-6 border-b border-gray-200 dark:border-gray-700">

@@ -1,5 +1,6 @@
 import React, {useState, useRef, useEffect, useContext} from "react";
 import {Link} from "react-router-dom";
+import {CreditCard, Settings, HelpCircle, RefreshCw, LogOut} from "lucide-react";
 import Transition from "../utils/Transition";
 import AuthContext from "../context/AuthContext";
 import useCurrentAccount from "../hooks/useCurrentAccount";
@@ -115,7 +116,7 @@ function DropdownProfile({align}) {
           onBlur={() => setDropdownOpen(false)}
         >
           <div className="pt-0.5 pb-2 px-3 mb-1 border-b border-gray-200 dark:border-gray-700/60">
-            <div className="font-medium text-gray-800 dark:text-gray-100">
+            <div className="font-medium text-gray-700 dark:text-gray-100">
               {currentUser?.name}
             </div>
             {currentUser?.email && (
@@ -133,28 +134,31 @@ function DropdownProfile({align}) {
                 <>
                   <li>
                     <Link
-                      className="font-medium text-sm text-gray-700 dark:text-gray-200 hover:text-gray-900 dark:hover:text-white flex items-center py-1 px-3 hover:bg-gray-50 dark:hover:bg-gray-700/50"
+                      className="font-medium text-sm text-gray-500 dark:text-gray-300 hover:text-gray-700 dark:hover:text-white flex items-center gap-2 py-1 px-3 hover:bg-gray-50 dark:hover:bg-gray-700/50"
                       to={`${settingsBase}/billing`}
                       onClick={() => setDropdownOpen(false)}
                     >
+                      <CreditCard className="w-4 h-4 shrink-0 text-gray-400 dark:text-gray-500" />
                       {(t("billing") || "Billing").replace(/^\w/, (c) => c.toUpperCase())}
                     </Link>
                   </li>
                   <li>
                     <Link
-                      className="font-medium text-sm text-gray-700 dark:text-gray-200 hover:text-gray-900 dark:hover:text-white flex items-center py-1 px-3 hover:bg-gray-50 dark:hover:bg-gray-700/50"
+                      className="font-medium text-sm text-gray-500 dark:text-gray-300 hover:text-gray-700 dark:hover:text-white flex items-center gap-2 py-1 px-3 hover:bg-gray-50 dark:hover:bg-gray-700/50"
                       to={`${settingsBase}/configuration`}
                       onClick={() => setDropdownOpen(false)}
                     >
+                      <Settings className="w-4 h-4 shrink-0 text-gray-400 dark:text-gray-500" />
                       {(t("configuration") || "Configuration").replace(/^\w/, (c) => c.toUpperCase())}
                     </Link>
                   </li>
                   <li>
                     <Link
-                      className="font-medium text-sm text-gray-700 dark:text-gray-200 hover:text-gray-900 dark:hover:text-white flex items-center py-1 px-3 hover:bg-gray-50 dark:hover:bg-gray-700/50"
+                      className="font-medium text-sm text-gray-500 dark:text-gray-300 hover:text-gray-700 dark:hover:text-white flex items-center gap-2 py-1 px-3 hover:bg-gray-50 dark:hover:bg-gray-700/50"
                       to={`${settingsBase}/support`}
                       onClick={() => setDropdownOpen(false)}
                     >
+                      <HelpCircle className="w-4 h-4 shrink-0 text-gray-400 dark:text-gray-500" />
                       {(t("support") || "Support").replace(/^\w/, (c) => c.toUpperCase())}
                     </Link>
                   </li>
@@ -163,10 +167,11 @@ function DropdownProfile({align}) {
               {hasMultipleAccounts && (
                 <li>
                   <Link
-                    className="font-medium text-sm text-gray-700 dark:text-gray-200 hover:text-gray-900 dark:hover:text-white flex items-center py-1 px-3 hover:bg-gray-50 dark:hover:bg-gray-700/50"
+                    className="font-medium text-sm text-gray-500 dark:text-gray-300 hover:text-gray-700 dark:hover:text-white flex items-center gap-2 py-1 px-3 hover:bg-gray-50 dark:hover:bg-gray-700/50"
                     to="/settings/accounts"
                     onClick={() => setDropdownOpen(false)}
                   >
+                    <RefreshCw className="w-4 h-4 shrink-0 text-gray-400 dark:text-gray-500" />
                     {(t("switchAccount") || "Switch Account").replace(/\b\w/g, (c) => c.toUpperCase())}
                   </Link>
                 </li>
@@ -176,10 +181,11 @@ function DropdownProfile({align}) {
               <ul>
                 <li>
                   <Link
-                    className="font-medium text-sm text-gray-700 dark:text-gray-200 hover:text-gray-900 dark:hover:text-white flex items-center py-1 px-3 hover:bg-gray-50 dark:hover:bg-gray-700/50"
+                    className="font-medium text-sm text-gray-500 dark:text-gray-300 hover:text-gray-700 dark:hover:text-white flex items-center gap-2 py-1 px-3 hover:bg-gray-50 dark:hover:bg-gray-700/50"
                     to="/signin"
                     onClick={logout}
                   >
+                    <LogOut className="w-4 h-4 shrink-0 text-gray-400 dark:text-gray-500" />
                     {(t("signOut") || "Sign Out").replace(/\b\w/g, (c) => c.toUpperCase())}
                   </Link>
                 </li>

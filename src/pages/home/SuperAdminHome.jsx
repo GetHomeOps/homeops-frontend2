@@ -4,7 +4,7 @@ import { useAuth } from "../../context/AuthContext";
 import PropertyContext from "../../context/PropertyContext";
 import UserContext from "../../context/UserContext";
 import AppApi from "../../api/api";
-import { Shield, Loader2 } from "lucide-react";
+import { Loader2 } from "lucide-react";
 import { SuperAdminHomeStats, SuperAdminHomeKpiCharts } from "./components";
 
 /*
@@ -93,10 +93,13 @@ function SuperAdminHome() {
     { label: "90 Days", value: 90 },
   ];
 
-  const adminName =
+  const rawFirstName =
     currentUser?.fullName?.split(" ")[0] ||
     currentUser?.name?.split(" ")[0] ||
     "Admin";
+  const adminName = rawFirstName
+    ? rawFirstName.charAt(0).toUpperCase() + rawFirstName.slice(1).toLowerCase()
+    : rawFirstName;
 
   const accounts = currentUser?.accounts || [];
 
@@ -261,7 +264,6 @@ function SuperAdminHome() {
       {/* ============================================ */}
       <div>
         <div className="flex items-center gap-2 mb-1">
-          <Shield className="w-5 h-5 text-[#456564]" />
           <span className="text-xs font-semibold uppercase tracking-wider text-[#456564] dark:text-emerald-400">
             {t("superAdminHome.badge") || "Platform Admin"}
           </span>

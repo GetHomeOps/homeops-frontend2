@@ -383,7 +383,9 @@ function PropertyFormContainer() {
     accountUrlParam || currentAccount?.url || currentAccount?.name || "";
   const [homeopsTeam, setHomeopsTeam] = useState([]);
   const [systemsSetupModalOpen, setSystemsSetupModalOpen] = useState(false);
+  const [systemsSetupInitialStep, setSystemsSetupInitialStep] = useState(null);
   const [upgradePromptOpen, setUpgradePromptOpen] = useState(false);
+  const [upgradePromptTitle, setUpgradePromptTitle] = useState("Upgrade your plan");
   const [upgradePromptMsg, setUpgradePromptMsg] = useState("");
   const [aiSidebarOpen, setAiSidebarOpen] = useState(false);
   const [aiSidebarSystemLabel, setAiSidebarSystemLabel] = useState(null);
@@ -392,6 +394,8 @@ function PropertyFormContainer() {
   const [inspectionAnalysis, setInspectionAnalysis] = useState(null);
   const [inspectionReportModalOpen, setInspectionReportModalOpen] =
     useState(false);
+  const [inspectionReportSystemId, setInspectionReportSystemId] =
+    useState(null);
   const [scheduleFromAiModalOpen, setScheduleFromAiModalOpen] = useState(false);
   const [scheduleFromAiPrefill, setScheduleFromAiPrefill] = useState(null);
   const [createdPropertyFromModal, setCreatedPropertyFromModal] =
@@ -401,6 +405,8 @@ function PropertyFormContainer() {
   const [shareModalOpen, setShareModalOpen] = useState(false);
   const [shareModalInitialTab, setShareModalInitialTab] = useState("owner");
   const [blankModalOpen, setBlankModalOpen] = useState(false);
+  const [documentsUploadModalRequested, setDocumentsUploadModalRequested] =
+    useState(false);
   const [invitationModalOpen, setInvitationModalOpen] = useState(false);
   const [invitationAcceptingId, setInvitationAcceptingId] = useState(null);
   const [invitationDecliningId, setInvitationDecliningId] = useState(null);
@@ -1037,8 +1043,7 @@ function PropertyFormContainer() {
         err?.status === 403 &&
         err?.message?.toLowerCase().includes("limit")
       ) {
-        setUpgradePromptMsg(err.message);
-        setUpgradePromptOpen(true);
+        // TierLimitBanner shows globally from ApiError — don't also open UpgradePrompt
       } else {
         dispatch({
           type: "SET_BANNER",
@@ -1586,13 +1591,16 @@ function PropertyFormContainer() {
             currentAccount?.id &&
             typeof AppApi.createInvitation === "function"
           ) {
-            await AppApi.createInvitation({
+            const res = await AppApi.createInvitation({
               type: "property",
               inviteeEmail: inviteEmail,
               accountId: currentAccount.id,
               propertyId,
               intendedRole,
             });
+            if (res?.invitation?.id) {
+              pendingMember.invitationId = res.invitation.id;
+            }
             handleTeamChange([...homeopsTeam, pendingMember]);
           } else {
             handleTeamChange([...homeopsTeam, pendingMember]);
@@ -1601,7 +1609,11 @@ function PropertyFormContainer() {
       />
       <SystemsSetupModal
         modalOpen={systemsSetupModalOpen}
-        setModalOpen={setSystemsSetupModalOpen}
+        setModalOpen={(open) => {
+          if (!open) setSystemsSetupInitialStep(null);
+          setSystemsSetupModalOpen(open);
+        }}
+        initialStep={systemsSetupInitialStep}
         propertyId={
           createdPropertyFromModal?.id ??
           (uid !== "new"
@@ -1784,6 +1796,7 @@ function PropertyFormContainer() {
         systemLabel={scheduleFromAiPrefill?.systemLabel ?? "Maintenance"}
         systemType={scheduleFromAiPrefill?.systemType ?? "general"}
         contacts={contacts ?? []}
+        onScheduleSuccess={fetchMaintenanceEvents}
         propertyId={
           uid !== "new"
             ? (state.property?.identity?.id ?? state.property?.id ?? uid)
@@ -1840,14 +1853,7 @@ function PropertyFormContainer() {
                 onClick={() => setActionsDropdownOpen(!actionsDropdownOpen)}
               >
                 <span className="sr-only">Actions</span>
-                <svg
-                  className="fill-current"
-                  width="16"
-                  height="16"
-                  viewBox="0 0 16 16"
-                >
-                  <path d="M0 3a1 1 0 0 1 1-1h14a1 1 0 1 1 0 2H1a1 1 0 0 1-1-1ZM3 8a1 1 0 0 1 1-1h8a1 1 0 1 1 0 2H4a1 1 0 0 1-1-1ZM7 12a1 1 0 1 0 0 2h2a1 1 0 1 0 0-2H7Z" />
-                </svg>
+                <Settings className="w-4 h-4" />
               </button>
               <Transition
                 show={actionsDropdownOpen}
@@ -1876,6 +1882,7 @@ function PropertyFormContainer() {
                         onClick={(e) => {
                           e.stopPropagation();
                           setActionsDropdownOpen(false);
+                          setSystemsSetupInitialStep("systems");
                           setSystemsSetupModalOpen(true);
                         }}
                       >
@@ -1892,21 +1899,12 @@ function PropertyFormContainer() {
                         onClick={(e) => {
                           e.stopPropagation();
                           setActionsDropdownOpen(false);
-                          // TODO: Call API to generate PDF report
-                          dispatch({
-                            type: "SET_BANNER",
-                            payload: {
-                              open: true,
-                              type: "success",
-                              message:
-                                "Report generation is not yet implemented.",
-                            },
-                          });
+                          setBlankModalOpen(true);
                         }}
                       >
                         <FileBarChart className="w-5 h-5 shrink-0 text-neutral-500 dark:text-neutral-400" />
                         <span className="text-sm font-medium ml-2">
-                          Generate report
+                          Analyze report
                         </span>
                       </button>
                     </li>
@@ -2465,6 +2463,7 @@ function PropertyFormContainer() {
                 {state.activeTab === "systems" && (
                   <SystemsTab
                     propertyData={mergedFormData}
+                    maintenanceRecords={state.formData.maintenanceRecords ?? []}
                     propertyIdFallback={uid !== "new" ? uid : undefined}
                     handleInputChange={handleChange}
                     expandSectionId={expandSectionId}
@@ -2476,13 +2475,15 @@ function PropertyFormContainer() {
                     systems={state.systems}
                     inspectionAnalysis={inspectionAnalysis}
                     maintenanceEvents={maintenanceEvents}
+                    onScheduleSuccess={fetchMaintenanceEvents}
                     aiSummaryUpdatedAt={state.aiSummaryUpdatedAt}
                     propertyId={
                       state.property?.id ?? (uid && uid !== "new" ? uid : null)
                     }
-                    onOpenInspectionReport={() =>
-                      setInspectionReportModalOpen(true)
-                    }
+                    onOpenInspectionReport={(systemId) => {
+                      setInspectionReportSystemId(systemId ?? null);
+                      setInspectionReportModalOpen(true);
+                    }}
                     aiSidebarOpen={aiSidebarOpen}
                     onAiSidebarOpenChange={setAiSidebarOpen}
                     onOpenAIAssistant={(ctx) => {
@@ -2591,8 +2592,17 @@ function PropertyFormContainer() {
                         }
                         onOpenAIReport={
                           uid !== "new"
-                            ? () => setInspectionReportModalOpen(true)
+                            ? () =>
+                                requestAnimationFrame(() =>
+                                  setBlankModalOpen(true)
+                                )
                             : undefined
+                        }
+                        openUploadModalForInspectionReport={
+                          documentsUploadModalRequested
+                        }
+                        onUploadModalOpened={() =>
+                          setDocumentsUploadModalRequested(false)
                         }
                       />
                     </React.Suspense>
@@ -2779,14 +2789,52 @@ function PropertyFormContainer() {
       {uid !== "new" && (
         <InspectionReportModal
           isOpen={inspectionReportModalOpen}
-          onClose={() => setInspectionReportModalOpen(false)}
+          onClose={() => {
+            setInspectionReportModalOpen(false);
+            setInspectionReportSystemId(null);
+          }}
           analysis={inspectionAnalysis}
+          systemId={inspectionReportSystemId}
+          systemLabel={
+            inspectionReportSystemId
+              ? (PROPERTY_SYSTEMS.find((s) => s.id === inspectionReportSystemId)
+                ?.name ??
+                (inspectionReportSystemId.startsWith("custom-")
+                  ? inspectionReportSystemId.replace(/^custom-(.+?)-\d+$/, "$1") || inspectionReportSystemId
+                  : inspectionReportSystemId))
+              : null
+          }
           onChatWithAI={() => {
-            setAiSidebarInitialPrompt(
-              "Summarize the inspection report analysis and key findings.",
-            );
+            const sysLabel = inspectionReportSystemId
+              ? (PROPERTY_SYSTEMS.find((s) => s.id === inspectionReportSystemId)
+                ?.name ??
+                (inspectionReportSystemId.startsWith("custom-")
+                  ? inspectionReportSystemId.replace(/^custom-(.+?)-\d+$/, "$1") || inspectionReportSystemId
+                  : inspectionReportSystemId))
+              : null;
+            if (inspectionReportSystemId && sysLabel) {
+              setAiSidebarSystemContext({
+                systemId: inspectionReportSystemId,
+                systemName: sysLabel,
+              });
+              setAiSidebarSystemLabel(sysLabel);
+              setAiSidebarInitialPrompt(
+                `Summarize the ${sysLabel} system's inspection findings.`,
+              );
+            } else {
+              setAiSidebarSystemContext(null);
+              setAiSidebarSystemLabel(null);
+              setAiSidebarInitialPrompt(
+                "Summarize the inspection report analysis and key findings.",
+              );
+            }
             setInspectionReportModalOpen(false);
             setAiSidebarOpen(true);
+          }}
+          onUploadReport={() => {
+            setInspectionReportModalOpen(false);
+            dispatch({type: "SET_ACTIVE_TAB", payload: "documents"});
+            setDocumentsUploadModalRequested(true);
           }}
         />
       )}
@@ -2823,6 +2871,23 @@ function PropertyFormContainer() {
             setScheduleFromAiModalOpen(true);
             setBlankModalOpen(false);
           }}
+          onTierRestriction={(message) => {
+            setUpgradePromptTitle("Upgrade your plan");
+            setUpgradePromptMsg(
+              message ||
+              "You've used all your AI tokens for this month. Upgrade your plan for more."
+            );
+            setUpgradePromptOpen(true);
+          }}
+          onUploadReport={
+            uid !== "new"
+              ? () => {
+                  setBlankModalOpen(false);
+                  dispatch({type: "SET_ACTIVE_TAB", payload: "documents"});
+                  setDocumentsUploadModalRequested(true);
+                }
+              : undefined
+          }
         />
       </ModalBlank>
 
@@ -2862,25 +2927,21 @@ function PropertyFormContainer() {
                 }
               : undefined
           }
-          onMarkAsMaintained={
-            uid !== "new"
-              ? ({systemId, systemName}) => {
-                  setAiSidebarOpen(false);
-                  dispatch({type: "SET_ACTIVE_TAB", payload: "maintenance"});
-                  // Could open add-maintenance-record flow in future
-                }
-              : undefined
-          }
         />
       )}
       <UpgradePrompt
         open={upgradePromptOpen}
-        onClose={() => setUpgradePromptOpen(false)}
-        title="Property limit reached"
+        onClose={() => {
+          setUpgradePromptOpen(false);
+          setUpgradePromptTitle("Upgrade your plan");
+          setUpgradePromptMsg("");
+        }}
+        title={upgradePromptTitle}
         message={
           upgradePromptMsg ||
-          "You've reached the maximum number of properties for your current plan. Upgrade to add more."
+          "You've reached the limit for your current plan. Upgrade to unlock more."
         }
+        upgradeUrl={accountUrl ? `/${accountUrl}/settings/upgrade` : undefined}
       />
 
       {/* Floating AI Assistant button - bottom right */}

@@ -12,7 +12,7 @@ import ModalBlank from "./ModalBlank";
  *   message: string
  *   currentUsage: number (optional)
  *   limit: number (optional)
- *   upgradeUrl: string (optional, defaults to settings/billing)
+ *   upgradeUrl: string (optional, defaults to settings/upgrade)
  */
 export default function UpgradePrompt({
   open,
@@ -30,7 +30,7 @@ export default function UpgradePrompt({
     if (upgradeUrl) {
       navigate(upgradeUrl);
     } else {
-      navigate("settings/billing");
+      navigate("settings/upgrade");
     }
   };
 
@@ -77,14 +77,14 @@ export default function UpgradePrompt({
           <button
             type="button"
             onClick={onClose}
-            className="btn border-gray-200 dark:border-gray-700 text-gray-700 dark:text-gray-300 hover:border-gray-300 dark:hover:border-gray-600"
+            className="rounded-full px-4 py-2 text-sm font-medium text-gray-600 dark:text-gray-400 hover:text-gray-800 dark:hover:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors"
           >
             Not now
           </button>
           <button
             type="button"
             onClick={handleUpgrade}
-            className="btn bg-violet-600 text-white hover:bg-violet-700"
+            className="rounded-full px-4 py-2 text-sm font-medium bg-gray-200 dark:bg-gray-700 text-gray-800 dark:text-gray-200 hover:bg-gray-300 dark:hover:bg-gray-600 transition-colors"
           >
             Upgrade plan
           </button>

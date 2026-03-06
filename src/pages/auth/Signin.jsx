@@ -179,7 +179,7 @@ function Signin() {
                 <button
                   type="button"
                   onClick={() => setUseBackupCode((b) => !b)}
-                  className="text-sm text-violet-600 dark:text-violet-400 hover:underline"
+                  className="text-sm text-[#6E8276] hover:text-[#456564] dark:text-[#7aa3a2] dark:hover:text-[#9cb8b7] hover:underline"
                 >
                   {useBackupCode
                     ? (t("mfa.useAuthenticator") || "Use authenticator code")
@@ -249,8 +249,8 @@ function Signin() {
               </div>
               <div className="flex items-center justify-between mt-6 gap-3">
                 <Link
-                  className="text-sm text-violet-600 dark:text-violet-400 hover:underline"
-                  to="/reset-password"
+                  className="text-sm text-[#6E8276] hover:text-[#456564] dark:text-[#7aa3a2] dark:hover:text-[#9cb8b7] hover:underline"
+                  to="/forgot-password"
                 >
                   {t("forgotPassword")}
                 </Link>
@@ -297,7 +297,7 @@ function Signin() {
                 {t("noAccount")}{" "}
               </span>
               <Link
-                className="text-sm font-medium text-violet-500 hover:text-violet-600 dark:hover:text-violet-400"
+                className="text-sm font-medium text-[#6E8276] hover:text-[#456564] dark:text-[#7aa3a2] dark:hover:text-[#9cb8b7]"
                 to="/signup"
               >
                 {t("signUp")}

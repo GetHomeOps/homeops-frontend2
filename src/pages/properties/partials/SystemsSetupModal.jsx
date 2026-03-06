@@ -25,6 +25,7 @@ import useGooglePlacesAutocomplete from "../../../hooks/useGooglePlacesAutocompl
 import useDocumentUpload from "../../../hooks/useDocumentUpload";
 import AppApi from "../../../api/api";
 import AIFindingsPanel from "./AIFindingsPanel";
+import UpgradePrompt from "../../../components/UpgradePrompt";
 
 /** Step definitions for the stepper. Order matters. */
 const STEP_IDS = ["identity", "details", "inspection", "systems"];
@@ -36,7 +37,7 @@ const STEP_CONFIG = {
   inspection: { label: "Inspection" },
 };
 
-/** Property detail fields populated from ATTOM public records, keyed by display group. */
+/** Property detail fields populated from RentCast public records, keyed by display group. */
 const AI_FIELD_GROUPS = [
   {
     label: "Identity & Address",
@@ -114,6 +115,7 @@ const AI_FIELD_GROUPS = [
 function SystemsSetupModal({
   modalOpen,
   setModalOpen,
+  initialStep = null,
   propertyId = null,
   selectedSystemIds = [],
   customSystems = [],
@@ -155,13 +157,14 @@ function SystemsSetupModal({
   const [predictError, setPredictError] = useState(null);
   const [hasPredicted, setHasPredicted] = useState(false);
   const [inspectionReportAvailable, setInspectionReportAvailable] = useState(null);
-  const [inspectionFiles, setInspectionFiles] = useState([]);
   const [uploadedDocs, setUploadedDocs] = useState([]);
   const [analysisJobId, setAnalysisJobId] = useState(null);
   const [analysisStatus, setAnalysisStatus] = useState(null);
   const [analysisProgress, setAnalysisProgress] = useState(null);
   const [analysisError, setAnalysisError] = useState(null);
   const [analysisResult, setAnalysisResult] = useState(null);
+  const [upgradePromptOpen, setUpgradePromptOpen] = useState(false);
+  const [upgradePromptMsg, setUpgradePromptMsg] = useState("");
   const [selectedSuggestedSystems, setSelectedSuggestedSystems] = useState(new Set());
   const [savingProperty, setSavingProperty] = useState(false);
   const [savePropertyError, setSavePropertyError] = useState(null);
@@ -169,9 +172,9 @@ function SystemsSetupModal({
   const hasAppliedSuggestedRef = useRef(false);
   const hasAutoSelectedSuggestedRef = useRef(false);
 
-  const {uploadDocument, isUploading, progress: uploadProgress, error: uploadError} = useDocumentUpload();
 
   const handlePlaceSelected = useCallback((parsed) => {
+    setPredictError(null);
     setIdentityFields((prev) => ({
       ...prev,
       address: parsed.formattedAddress,
@@ -194,7 +197,8 @@ function SystemsSetupModal({
   useEffect(() => {
     if (!modalOpen) return;
     const systemsOnly = skipIdentityStep || !isNewProperty;
-    setStep(systemsOnly ? "inspection" : "identity");
+    const defaultStep = systemsOnly ? "inspection" : "identity";
+    setStep(initialStep ?? defaultStep);
     setIdentityFields({
       propertyName: formData?.propertyName ?? "",
       address:
@@ -227,7 +231,6 @@ function SystemsSetupModal({
     setPredictError(null);
     setHasPredicted(false);
     setInspectionReportAvailable(null);
-    setInspectionFiles([]);
     setUploadedDocs([]);
     setAnalysisJobId(null);
     setAnalysisStatus(null);
@@ -244,7 +247,7 @@ function SystemsSetupModal({
       pollIntervalRef.current = null;
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [modalOpen, skipIdentityStep, isNewProperty]);
+  }, [modalOpen, skipIdentityStep, isNewProperty, initialStep]);
 
   const handleIdentityFieldChange = (key, value) => {
     setIdentityFields((prev) => ({...prev, [key]: value}));
@@ -372,7 +375,10 @@ function SystemsSetupModal({
   };
 
   const goToStep = (targetStep) => {
-    if (canGoToStep(targetStep)) setStep(targetStep);
+    if (canGoToStep(targetStep)) {
+      if (targetStep === "identity") setPredictError(null);
+      setStep(targetStep);
+    }
   };
 
   const handleSave = () => {
@@ -492,12 +498,26 @@ function SystemsSetupModal({
         });
         setAnalysisJobId(jobId);
         setAnalysisStatus("queued");
+        setAnalysisError(null);
       } catch (err) {
-        setAnalysisError(err?.message || "Failed to start analysis");
+        const msg = err?.message || "Failed to start analysis";
+        setAnalysisError(msg);
+        setAnalysisStatus("failed");
+        const isTierRestriction =
+          err?.status === 403 &&
+          (msg.toLowerCase().includes("quota") ||
+            msg.toLowerCase().includes("limit") ||
+            msg.toLowerCase().includes("upgrade"));
+        if (isTierRestriction) {
+          setUpgradePromptMsg(msg);
+          setUpgradePromptOpen(true);
+        }
       }
     },
     [propertyId]
   );
+
+  const {uploadDocument, isUploading, progress: uploadProgress, error: uploadError} = useDocumentUpload();
 
   const handleInspectionFileDrop = useCallback(
     async (e) => {
@@ -512,7 +532,7 @@ function SystemsSetupModal({
           const docDate = new Date().toISOString().slice(0, 10);
           await AppApi.createPropertyDocument({
             property_id: propertyId,
-            document_name: file.name,
+            document_name: "Inspection Report",
             document_date: docDate,
             document_key: result.key,
             document_type: "inspection",
@@ -540,7 +560,7 @@ function SystemsSetupModal({
           const docDate = new Date().toISOString().slice(0, 10);
           await AppApi.createPropertyDocument({
             property_id: propertyId,
-            document_name: file.name,
+            document_name: "Inspection Report",
             document_date: docDate,
             document_key: result.key,
             document_type: "inspection",
@@ -714,7 +734,7 @@ function SystemsSetupModal({
           </>
         )}
 
-        {/* Step 1: Identity & Address — property name + address only (details from ATTOM) */}
+        {/* Step 1: Identity & Address — property name + address only (details from RentCast) */}
         {step === "identity" && isNewProperty && (
           <div
             className="space-y-10"
@@ -818,7 +838,7 @@ function SystemsSetupModal({
           </div>
         )}
 
-        {/* Step 2: Property Data Lookup — fetch details from ATTOM public records (new properties only) */}
+        {/* Step 2: Property Data Lookup — fetch details from RentCast public records (new properties only) */}
         {step === "details" && isNewProperty && (
           <div
             className="space-y-6"
@@ -1367,6 +1387,19 @@ function SystemsSetupModal({
         )}
         </div>
       </div>
+
+      <UpgradePrompt
+        open={upgradePromptOpen}
+        onClose={() => {
+          setUpgradePromptOpen(false);
+          setUpgradePromptMsg("");
+        }}
+        title="Upgrade your plan"
+        message={
+          upgradePromptMsg ||
+          "You've reached the limit for your current plan. Upgrade to unlock inspection report analysis and more AI features."
+        }
+      />
     </ModalBlank>
   );
 }

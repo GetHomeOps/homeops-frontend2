@@ -1,4 +1,4 @@
-import React, {useState} from "react";
+import React, {useState, useMemo} from "react";
 import {
   X,
   Sparkles,
@@ -6,9 +6,11 @@ import {
   ChevronDown,
   ChevronRight,
   FileCheck,
+  Upload,
 } from "lucide-react";
 import ModalBlank from "../../../components/ModalBlank";
 import {PROPERTY_SYSTEMS} from "../constants/propertySystems";
+import {getSystemFindingsFromAnalysis} from "../helpers/inspectionAnalysisHelpers";
 
 const CONDITION_COLORS = {
   excellent: "bg-emerald-100 text-emerald-800 dark:bg-emerald-900/40 dark:text-emerald-300",
@@ -39,16 +41,37 @@ function InspectionReportModal({
   onClose,
   analysis,
   onChatWithAI,
+  onUploadReport,
+  systemId,
+  systemLabel,
 }) {
   const [needsAttentionExpanded, setNeedsAttentionExpanded] = useState(true);
   const [maintenanceExpanded, setMaintenanceExpanded] = useState(true);
   const [suggestedSystemsExpanded, setSuggestedSystemsExpanded] = useState(true);
 
-  const hasAnalysis = analysis && (analysis.conditionRating || analysis.summary);
-  const needsAttention = analysis?.needsAttention ?? [];
-  const maintenanceSuggestions = analysis?.maintenanceSuggestions ?? [];
-  const suggestedSystemsToAdd = analysis?.suggestedSystemsToAdd ?? [];
-  const citations = analysis?.citations ?? [];
+  const filteredAnalysis = useMemo(() => {
+    if (!systemId || !analysis) return analysis;
+    const findings = getSystemFindingsFromAnalysis(systemId, analysis);
+    return {
+      ...analysis,
+      needsAttention: findings.needsAttention,
+      maintenanceSuggestions: findings.maintenanceSuggestions,
+      suggestedSystemsToAdd: [], // Hide when filtered - not relevant to single system
+      citations: [], // Hide when filtered - citations may not be system-specific
+    };
+  }, [analysis, systemId]);
+
+  const displayAnalysis = systemId ? filteredAnalysis : analysis;
+  const hasAnalysis = displayAnalysis && (
+    displayAnalysis.conditionRating ||
+    displayAnalysis.summary ||
+    (displayAnalysis.needsAttention?.length > 0) ||
+    (displayAnalysis.maintenanceSuggestions?.length > 0)
+  );
+  const needsAttention = displayAnalysis?.needsAttention ?? [];
+  const maintenanceSuggestions = displayAnalysis?.maintenanceSuggestions ?? [];
+  const suggestedSystemsToAdd = displayAnalysis?.suggestedSystemsToAdd ?? [];
+  const citations = displayAnalysis?.citations ?? [];
 
   const getSystemLabel = (systemKey) => {
     const key = typeof systemKey === "string" ? systemKey : systemKey?.systemType ?? systemKey?.system_key;
@@ -71,11 +94,11 @@ function InspectionReportModal({
             </div>
             <div>
               <h2 className="text-lg font-semibold text-gray-900 dark:text-white">
-                Inspection Report Analysis
+                {systemLabel ? `${systemLabel} — ` : ""}Inspection Report Analysis
               </h2>
-              {analysis?.createdAt && (
+              {displayAnalysis?.createdAt && (
                 <p className="text-xs text-gray-500 dark:text-gray-400">
-                  Analyzed {formatDate(analysis.createdAt)}
+                  Analyzed {formatDate(displayAnalysis.createdAt)}
                 </p>
               )}
             </div>
@@ -96,43 +119,59 @@ function InspectionReportModal({
             <div className="flex flex-col items-center justify-center py-12 text-center">
               <AlertCircle className="w-12 h-12 text-gray-300 dark:text-gray-600 mb-3" />
               <p className="text-sm font-medium text-gray-700 dark:text-gray-300">
-                No inspection report analysis available
+                {systemId
+                  ? `No inspection findings for ${systemLabel || "this system"}`
+                  : "No inspection report analysis available"}
               </p>
-              <p className="text-xs text-gray-500 dark:text-gray-400 mt-1 max-w-sm">
-                Upload an inspection report PDF in the Documents tab to generate an AI analysis.
+              <p className="text-xs text-gray-500 dark:text-gray-400 mt-1 max-w-sm mb-4">
+                {systemId
+                  ? "The inspection report does not mention any issues or maintenance suggestions for this system."
+                  : "Upload an inspection report PDF in the Documents tab to generate an AI analysis."}
               </p>
+              {onUploadReport && (
+                <button
+                  type="button"
+                  onClick={onUploadReport}
+                  className="inline-flex items-center gap-2 px-4 py-2 rounded-lg bg-[#456564] hover:bg-[#34514f] text-white text-sm font-medium"
+                >
+                  <Upload className="w-4 h-4" />
+                  Upload report
+                </button>
+              )}
             </div>
           ) : (
             <>
-              {/* Condition & Summary */}
-              <div>
-                <div className="flex items-center gap-2 flex-wrap mb-2">
-                  {analysis.conditionRating && (
-                    <span
-                      className={`inline-flex items-center px-2.5 py-1 rounded-md text-xs font-medium capitalize ${
-                        CONDITION_COLORS[analysis.conditionRating] || CONDITION_COLORS.good
-                      }`}
-                    >
-                      {analysis.conditionRating}
-                    </span>
+              {/* Condition & Summary — only show when full analysis (not system-filtered) */}
+              {!systemId && (
+                <div>
+                  <div className="flex items-center gap-2 flex-wrap mb-2">
+                    {displayAnalysis.conditionRating && (
+                      <span
+                        className={`inline-flex items-center px-2.5 py-1 rounded-md text-xs font-medium capitalize ${
+                          CONDITION_COLORS[displayAnalysis.conditionRating] || CONDITION_COLORS.good
+                        }`}
+                      >
+                        {displayAnalysis.conditionRating}
+                      </span>
+                    )}
+                    {displayAnalysis.conditionConfidence != null && (
+                      <span className="text-xs text-gray-500 dark:text-gray-400">
+                        {Math.round(displayAnalysis.conditionConfidence * 100)}% confidence
+                      </span>
+                    )}
+                  </div>
+                  {displayAnalysis.conditionRationale && (
+                    <p className="text-sm text-gray-600 dark:text-gray-400 mb-2">
+                      {displayAnalysis.conditionRationale}
+                    </p>
                   )}
-                  {analysis.conditionConfidence != null && (
-                    <span className="text-xs text-gray-500 dark:text-gray-400">
-                      {Math.round(analysis.conditionConfidence * 100)}% confidence
-                    </span>
+                  {displayAnalysis.summary && (
+                    <p className="text-sm text-gray-700 dark:text-gray-300">
+                      {displayAnalysis.summary}
+                    </p>
                   )}
                 </div>
-                {analysis.conditionRationale && (
-                  <p className="text-sm text-gray-600 dark:text-gray-400 mb-2">
-                    {analysis.conditionRationale}
-                  </p>
-                )}
-                {analysis.summary && (
-                  <p className="text-sm text-gray-700 dark:text-gray-300">
-                    {analysis.summary}
-                  </p>
-                )}
-              </div>
+              )}
 
               {/* Needs Attention */}
               {needsAttention.length > 0 && (

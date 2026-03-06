@@ -14,10 +14,12 @@ import {
   Wrench,
   FileText,
   ArrowRightLeft,
+  RefreshCw,
 } from "lucide-react";
 import ModalBlank from "../../../components/ModalBlank";
 import SelectDropdown from "../../contacts/SelectDropdown";
 import {PROPERTY_SYSTEMS} from "../constants/propertySystems";
+import AppApi from "../../../api/api";
 
 const EMAIL_REGEX =
   /^[a-zA-Z0-9.!#$%&'*+/=?^_`{|}~-]+@[a-zA-Z0-9](?:[a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?(?:\.[a-zA-Z0-9](?:[a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?)*$/;
@@ -343,9 +345,10 @@ function PermissionToggle({
   );
 }
 
-function TeamMemberCard({member: m, showRole = false, currentUserId}) {
+function TeamMemberCard({member: m, showRole = false, currentUserId, onResendInvitation, resendingId}) {
   const isPending = m._pending === true;
   const isCurrentUser = currentUserId != null && String(m.id) === String(currentUserId);
+  const hasResend = isPending && m.invitationId && onResendInvitation;
   const displayRole = (() => {
     const r = (m.role ?? "").toLowerCase();
     if (["agent", "admin", "super_admin"].includes(r)) return "Agent";
@@ -378,12 +381,27 @@ function TeamMemberCard({member: m, showRole = false, currentUserId}) {
             {displayRole}
           </p>
         )}
-        {isPending && (
+        {isPending && !hasResend && (
           <p className="text-xs text-gray-500 dark:text-gray-400 truncate">
             Pending invitation
           </p>
         )}
       </div>
+      {hasResend && (
+        <button
+          type="button"
+          onClick={() => onResendInvitation(m)}
+          disabled={resendingId === m.invitationId}
+          className="shrink-0 inline-flex items-center gap-1.5 text-xs font-medium text-[#456564] dark:text-[#5a7a78] hover:underline disabled:opacity-50"
+        >
+          {resendingId === m.invitationId ? (
+            <span className="animate-spin rounded-full h-3 w-3 border-2 border-current border-t-transparent" />
+          ) : (
+            <RefreshCw className="w-3 h-3" />
+          )}
+          Resend Invitation Email
+        </button>
+      )}
     </div>
   );
 }
@@ -414,6 +432,7 @@ function SharePropertyModal({
   const [successType, setSuccessType] = useState(null);
   const [transferOwnershipOpen, setTransferOwnershipOpen] = useState(false);
   const [selectedNewOwnerId, setSelectedNewOwnerId] = useState("");
+  const [resendingId, setResendingId] = useState(null);
 
   const allSystemIds = useMemo(() => {
     const selectedIds = systems?.selectedSystemIds ?? [];
@@ -661,6 +680,22 @@ function SharePropertyModal({
     setModalOpen(false);
   }, [selectedNewOwnerId, onTransferOwnership]);
 
+  const handleResendInvitation = useCallback(async (member) => {
+    const invId = member.invitationId;
+    if (!invId) return;
+    setResendingId(invId);
+    setEmailError("");
+    try {
+      await AppApi.resendInvitation(invId);
+      setSuccessType("resend");
+      setTimeout(() => setSuccessType(null), 2000);
+    } catch (err) {
+      setEmailError(err?.message || "Failed to resend invitation");
+    } finally {
+      setResendingId(null);
+    }
+  }, []);
+
   /* Regular agents see only Home Owner tab; admin/super_admin see both Agent and Home Owner; homeowners see both. */
   const isRegularAgent = currentRole === "agent";
   const visibleTabs = useMemo(() => {
@@ -711,7 +746,7 @@ function SharePropertyModal({
                 <Check className="w-8 h-8 text-[#456564] dark:text-[#5a7a78]" />
               </div>
               <p className="text-base font-semibold text-gray-900 dark:text-white text-center break-words w-full">
-                Invite sent successfully!
+                {successType === "resend" ? "Invitation email resent!" : "Invite sent successfully!"}
               </p>
             </div>
           </div>
@@ -850,7 +885,7 @@ function SharePropertyModal({
                       </p>
                       <div className="space-y-2">
                         {teamMembersExcludingOwner.map((m) => (
-                          <TeamMemberCard key={m.id ?? `pending-${m.email}`} member={m} showRole currentUserId={currentUser?.id} />
+                          <TeamMemberCard key={m.id ?? `pending-${m.email}`} member={m} showRole currentUserId={currentUser?.id} onResendInvitation={handleResendInvitation} resendingId={resendingId} />
                         ))}
                       </div>
                     </div>
@@ -869,7 +904,7 @@ function SharePropertyModal({
                       </p>
                       <div className="space-y-2">
                         {(membersByTab[activeTab] ?? []).map((m) => (
-                          <TeamMemberCard key={m.id ?? `pending-${m.email}`} member={m} currentUserId={currentUser?.id} />
+                          <TeamMemberCard key={m.id ?? `pending-${m.email}`} member={m} currentUserId={currentUser?.id} onResendInvitation={handleResendInvitation} resendingId={resendingId} />
                         ))}
                       </div>
                     </div>

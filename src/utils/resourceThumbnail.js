@@ -1,4 +1,4 @@
-import OpsyBodyDefault from "../images/Opsy/Opsy-body.jpg";
+import OpsyBodyDefault from "../images/Opsy/Opsy-body.svg";
 
 /**
  * Derives a thumbnail URL for resources (video links, article links).
